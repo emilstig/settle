@@ -19,7 +19,7 @@ Nycklarna finns under *Project Settings → API Keys*. Använd de nya nycklarna,
 *publishable* (`sb_publishable_…`) i `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` och *secret*
 (`sb_secret_…`) i `SUPABASE_SECRET_KEY`. Secret-nyckeln används bara på servern.
 
-1. Kör migreringarna: `npx supabase link --project-ref <ref>` och sedan `npx supabase db push` (Supabase CLI, behöver inte installeras).
+1. Kör migreringarna: `npx supabase link --project-ref <ref>` och sedan `npx supabase db push --remote` (Supabase CLI, behöver inte installeras).
 2. **Authentication → URL Configuration**: sätt *Site URL* till produktions-URL:en och lägg till
    `http://localhost:3000/**` och `https://*-<vercel-team>.vercel.app/**` under *Redirect URLs*.
 3. Inställningarna för inloggning ligger i `supabase/config.toml` och skickas upp med
