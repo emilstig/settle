@@ -22,10 +22,12 @@ Nycklarna finns under *Project Settings → API Keys*. Använd de nya nycklarna,
 1. Kör migreringarna: `npx supabase link --project-ref <ref>` och sedan `npx supabase db push` (Supabase CLI, behöver inte installeras).
 2. **Authentication → URL Configuration**: sätt *Site URL* till produktions-URL:en och lägg till
    `http://localhost:3000/**` och `https://*-<vercel-team>.vercel.app/**` under *Redirect URLs*.
-3. **Authentication → Email Templates → Magic link** (och *Confirm signup*): klistra in
-   `supabase/templates/magic_link.html`. Mallen har både länk och kod. Koden behövs på iPhone,
-   där appen på hemskärmen inte delar inloggning med Safari.
-4. Sätt OTP-längden till 6 siffror under *Authentication → Providers → Email* om du vill ha korta koder.
+3. Inställningarna för inloggning ligger i `supabase/config.toml` och skickas upp med
+   `npx supabase config push --remote=<ref>`.
+4. Mejlmallen i `supabase/templates/magic_link.html` har både länk och kod. Koden behövs på iPhone,
+   där appen på hemskärmen inte delar inloggning med Safari. På gratisplanen går mallar bara att ändra
+   med egen SMTP: lägg in SMTP under *Authentication → Emails → SMTP Settings*, avkommentera mallarna
+   i `config.toml` och kör `config push` igen.
 
 ## Ikoner
 

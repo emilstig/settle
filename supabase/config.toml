@@ -245,13 +245,14 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-[auth.email.template.magic_link]
-subject = "Logga in på Settle"
-content_path = "./supabase/templates/magic_link.html"
+# Custom templates need custom SMTP on the free plan. Uncomment once SMTP is set up.
+# [auth.email.template.magic_link]
+# subject = "Logga in på Settle"
+# content_path = "./supabase/templates/magic_link.html"
 
-[auth.email.template.confirmation]
-subject = "Logga in på Settle"
-content_path = "./supabase/templates/magic_link.html"
+# [auth.email.template.confirmation]
+# subject = "Logga in på Settle"
+# content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
