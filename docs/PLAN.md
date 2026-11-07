@@ -1,0 +1,66 @@
+# Byggplan för MVP:n
+
+Ett steg i taget. Varje steg är klart när kriteriet ”Klart när” är uppfyllt på telefonen.
+
+## 1. Grund
+- [x] Next.js med TypeScript, Supabase-klient (server och klient)
+- [x] Inloggning med magic link och en skyddad layout
+- [x] PWA-manifest, ikon och temafärg
+- [x] Migreringar för alla tabeller i `CLAUDE.md`, med RLS
+- [x] Skapa de fyra standardgrupperna vid registrering, och fråga efter yngsta barnets ålder för Familj i onboarding
+- [ ] Deploy (Vercel) med miljövariabler
+
+**Klart när:** du kan logga in på telefonen och appen ligger på hemskärmen.
+
+## 2. Data från TMDB
+- [ ] Onboarding: välj tjänster bland providers för SE, spara i `user_providers`
+- [ ] Serverfunktion för discover (film och tv) med användarens tjänster
+- [ ] Cache i `titles` med uppdatering av providers ungefär en gång i veckan
+- [ ] Källangivelse för TMDB och JustWatch i appen
+
+**Klart när:** du ser en lista med riktiga titlar som finns på dina tjänster.
+
+## 3. Swipen
+- [ ] Startvy: grupp, snabbval, fritext, ”Bara swipea”. Skapar en rad i `sessions`.
+- [ ] Kortlek med gester och knappar enligt prototypen
+- [ ] Höger, vänster med orsaks-chips, upp med sett-sheet (betyg, och se igen med vem)
+- [ ] Detaljvy med handling, betyg, trailer och knappar för beslut
+- [ ] Skriver till `interactions`, `ratings`, `watch_log` och `watchlist`
+- [ ] Ångra för senaste swipen
+
+**Klart när:** du har använt det själv tre kvällar, även om sorteringen är dum.
+
+## 4. Kalibrering och profil
+- [ ] Kalibrering: 20 populära titlar på dina tjänster, med swipe för betyg
+- [ ] SQL eller vy som bygger smakprofilen enligt domänreglerna
+- [ ] Funktion som genererar texten till `{{PROFILE}}`
+
+**Klart när:** profiltexten för ditt konto ser ut att stämma när du läser den.
+
+## 5. Claude
+- [ ] Prompt 1 och 2 enligt `docs/prompts.md`, validerade med zod
+- [ ] Rensning av kandidater enligt domänreglerna, innan prompt 2
+- [ ] Logga varje körning i `suggest_runs`
+- [ ] Motiveringen visas på kortet
+- [ ] Tillfällig växel: Claude-sortering mot ren TMDB-sortering, för jämförelse
+
+**Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
+
+## 6. Lista och check-in
+- [ ] Fliken Lista med filter per grupp
+- [ ] Fliken Profil med betyg, tjänster och Kalibrera
+- [ ] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen
+- [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
+
+**Klart när:** check-in fyller på betyg utan att du tänker på det.
+
+## 7. Testare
+- [ ] Bjud in 3–5 personer
+- [ ] Enkel vy eller SQL för mätvärden: andel sessioner med ett val, tid till val, återkommande användare per vecka
+- [ ] Kort intervju efter två veckor
+
+**Klart när:** du kan svara på MVP-hypotesen med siffror och intervjuerna.
+
+## Inte i MVP
+
+Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen för antal gånger och när senast, redigering av historik, native app.

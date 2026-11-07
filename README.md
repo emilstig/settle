@@ -1,36 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Settle
 
-## Getting Started
+Se `CLAUDE.md` för produkt, stack och regler, och `docs/PLAN.md` för byggordningen.
 
-First, run the development server:
+## Kom igång lokalt
 
 ```bash
+npm install
+cp .env.example .env.local   # fyll i värdena
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Supabase
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Kör migreringarna: `npx supabase link --project-ref <ref>` och sedan `npx supabase db push`.
+2. **Authentication → URL Configuration**: sätt *Site URL* till produktions-URL:en och lägg till
+   `http://localhost:3000/**` och `https://*-<vercel-team>.vercel.app/**` under *Redirect URLs*.
+3. **Authentication → Email Templates → Magic link** (och *Confirm signup*): klistra in
+   `supabase/templates/magic_link.html`. Mallen har både länk och kod. Koden behövs på iPhone,
+   där appen på hemskärmen inte delar inloggning med Safari.
+4. Sätt OTP-längden till 6 siffror under *Authentication → Providers → Email* om du vill ha korta koder.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Ikoner
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`node scripts/generate-icons.mjs` ritar om ikonerna i `public/icons`.
