@@ -1,0 +1,19 @@
+.main { flex: 1; display: flex; flex-direction: column; gap: 28px; padding: 20px 20px 32px; }
+.header { display: flex; align-items: center; justify-content: space-between; }
+.logo { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; }
+.link { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 8px 0; }
+.section { display: grid; gap: 12px; }
+.heading { font-size: 20px; letter-spacing: -0.01em; }
+.groups { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.group {
+  display: grid;
+  gap: 4px;
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 17px;
+}
+.meta { font-weight: 400; font-size: 14px; color: var(--muted); }
+.note { color: var(--muted); font-size: 14px; margin-top: auto; }
