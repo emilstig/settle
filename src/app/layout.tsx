@@ -1,14 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 
-const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
+  subsets: ["latin"],
+  weight: ["400", "600", "800"],
+});
 
 export const metadata: Metadata = {
   title: { default: "Settle", template: "%s · Settle" },
   description: "Hitta något att titta på bland tjänsterna du har.",
   applicationName: "Settle",
-  appleWebApp: { capable: true, title: "Settle", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "Settle", statusBarStyle: "default" },
   icons: {
     icon: [
       { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
@@ -21,8 +25,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#15110e",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ecebf3" },
+    { media: "(prefers-color-scheme: dark)", color: "#15141f" },
+  ],
+  colorScheme: "light dark",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -30,7 +37,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="sv" className={geist.variable}>
+    <html lang="sv" className={bricolage.variable}>
       <body>{children}</body>
     </html>
   );

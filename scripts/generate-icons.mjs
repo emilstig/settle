@@ -2,8 +2,8 @@
 import { mkdir } from "node:fs/promises";
 import sharp from "sharp";
 
-const BG = "#15110e";
-const ACCENT = "#f2a65a";
+const BG = "#1c1a2e";
+const ACCENT = "#eceaf6";
 
 // A simple sofa: back, seat and two arms. `scale` shrinks it for the maskable safe zone.
 const svg = (scale = 1, radius = 0) => `
@@ -13,7 +13,7 @@ const svg = (scale = 1, radius = 0) => `
     <rect x="136" y="150" width="240" height="120" rx="36"/>
     <rect x="96" y="214" width="72" height="150" rx="32"/>
     <rect x="344" y="214" width="72" height="150" rx="32"/>
-    <rect x="150" y="262" width="212" height="86" rx="22" fill="#e08f42"/>
+    <rect x="150" y="262" width="212" height="86" rx="22" fill="#9c99b3"/>
     <rect x="124" y="352" width="28" height="44" rx="10"/>
     <rect x="360" y="352" width="28" height="44" rx="10"/>
   </g>

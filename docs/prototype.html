@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Settle – prototyp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ECEBF3;--ink:#1C1A2E;--mute:#6B6880;--line:#D6D4E2;--panel:#FFFFFF;--no:#B0243F;--yes:#2F7D5B;--seen:#9A6508;--cal:#3B4FB8;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15141F;--ink:#ECEAF6;--mute:#9C99B3;--line:#2E2C40;--panel:#201E2E;--no:#E0556F;--yes:#4FB487;--seen:#E0A63A;--cal:#8F9DF5;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15141F;--ink:#ECEAF6;--mute:#9C99B3;--line:#2E2C40;--panel:#201E2E;--no:#E0556F;--yes:#4FB487;--seen:#E0A63A;--cal:#8F9DF5;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;justify-content:center}
+button{font:inherit;color:inherit;cursor:pointer}
+[hidden]{display:none!important}
+.app{width:100%;max-width:420px;height:100%;display:flex;flex-direction:column;padding:12px 16px 0;gap:12px}
+header{display:flex;align-items:center;gap:8px}
+.logo{flex:1;font-weight:800;font-size:26px;letter-spacing:-.03em}
+.bell{position:relative;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;padding:0}
+.bell svg{width:20px;height:20px}
+.badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--no);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 4px}
+.views{flex:1;min-height:0}
+.view{height:100%;display:flex;flex-direction:column;gap:12px}
+.page{overflow-y:auto;padding-bottom:20px}
+.start{display:flex;flex-direction:column;gap:12px;height:100%;overflow-y:auto;padding-bottom:16px}
+.q{font-size:30px;line-height:1.05;letter-spacing:-.03em;margin:12px 0 0;font-weight:800}
+#mood{font:inherit;font-size:17px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);width:100%}
+.primary{border:0;background:var(--ink);color:var(--bg);border-radius:999px;padding:14px 18px;font-size:17px;font-weight:600;margin-top:6px}
+.link{border:0;background:none;color:var(--mute);text-decoration:underline;font-size:15px;padding:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--panel);font-size:15px;padding:8px 14px;border-radius:999px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.swipe{display:flex;flex-direction:column;gap:12px;height:100%;padding-bottom:12px}
+.bar{display:flex;gap:8px;align-items:center}
+.ctx{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:8px 14px;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.cal .ctx{border-color:var(--cal);color:var(--cal)}
+.deck{position:relative;flex:1;min-height:260px}
+body.cal .deck{outline:2px dashed var(--cal);outline-offset:6px;border-radius:24px}
+.card{position:absolute;inset:0;border-radius:22px;padding:22px;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;color:#fff;touch-action:none;user-select:none;cursor:grab;transition:transform .28s ease}
+.card.drag{transition:none;cursor:grabbing}
+.card.under{transform:scale(.95) translateY(10px);filter:brightness(.8)}
+.card h2{font-size:clamp(36px,11vw,50px);line-height:.92;font-weight:800;letter-spacing:-.035em;margin:0;text-wrap:balance}
+.card .meta{font-size:15px;opacity:.88}
+.card .yr{position:absolute;top:20px;left:22px;font-size:15px;opacity:.75}
+.why{font-size:17px;font-weight:600;line-height:1.3;background:rgba(255,255,255,.16);border-radius:12px;padding:10px 12px}
+.flipnote{font-size:13px;opacity:.75}
+.stamp{position:absolute;top:18px;right:18px;z-index:2;font-weight:800;font-size:19px;padding:4px 10px;border:3px solid #fff;border-radius:9px;opacity:0}
+.hint{font-size:13px;color:var(--mute);text-align:center;margin:0}
+.actions{display:flex;justify-content:center;gap:12px}
+.actions button{min-width:60px;height:56px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600}
+.actions .undo{min-width:44px;height:44px;align-self:center;font-size:18px;padding:0}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;border-top:1px solid var(--line);margin:0 -16px;padding:6px 8px 8px;background:var(--bg)}
+.tabs button{border:0;background:none;padding:10px;font-size:15px;color:var(--mute);border-radius:12px}
+.tabs button[aria-current=page]{color:var(--ink);font-weight:600;background:var(--panel)}
+.ptitle{font-size:30px;letter-spacing:-.03em;margin:8px 0 0}
+.page h3{margin:10px 0 0;font-size:18px}
+.lrow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:12px 0}
+.sw{width:44px;height:60px;border-radius:10px;flex:none}
+.lrow b{display:block;font-size:17px}
+.lrow small{color:var(--mute);font-size:13px}
+.tag{margin-left:auto;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;white-space:nowrap}
+.card2{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.card2 h3{margin:0}.card2 p{margin:0;color:var(--mute)}
+.empty{color:var(--mute);font-size:15px;padding:12px 0;margin:0}
+details{font-size:14px;color:var(--mute);margin-top:8px}
+details ol{margin:6px 0 0;padding-left:20px;color:var(--ink)}
+.checkin{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.checkin p{margin:0 0 8px;font-size:15px;font-weight:600}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(60px,1fr));gap:6px}
+.row button{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 4px;font-size:13px}
+.row button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.row button.ok{grid-column:1/-1;background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+.notif{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:12px;right:12px;max-width:400px;margin:0 auto;z-index:9;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;text-align:left;display:flex;flex-direction:column;gap:2px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:14px}
+.overlay{position:fixed;inset:0;z-index:6;background:var(--bg);overflow-y:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+.dwrap{max-width:420px;margin:0 auto;padding:12px 16px;display:flex;flex-direction:column;gap:16px}
+.dback{align-self:flex-start;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:8px 14px;font-size:15px}
+.dhero{border-radius:22px;padding:22px;min-height:240px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;color:#fff}
+.dhero h2{font-size:clamp(36px,11vw,50px);line-height:.92;font-weight:800;letter-spacing:-.035em;margin:0}
+.dwhy{font-size:17px;font-weight:600;line-height:1.3;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.dplot{margin:0;font-size:17px;line-height:1.5}
+.dfacts{display:flex;gap:6px;flex-wrap:wrap}
+.dfacts span{font-size:13px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--mute)}
+.dtrailer{align-self:flex-start;color:var(--ink);text-decoration:none;border:2px solid var(--ink);border-radius:999px;padding:8px 14px;font-weight:600;font-size:15px}
+.dwrap h3{margin:4px 0 -6px;font-size:18px}
+.ititle{font-size:28px;letter-spacing:-.03em;margin:0}
+.rel{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+.rel button{flex:0 0 120px;height:160px;border:0;border-radius:14px;color:#fff;text-align:left;padding:10px;display:flex;flex-direction:column;justify-content:flex-end;font-weight:800;font-size:16px;line-height:1.05;scroll-snap-align:start}
+.rel small{font-weight:400;font-size:12px;opacity:.8;margin-top:4px}
+.dbar{position:fixed;left:0;right:0;bottom:0;z-index:7;display:flex;justify-content:center;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--line)}
+.dbar button{min-width:80px;height:52px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600}
+.scrim{position:fixed;inset:0;background:rgba(10,8,20,.62);z-index:8}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:420px;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(110%);transition:transform .25s ease;box-shadow:0 -12px 40px rgba(0,0,0,.25);z-index:8}
+.sheet.open{transform:none}
+.shead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.dots{display:flex;gap:6px;align-items:center}
+.dots span{width:22px;height:4px;border-radius:2px;background:var(--line)}
+.dots span.on{background:var(--ink)}
+.dots small{margin-left:6px;color:var(--mute);font-size:13px}
+.sx{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:15px;padding:0}
+.sheet h3{margin:0 0 4px;font-size:20px;letter-spacing:-.02em}
+.sheet p{margin:0 0 12px;color:var(--mute);font-size:14px}
+.sheet .skip{margin-top:12px;background:none;border:0;color:var(--mute);font-size:14px;text-decoration:underline}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:none;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;width:max-content;max-width:92vw;z-index:10;font-size:14px}
+.toast.show{display:flex}
+.toast button{background:transparent;color:var(--bg);border:1px solid var(--mute);border-radius:999px;font-size:13px;padding:5px 10px}
+:focus-visible{outline:3px solid var(--cal);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.card,.sheet{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">Settle</div>
+    <button class="bell" id="bell" aria-label="Efter tittning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge" id="badge"></span></button>
+  </header>
+  <main class="views">
+    <section class="view" id="vFind">
+      <div class="start" id="start">
+        <h1 class="q">Vem tittar ikväll?</h1>
+        <div class="chips" id="who"></div>
+        <h1 class="q">Vad är du sugen på?</h1>
+        <input id="mood" placeholder="T.ex. något lätt, max en och en halv timme" autocomplete="off">
+        <div class="chips" id="quick"></div>
+        <button class="primary" id="go">Visa förslag</button>
+        <button class="link" id="just">Bara swipea</button>
+      </div>
+      <div class="swipe" id="swipe" hidden>
+        <div class="bar"><button class="ctx" id="ctx"></button><button class="ctx" id="calEnd" hidden>Avsluta</button></div>
+        <div class="deck" id="deck"></div>
+        <p class="hint" id="hint"></p>
+        <div class="actions" id="actions"></div>
+      </div>
+    </section>
+    <section class="view page" id="vList" hidden>
+      <h1 class="ptitle">Min lista</h1>
+      <div class="chips" id="listFilter"></div>
+      <div id="listRows"></div>
+    </section>
+    <section class="view page" id="vProfile" hidden>
+      <h1 class="ptitle">Profil</h1>
+      <div class="card2"><h3>Hjälp appen lära känna dig</h3><p>Betygsätt kända titlar du kanske har sett.</p><button class="primary" id="calStart">Kalibrera</button></div>
+      <h3>Dina tjänster</h3><div class="chips" id="svc"></div>
+      <h3>Dina betyg</h3><div id="rateRows"></div>
+      <details><summary>Det här har appen lärt sig (<span id="n">0</span>)</summary><ol id="log"></ol></details>
+    </section>
+  </main>
+  <nav class="tabs" aria-label="Huvudmeny">
+    <button data-v="vFind">Hitta</button><button data-v="vList">Lista</button><button data-v="vProfile">Profil</button>
+  </nav>
+</div>
+<button class="notif" id="notif" hidden><b>Settle</b><span>Såg du Arrival igår? Tryck för att svara.</span></button>
+<div class="overlay" id="inbox" hidden role="dialog" aria-modal="true" aria-label="Efter tittning"><div class="dwrap"><button class="dback" id="inboxBack">‹ Tillbaka</button><h2 class="ititle">Efter tittning</h2><div class="checkin" id="checkin"></div><p class="empty" id="inboxEmpty" hidden>Inget att svara på just nu.</p></div></div>
+<div class="overlay" id="detail" hidden role="dialog" aria-modal="true" aria-labelledby="dTitle"><div class="dwrap" id="dwrap"></div></div>
+<div class="dbar" id="dbar" hidden><button data-d="left">✕ Nej</button><button data-d="up">Sett</button><button data-d="right">♥ Vill se</button></div>
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+  <div class="shead"><div class="dots" id="sDots"></div><button class="sx" id="sClose" aria-label="Stäng">✕</button></div>
+  <h3 id="sTitle"></h3><p id="sQ"></p><div class="row" id="sRow"></div>
+  <button class="skip" id="sSkip">Hoppa över steget</button>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const FIND=[
+ {t:"Paddington 2",y:2017,m:"Film · 1 tim 43 min · Familj, komedi",h:24,g:["lätt","kort","tryggt"],kids:1},
+ {t:"Severance",y:2022,m:"Serie · 2 säsonger · Thriller, drama",h:200,g:["spännande"]},
+ {t:"Knives Out",y:2019,m:"Film · 2 tim 10 min · Deckare, komedi",h:350,g:["spännande","lätt"]},
+ {t:"Ted Lasso",y:2020,m:"Serie · 30 min/avsnitt · Komedi",h:50,g:["lätt","tryggt","kort"]},
+ {t:"The Bear",y:2022,m:"Serie · 30 min/avsnitt · Drama, komedi",h:15,g:["kort","spännande"]},
+ {t:"Klaus",y:2019,m:"Film · 1 tim 36 min · Animerat, familj",h:265,g:["lätt","kort","tryggt"],kids:1},
+ {t:"Arrival",y:2016,m:"Film · 1 tim 56 min · Sci-fi, drama",h:215,g:["spännande"]},
+ {t:"Spirited Away",y:2001,m:"Film · 2 tim 5 min · Animerat, äventyr",h:160,g:["tryggt"],kids:1},
+ {t:"Fargo",y:2014,m:"Serie · Brott, svart komedi",h:190,g:["spännande"]},
+ {t:"Min granne Totoro",y:1988,m:"Film · 1 tim 26 min · Animerat, familj",h:110,g:["tryggt","kort","lätt"],kids:1},
+ {t:"Normal People",y:2020,m:"Serie · 30 min/avsnitt · Drama, romantik",h:130,g:["kort"]}];
+const CAL=[
+ {t:"Grand Budapest Hotel",y:2014,m:"Film · Komedi",h:330},{t:"Inception",y:2010,m:"Film · Sci-fi, action",h:225},
+ {t:"Breaking Bad",y:2008,m:"Serie · Brott, drama",h:85},{t:"Hundraåringen",y:2013,m:"Film · Komedi, äventyr",h:40},
+ {t:"Mad Max: Fury Road",y:2015,m:"Film · Action",h:28},{t:"Fleabag",y:2016,m:"Serie · Komedi, drama",h:345}];
+const ALL=[...FIND,...CAL];
+const INFO={
+ "Paddington 2":{s:7.6,r:"Du älskade Grand Budapest Hotel – samma varma, snygga humor",p:"Paddington vill köpa en present till sin moster men hamnar oskyldigt i fängelse när en sällsynt bok blir stulen."},
+ "Severance":{s:8.4,r:"Du gillade Black Mirror mycket – samma kuslighet, mer mysterium",p:"Anställda på ett mystiskt företag har fått minnet kirurgiskt delat mellan jobbet och fritiden."},
+ "Knives Out":{s:7.8,r:"Torr humor som i Fargo, som du älskar, fast i deckarform",p:"En berömd deckarförfattare hittas död efter sin 85-årsfest, och en egensinnig detektiv förhör den giriga familjen."},
+ "Ted Lasso":{s:8.4,r:"Lätt som du ville – feelgood med korta avsnitt",p:"En amerikansk fotbollstränare utan erfarenhet av europeisk fotboll tar över ett engelskt lag."},
+ "The Bear":{s:8.2,r:"Du ville ha korta avsnitt, och du gillade Fleabag mycket",p:"En prisad kock tar över familjens slitna smörgåsrestaurang i Chicago efter att hans bror har dött."},
+ "Klaus":{s:8.2,r:"Rolig för både dig och barnen",p:"En bortskämd brevbärare skickas till en kall ö långt norrut och blir vän med en eremit som tillverkar leksaker."},
+ "Arrival":{s:7.6,r:"Du gav Inception högt betyg – det här är lugnare och mer känsla",p:"En lingvist rekryteras för att kommunicera med utomjordingar som har landat på tolv platser runt jorden."},
+ "Spirited Away":{s:8.5,r:"Funkar för hela familjen, och den går att se om",p:"En tioårig flicka fastnar i en andevärld och måste arbeta i ett badhus för gudar för att rädda sina föräldrar."},
+ "Fargo":{s:8.3,r:"Du älskade Breaking Bad – lika spännande, mer svart humor",p:"Fristående säsonger om vanliga människor som dras in i brott i ett snöigt Mellanvästern."},
+ "Min granne Totoro":{s:8.1,r:"Lugn och magisk, perfekt före läggdags",p:"Två systrar flyttar till landet och upptäcker vänliga skogsandar i skogen bakom huset."},
+ "Normal People":{s:8.1,r:"Du gillade Fleabag mycket – lika nära, men med färre skämt",p:"Två unga från samma irländska småstad inleder en relation som följer dem in i vuxenlivet."}};
+const REL={
+ "Paddington 2":[["Paddington",2014],["Fantastic Mr. Fox",2009],["Klaus",2019],["Wallace & Gromit",2005]],
+ "Severance":[["Black Mirror",2011],["Dark",2017],["Mr. Robot",2015],["Silo",2023]],
+ "Knives Out":[["Glass Onion",2022],["Clue",1985],["Only Murders in the Building",2021],["Murder on the Orient Express",2017]],
+ "The Bear":[["Boiling Point",2021],["Chef",2014],["Shameless",2011],["Atlanta",2016]],
+ "Arrival":[["Interstellar",2014],["Contact",1997],["Annihilation",2018],["Blade Runner 2049",2017]],
+ "Spirited Away":[["Min granne Totoro",1988],["Prinsessan Mononoke",1997],["Det levande slottet",2004],["Coraline",2009]],
+ "Fargo":[["Fargo (filmen)",1996],["No Country for Old Men",2007],["True Detective",2014],["Better Call Saul",2015]],
+ "Normal People":[["Conversations with Friends",2022],["Fleabag",2016],["Lady Bird",2017],["Past Lives",2023]]};
+const CHECKS=[
+ {q:"Såg du Arrival igår? Hur var den?",a:["Ogillade","Gillar","Gillar mycket","Älskar"],t:"Arrival",rate:1},
+ {q:"Fortsätter du med Slow Horses?",a:["Ja","Klar","Slutade"],t:"Slow Horses"}];
+const DIRS={find:{right:["Vill se","var(--yes)"],left:["Nej","var(--no)"],up:["Sett","var(--seen)"]},
+ cal:{right:["Gillar","var(--yes)"],up:["Älskar","var(--cal)"],left:["Ogillade","var(--no)"],down:["Inte sett","#555"]}};
+const WHO=["Själv","Partner","Familj","Vänner"],QUICK=["Lätt","Spännande","Kort","Något tryggt","Överraska mig"];
+const QMAP={"Lätt":"lätt","Spännande":"spännande","Kort":"kort","Något tryggt":"tryggt"};
+const SVC=["Netflix","Max","Disney+","Viaplay","SVT Play","Prime Video"];
+let who="Själv",qsel=new Set(),tags=new Set(),wild=false,mode="find",deckList=FIND.slice(),pos=0,calPos=0,hist=[],watch=[],ratings={},checks=[...CHECKS],timer=null,n=0,listF="Alla",started=false;
+const svcOn=new Set(["Netflix","Max","SVT Play"]);
+const $=id=>document.getElementById(id);
+const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+const grad=(h,a=55,b=42,c=24)=>`linear-gradient(160deg,hsl(${h} ${a}% ${b}%),hsl(${h} ${a+5}% ${c}%))`;
+function hue(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h}
+const find=t=>ALL.find(x=>x.t===t)||{t,y:"",m:"",h:hue(t)};
+
+function log(s){n++;$("n").textContent=n;$("log").prepend(el("li","",s))}
+function toast(text,btns=[],ms=2200,onTimeout){clearTimeout(timer);const t=$("toast");t.innerHTML="";t.append(el("span","",text));
+ btns.forEach(([l,f])=>{const b=el("button","",l);b.onclick=()=>{clearTimeout(timer);t.classList.remove("show");f()};t.append(b)});
+ t.classList.add("show");timer=setTimeout(()=>{t.classList.remove("show");onTimeout&&onTimeout()},ms)}
+function chipRow(box,items,isOn,onClick){box.innerHTML="";items.forEach(x=>{const b=el("button","chip",x);b.setAttribute("aria-pressed",isOn(x));b.onclick=()=>onClick(x);box.append(b)})}
+function addWatch(t,company,interest){const e=watch.find(w=>w.t===t&&w.company===company);if(e)e.interest=interest;else watch.push({t,company,interest});log(`${t}: på listan (${interest}, ${company})`)}
+function setRating(t,o){ratings[t]=Object.assign(ratings[t]||{},o)}
+
+/* Start */
+function renderStart(){chipRow($("who"),WHO,x=>x===who,x=>{who=x;renderStart()});
+ chipRow($("quick"),QUICK,x=>qsel.has(x),x=>{qsel.has(x)?qsel.delete(x):qsel.add(x);renderStart()})}
+function parseMood(s){s=s.toLowerCase();const o=new Set();
+ if(/lätt|rolig|kul|komedi|feelgood|skratt/.test(s))o.add("lätt");
+ if(/spänn|thrill|deckar|mörk|mysteri|kuslig/.test(s))o.add("spännande");
+ if(/kort|snabb|max|timme|avsnitt|läggdags/.test(s))o.add("kort");
+ if(/trygg|trött|mys|hjärndöd|igen|lugn/.test(s))o.add("tryggt");
+ return {o,w:/överrask|nytt|annorlunda/.test(s)}}
+function buildDeck(){let l=FIND.slice();if(who==="Familj")l=l.filter(x=>x.kids);const sc=x=>x.g.filter(g=>tags.has(g)).length;
+ if(wild)l.sort(()=>Math.random()-.5);else l.sort((a,b)=>sc(b)-sc(a));deckList=l;pos=0;hist=[]}
+function startSession(useMood){tags=new Set();wild=false;const txt=useMood?$("mood").value.trim():"";
+ if(useMood){qsel.forEach(q=>q==="Överraska mig"?wild=true:tags.add(QMAP[q]));const p=parseMood(txt);p.o.forEach(x=>tags.add(x));if(p.w)wild=true}
+ buildDeck();started=true;log(`Session: ${ctxText()}${txt?` (”${txt}”)`:""}`);showSwipe()}
+function ctxText(){return mode==="cal"?"Kalibrerar":[who,...tags,wild?"överraska mig":null].filter(Boolean).join(" · ")+"  ✎"}
+function showSwipe(){$("start").hidden=true;$("swipe").hidden=false;render()}
+function showStart(){$("swipe").hidden=true;$("start").hidden=false;renderStart()}
+$("go").onclick=()=>startSession(true);$("just").onclick=()=>startSession(false);
+$("ctx").onclick=()=>{if(mode==="find")showStart()};
+
+/* Deck */
+const list=()=>mode==="find"?deckList:CAL;
+const current=()=>{const l=list();return l[(mode==="find"?pos:calPos)%l.length]};
+function cardEl(item,top){const d=el("div","card"+(top?"":" under"));d.style.background=grad(item.h);
+ const i=INFO[item.t]||{};d.append(el("span","stamp"));d.append(el("span","yr",item.y));d.append(el("h2","",item.t));d.append(el("div","meta",item.m));
+ if(i.r&&mode==="find")d.append(el("div","why",i.r));d.append(el("div","flipnote","Tryck för mer"));return d}
+function render(){const deck=$("deck"),l=list(),p=mode==="find"?pos:calPos;deck.innerHTML="";
+ deck.append(cardEl(l[(p+1)%l.length],false));const top=cardEl(current(),true);deck.append(top);drag(top);
+ $("ctx").textContent=ctxText();$("calEnd").hidden=mode!=="cal";
+ $("hint").textContent=mode==="find"?"Tryck: läs mer · Höger: vill se · Vänster: nej · Upp: sett":"Höger: gillar · Upp: älskar · Vänster: ogillade · Ner: inte sett";
+ const a=$("actions");a.innerHTML="";
+ if(hist.length){const u=el("button","undo","↶");u.setAttribute("aria-label","Ångra");u.onclick=undo;a.append(u)}
+ const btns=mode==="find"?[["✕","left","Nej"],["Sett","up","Sett den"],["♥","right","Vill se"]]:[["✕","left","Ogillade"],["Inte sett","down","Inte sett"],["★","up","Älskar"],["♥","right","Gillar"]];
+ btns.forEach(([t,d,aria])=>{const b=el("button","",t);b.setAttribute("aria-label",aria);b.onclick=()=>fly(d);a.append(b)})}
+function dirOf(dx,dy){if(Math.abs(dx)>Math.abs(dy)){if(dx>90)return"right";if(dx<-90)return"left"}else{if(dy<-90)return"up";if(dy>90&&mode==="cal")return"down"}return null}
+function drag(c){let sx,sy,dx=0,dy=0,on=false;const st=c.querySelector(".stamp");
+ c.onpointerdown=e=>{on=true;sx=e.clientX;sy=e.clientY;dx=dy=0;c.setPointerCapture(e.pointerId);c.classList.add("drag")};
+ c.onpointermove=e=>{if(!on)return;dx=e.clientX-sx;dy=e.clientY-sy;c.style.transform=`translate(${dx}px,${dy}px) rotate(${dx/18}deg)`;
+  const d=dirOf(dx,dy);if(d&&DIRS[mode][d]){st.textContent=DIRS[mode][d][0];st.style.background=DIRS[mode][d][1];st.style.opacity=1}else st.style.opacity=0};
+ c.onpointerup=()=>{if(!on)return;on=false;c.classList.remove("drag");const d=dirOf(dx,dy);
+  if(d&&DIRS[mode][d])fly(d);else{c.style.transform="";st.style.opacity=0;if(Math.abs(dx)<6&&Math.abs(dy)<6){const it=current();openDetail(it,true);log(`${it.t}: öppnade detaljer (nyfiken)`)}}}}
+function snapshot(){return{mode,pos,calPos,watch:JSON.stringify(watch),ratings:JSON.stringify(ratings),log:$("log").innerHTML,n}}
+function undo(){const s=hist.pop();if(!s)return;clearTimeout(timer);$("toast").classList.remove("show");
+ pos=s.pos;calPos=s.calPos;watch=JSON.parse(s.watch);ratings=JSON.parse(s.ratings);$("log").innerHTML=s.log;n=s.n;$("n").textContent=n;render()}
+function fly(d){const c=$("deck").lastElementChild,item=current();hist.push(snapshot());
+ const v={right:[600,0],left:[-600,0],up:[0,-800],down:[0,800]}[d];c.style.transform=`translate(${v[0]}px,${v[1]}px) rotate(${v[0]/25}deg)`;
+ setTimeout(()=>{mode==="find"?pos++:calPos++;render();handle(d,item)},220)}
+function handle(d,it){const t=it.t;
+ if(mode==="find"){
+  if(d==="right"){addWatch(t,who,"kanske");toast("Sparad i listan",[["Vill gärna",()=>addWatch(t,who,"vill gärna")]])}
+  if(d==="left")toast("Varför inte?",[["Inte nu",()=>log(`${t}: inte nu`)],["Inte min grej",()=>log(`${t}: inte min grej`)],["Sett den",()=>sheet(t)]],2200,()=>log(`${t}: inte nu (standard)`));
+  if(d==="up")sheet(t);
+ }else{const m={right:"Gillar",up:"Älskar",left:"Ogillade",down:"inte sett"}[d];log(`${t}: ${m}`);
+  if(d!=="down")setRating(t,{r:m});
+  if(d==="right"||d==="up")toast(m,[["↻ Sett många gånger",()=>{setRating(t,{times:"Många"});log(`${t}: sett många gånger`)}]],1800)}}
+
+/* Sheet */
+function sheet(t){const steps=[["Hur var den?",["Ogillade","Gillar","Gillar mycket","Älskar"],"r"],["Hur många gånger?",["En gång","Några","Många"],"times"],["När senast?",["Nyligen","I år","Länge sen"],"when"]];
+ const res={seen:true};let i=0;const s=$("sheet");$("sTitle").textContent=t;
+ const done=()=>{s.classList.remove("open");$("scrim").hidden=true;setRating(t,res);log(`${t}: sett · ${[res.r,res.times,res.when].filter(Boolean).join(" · ")||"inga detaljer"}`)};
+ const dots=k=>{const d=$("sDots");d.innerHTML="";for(let j=0;j<4;j++)d.append(el("span",j<=k?"on":""));d.append(el("small","",`Steg ${k+1} av 4`))};
+ const again=()=>{dots(3);$("sQ").textContent="Vill du se den igen? Med vem?";const r=$("sRow");r.innerHTML="";const pick=new Set([who]);
+  WHO.forEach(w=>{const b=el("button",pick.has(w)?"on":"",w);b.setAttribute("aria-pressed",pick.has(w));b.onclick=()=>{pick.has(w)?pick.delete(w):pick.add(w);b.setAttribute("aria-pressed",pick.has(w));b.classList.toggle("on",pick.has(w))};r.append(b)});
+  const ok=el("button","ok","Klar");ok.onclick=()=>{done();pick.forEach(c=>addWatch(t,c,"se igen"))};r.append(ok);
+  $("sSkip").textContent="Nej, inte igen";$("sSkip").onclick=done;r.firstElementChild.focus()};
+ const step=()=>{if(i>=steps.length)return again();dots(i);$("sSkip").textContent="Hoppa över steget";$("sQ").textContent=steps[i][0];const r=$("sRow");r.innerHTML="";
+  steps[i][1].forEach(a=>{const b=el("button","",a);b.onclick=()=>{res[steps[i][2]]=a;i++;step()};r.append(b)});r.firstElementChild.focus()};
+ $("sSkip").onclick=()=>{i++;step()};$("sClose").onclick=done;$("scrim").hidden=false;s.classList.add("open");step()}
+
+/* Detail */
+function closeDetail(){$("detail").hidden=true;$("dbar").hidden=true}
+function openDetail(item,fromDeck){const i=INFO[item.t]||{},w=$("dwrap");w.innerHTML="";const add=(tag,cls,txt)=>{const e=el(tag,cls,txt);w.append(e);return e};
+ const back=add("button","dback","‹ Tillbaka");back.onclick=closeDetail;
+ const hero=add("div","dhero");hero.style.background=grad(item.h);hero.append(el("span","",item.y));const h2=el("h2","",item.t);h2.id="dTitle";hero.append(h2);hero.append(el("div","",item.m));
+ if(i.r)add("div","dwhy",i.r);add("p","dplot",i.p||"Ingen beskrivning i prototypen än.");
+ const f=add("div","dfacts");[`★ ${i.s||"–"} på TMDB`,"Finns på dina tjänster"].forEach(x=>f.append(el("span","",x)));
+ const a=add("a","dtrailer","▶ Se trailer");a.target="_blank";a.rel="noopener";a.href="https://www.youtube.com/results?search_query="+encodeURIComponent(item.t+" "+item.y+" trailer");
+ const rel=REL[item.t];if(rel){add("h3","","Liknande");const r=add("div","rel");rel.forEach(([t,y])=>{const b=el("button","",t);b.style.background=grad(hue(t),50,40,22);b.append(el("small","",y));
+  b.onclick=()=>toast(t,[["Vill se",()=>addWatch(t,who,"kanske")]],2600);r.append(b)})}
+ $("detail").hidden=false;$("dbar").hidden=!fromDeck;$("detail").scrollTop=0;back.focus()}
+document.querySelectorAll("#dbar button").forEach(b=>b.onclick=()=>{closeDetail();fly(b.dataset.d)});
+
+/* Lista & profil */
+function renderList(){chipRow($("listFilter"),["Alla",...WHO],x=>x===listF,x=>{listF=x;renderList()});
+ const box=$("listRows");box.innerHTML="";const rows=watch.filter(w=>listF==="Alla"||w.company===listF);
+ if(!rows.length){box.append(el("p","empty","Swipea höger på något i Hitta så hamnar det här."));return}
+ rows.slice().reverse().forEach(w=>{const it=find(w.t),b=el("button","lrow");const s=el("span","sw");s.style.background=grad(it.h);b.append(s);
+  const tx=el("span");tx.append(el("b","",w.t));tx.append(el("small","",`${it.m||"Från Liknande"} · ${w.company}`));b.append(tx);b.append(el("span","tag",w.interest));
+  b.onclick=()=>openDetail(it,false);box.append(b)})}
+function renderProfile(){chipRow($("svc"),SVC,x=>svcOn.has(x),x=>{svcOn.has(x)?svcOn.delete(x):svcOn.add(x);renderProfile()});
+ const box=$("rateRows");box.innerHTML="";const ks=Object.keys(ratings);
+ if(!ks.length){box.append(el("p","empty","Inga betyg än. Kalibrera eller markera något som sett."));return}
+ ks.reverse().forEach(t=>{const r=ratings[t],it=find(t),b=el("button","lrow");const s=el("span","sw");s.style.background=grad(it.h);b.append(s);
+  const tx=el("span");tx.append(el("b","",t));tx.append(el("small","",[r.times,r.when].filter(Boolean).join(" · ")||"Sett"));b.append(tx);b.append(el("span","tag",r.r||"Sett"));
+  b.onclick=()=>openDetail(it,false);box.append(b)})}
+function tab(v){document.querySelectorAll(".view").forEach(s=>s.hidden=s.id!==v);document.querySelectorAll(".tabs button").forEach(b=>b.dataset.v===v?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current"));
+ if(v==="vList")renderList();if(v==="vProfile")renderProfile()}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>tab(b.dataset.v));
+$("calStart").onclick=()=>{mode="cal";document.body.classList.add("cal");hist=[];tab("vFind");showSwipe()};
+$("calEnd").onclick=()=>{mode="find";document.body.classList.remove("cal");hist=[];started?showSwipe():showStart()};
+
+/* Efter tittning */
+function updBadge(){const b=$("badge");b.textContent=checks.length;b.hidden=!checks.length}
+function renderCheckin(){const c=$("checkin");updBadge();if(!checks.length){c.hidden=true;$("inboxEmpty").hidden=false;return}c.hidden=false;const k=checks[0];
+ c.innerHTML="";c.append(el("p","",k.q));const r=el("div","row");c.append(r);
+ k.a.forEach(a=>{const b=el("button","",a);b.onclick=()=>{if(k.rate)setRating(k.t,{r:a,when:"Igår",seen:true});log(`${k.t}: ${a}${k.rate?" (sedd igår)":""}`);checks.shift();renderCheckin()};r.append(b)})}
+function openInbox(){$("notif").hidden=true;$("inbox").hidden=false;$("inboxBack").focus()}
+$("bell").onclick=openInbox;$("notif").onclick=openInbox;$("inboxBack").onclick=()=>{$("inbox").hidden=true};
+setTimeout(()=>{if(checks.length&&$("inbox").hidden){$("notif").hidden=false;setTimeout(()=>{$("notif").hidden=true},6000)}},1500);
+
+document.addEventListener("keydown",e=>{if(!$("inbox").hidden||!$("detail").hidden){if(e.key==="Escape"){$("inbox").hidden=true;closeDetail()}return}
+ if($("sheet").classList.contains("open")||$("swipe").hidden||$("vFind").hidden||e.target.tagName==="INPUT")return;
+ const k={ArrowRight:"right",ArrowLeft:"left",ArrowUp:"up",ArrowDown:"down"}[e.key];if(k&&DIRS[mode][k]){e.preventDefault();fly(k)}});
+renderStart();renderCheckin();tab("vFind");
+</script>
+</body>
+</html>

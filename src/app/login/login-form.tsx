@@ -22,7 +22,7 @@ export function LoginForm() {
         <input
           id="code"
           name="code"
-          className={styles.input}
+          className={`field ${styles.code}`}
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9 ]*"
@@ -30,11 +30,11 @@ export function LoginForm() {
           required
           autoFocus
         />
-        {state.error && <p className={styles.error} role="alert">{state.error}</p>}
-        <button className={styles.primary} name="intent" value="verify" disabled={pending}>
+        {state.error && <p className="error" role="alert">{state.error}</p>}
+        <button className="primary" name="intent" value="verify" disabled={pending}>
           {pending ? "Loggar in …" : "Logga in"}
         </button>
-        <button className={styles.secondary} name="intent" value="restart" formNoValidate>
+        <button className="link" name="intent" value="restart" formNoValidate>
           Använd en annan adress
         </button>
       </form>
@@ -50,15 +50,15 @@ export function LoginForm() {
         id="email"
         name="email"
         type="email"
-        className={styles.input}
+        className="field"
         autoComplete="email"
         defaultValue={state.email}
         placeholder="namn@exempel.se"
         required
         autoFocus
       />
-      {state.error && <p className={styles.error} role="alert">{state.error}</p>}
-      <button className={styles.primary} name="intent" value="send" disabled={pending}>
+      {state.error && <p className="error" role="alert">{state.error}</p>}
+      <button className="primary" name="intent" value="send" disabled={pending}>
         {pending ? "Skickar …" : "Skicka inloggningslänk"}
       </button>
       <p className={styles.hint}>Inget lösenord. Du får en länk och en kod på mejlen.</p>

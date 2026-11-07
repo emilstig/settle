@@ -1,16 +1,35 @@
+/* Design tokens from docs/prototype.html. Light by default, dark follows the system. */
 :root {
-  --background: #15110e;
-  --surface: #211b17;
-  --border: #342b25;
-  --foreground: #f6efe8;
-  --muted: #a99a8d;
-  --accent: #f2a65a;
-  --accent-contrast: #1d130a;
-  --danger: #ff8a7a;
-  color-scheme: dark;
+  --bg: #ecebf3;
+  --ink: #1c1a2e;
+  --mute: #6b6880;
+  --line: #d6d4e2;
+  --panel: #ffffff;
+  --no: #b0243f;
+  --yes: #2f7d5b;
+  --seen: #9a6508;
+  --cal: #3b4fb8;
+  color-scheme: light;
 }
 
-* {
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15141f;
+    --ink: #eceaf6;
+    --mute: #9c99b3;
+    --line: #2e2c40;
+    --panel: #201e2e;
+    --no: #e0556f;
+    --yes: #4fb487;
+    --seen: #e0a63a;
+    --cal: #8f9df5;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
@@ -32,9 +51,9 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--font-bricolage), system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
@@ -49,5 +68,105 @@ a {
 button,
 input,
 select {
+  font: inherit;
+  color: inherit;
   touch-action: manipulation;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--cal);
+  outline-offset: 2px;
+}
+
+/* Shared primitives, same look as the prototype. */
+
+.logo {
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+}
+
+.q {
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+
+.field {
+  font-size: 17px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  width: 100%;
+}
+
+.primary {
+  border: 0;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 999px;
+  padding: 14px 18px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+}
+
+.link {
+  border: 0;
+  background: none;
+  color: var(--mute);
+  text-decoration: underline;
+  font-size: 15px;
+  padding: 6px;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  list-style: none;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 15px;
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+.chip[aria-pressed="true"],
+input:checked + .chip {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+
+input:focus-visible + .chip {
+  outline: 3px solid var(--cal);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.error {
+  color: var(--no);
+  font-size: 15px;
 }

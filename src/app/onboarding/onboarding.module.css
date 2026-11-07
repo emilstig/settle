@@ -2,36 +2,16 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: calc(48px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom));
+  gap: 12px;
+  padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
   max-width: 420px;
   width: 100%;
   margin: 0 auto;
 }
-.step { color: var(--accent); font-size: 14px; font-weight: 600; }
-.title { font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; }
-.lead { color: var(--muted); line-height: 1.5; }
-.form { display: grid; gap: 12px; margin-top: auto; }
-.label { font-size: 14px; color: var(--muted); }
-.select {
-  font: inherit;
-  font-size: 17px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--foreground);
-  appearance: none;
-}
-.primary, .secondary {
-  font: inherit;
-  font-size: 17px;
-  font-weight: 600;
-  padding: 15px 16px;
-  border-radius: 14px;
-  border: 0;
-  cursor: pointer;
-}
-.primary { background: var(--accent); color: var(--accent-contrast); }
-.secondary { background: transparent; color: var(--muted); font-weight: 500; }
+.step { color: var(--mute); font-size: 15px; }
+.lead { color: var(--mute); line-height: 1.45; font-size: 17px; }
+.form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; flex: 1; }
+.ages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.ages .chip { display: block; text-align: center; padding: 10px 0; }
+.actions { margin-top: auto; display: grid; gap: 6px; padding-top: 16px; }
 .placeholder { height: 220px; }

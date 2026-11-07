@@ -13,11 +13,11 @@ const AGES = Array.from({ length: 18 }, (_, i) => i);
 export default function OnboardingPage() {
   return (
     <main className={styles.main}>
-      <p className={styles.step}>Kom igång</p>
-      <h1 className={styles.title}>Hur gammalt är det yngsta barnet?</h1>
+      <p className="logo">Settle</p>
+      <h1 className="q">Hur gammalt är det yngsta barnet?</h1>
       <p className={styles.lead}>
-        När du väljer Familj föreslår vi bara sådant som passar alla i soffan. Har du inga barn kan
-        du hoppa över det här.
+        När ni tittar som Familj föreslår vi bara sådant som passar alla i soffan. Har du inga barn
+        kan du hoppa över det här.
       </p>
       <Suspense fallback={<div className={styles.placeholder} />}>
         <AgeForm />
@@ -35,27 +35,32 @@ async function AgeForm() {
 
   return (
     <form action={finishOnboarding} className={styles.form}>
-      <label className={styles.label} htmlFor="youngest_age">
-        Yngsta barnets ålder
-      </label>
-      <select
-        id="youngest_age"
-        name="youngest_age"
-        className={styles.select}
-        defaultValue={current}
-      >
-        {AGES.map((age) => (
-          <option key={age} value={age}>
-            {age === 1 ? "1 år" : `${age} år`}
-          </option>
-        ))}
-      </select>
-      <button className={styles.primary} name="intent" value="save">
-        Fortsätt
-      </button>
-      <button className={styles.secondary} name="intent" value="skip" formNoValidate>
-        Hoppa över
-      </button>
+      <fieldset>
+        <legend className="visually-hidden">Yngsta barnets ålder i år</legend>
+        <div className={styles.ages}>
+          {AGES.map((age) => (
+            <label key={age}>
+              <input
+                type="radio"
+                name="youngest_age"
+                value={age}
+                defaultChecked={age === current}
+                className="visually-hidden"
+              />
+              <span className="chip">{age}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <p className={styles.step}>Ålder i år. Du kan ändra det senare.</p>
+      <div className={styles.actions}>
+        <button className="primary" name="intent" value="save">
+          Fortsätt
+        </button>
+        <button className="link" name="intent" value="skip" formNoValidate>
+          Hoppa över
+        </button>
+      </div>
     </form>
   );
 }
