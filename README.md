@@ -5,14 +5,15 @@ Se `CLAUDE.md` för produkt, stack och regler, och `docs/PLAN.md` för byggordni
 ## Kom igång lokalt
 
 ```bash
-npm install
+nvm use
+yarn
 cp .env.example .env.local   # fyll i värdena
-npm run dev
+yarn dev
 ```
 
 ## Supabase
 
-1. Kör migreringarna: `npx supabase link --project-ref <ref>` och sedan `npx supabase db push`.
+1. Kör migreringarna: `npx supabase link --project-ref <ref>` och sedan `npx supabase db push` (Supabase CLI, behöver inte installeras).
 2. **Authentication → URL Configuration**: sätt *Site URL* till produktions-URL:en och lägg till
    `http://localhost:3000/**` och `https://*-<vercel-team>.vercel.app/**` under *Redirect URLs*.
 3. **Authentication → Email Templates → Magic link** (och *Confirm signup*): klistra in
