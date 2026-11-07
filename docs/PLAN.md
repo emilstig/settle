@@ -8,7 +8,7 @@ Ett steg i taget. Varje steg är klart när kriteriet ”Klart när” är uppfy
 - [x] PWA-manifest, ikon och temafärg
 - [x] Migreringar för alla tabeller i `CLAUDE.md`, med RLS
 - [x] Skapa de fyra standardgrupperna vid registrering, och fråga efter yngsta barnets ålder för Familj i onboarding
-- [ ] Deploy (Vercel) med miljövariabler
+- [x] Deploy (Vercel) med miljövariabler
 
 **Klart när:** du kan logga in på telefonen och appen ligger på hemskärmen.
 

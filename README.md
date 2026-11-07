@@ -1,5 +1,7 @@
 # Settle
 
+Produktion: https://settle-pink.vercel.app
+
 Se `CLAUDE.md` för produkt, stack och regler, och `docs/PLAN.md` för byggordningen.
 
 ## Kom igång lokalt
