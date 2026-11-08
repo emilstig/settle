@@ -18,7 +18,12 @@ import {
 import { DetailView } from "./detail-view";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
 import { StartView } from "./start-view";
-import { CardFace, SwipeCard, type Dir, type SwipeCardHandle } from "./swipe-card";
+import {
+  CardFace,
+  SwipeCard,
+  type Dir,
+  type SwipeCardHandle,
+} from "./swipe-card";
 import { Toast } from "./toast";
 import type { GroupOption, ToastButton, ToastState } from "./types";
 import styles from "./find.module.css";
@@ -38,9 +43,23 @@ type HistoryEntry = { index: number; undo: Promise<Undo | null> };
 const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
 const merge = (a: Undo | null, b: Undo | null): Undo | null =>
-  !a ? b : !b ? a : { ...b, interactionIds: [...a.interactionIds, ...b.interactionIds], watchlist: [...a.watchlist, ...b.watchlist] };
+  !a
+    ? b
+    : !b
+      ? a
+      : {
+          ...b,
+          interactionIds: [...a.interactionIds, ...b.interactionIds],
+          watchlist: [...a.watchlist, ...b.watchlist],
+        };
 
-export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[]; footer: React.ReactNode }) {
+export function Finder({
+  groups: initialGroups,
+  footer,
+}: {
+  groups: GroupOption[];
+  footer: React.ReactNode;
+}) {
   const [groups, setGroups] = useState(initialGroups);
   const [phase, setPhase] = useState<"start" | "deck">("start");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
@@ -53,15 +72,31 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
   const [index, setIndex] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [seen, setSeen] = useState<{ card: Card; resolve: (u: Undo | null) => void } | null>(null);
-  const [detail, setDetail] = useState<{ card: Card; fromDeck: boolean; trailer: string | null; loading: boolean } | null>(null);
+  const [seen, setSeen] = useState<{
+    card: Card;
+    resolve: (u: Undo | null) => void;
+  } | null>(null);
+  const [detail, setDetail] = useState<{
+    card: Card;
+    fromDeck: boolean;
+    trailer: string | null;
+    loading: boolean;
+  } | null>(null);
   const loadingMore = useRef(false);
   const cardRef = useRef<SwipeCardHandle>(null);
   const toastId = useRef(0);
 
-  const showToast = useCallback((text: string, buttons: ToastButton[] = [], ms = 2200, onTimeout?: () => void) => {
-    setToast({ id: ++toastId.current, text, buttons, ms, onTimeout });
-  }, []);
+  const showToast = useCallback(
+    (
+      text: string,
+      buttons: ToastButton[] = [],
+      ms = 2200,
+      onTimeout?: () => void,
+    ) => {
+      setToast({ id: ++toastId.current, text, buttons, ms, onTimeout });
+    },
+    [],
+  );
   const closeToast = useCallback(() => setToast(null), []);
 
   // ---- session ------------------------------------------------------------
@@ -72,7 +107,11 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
     try {
       const picks = useMood ? [...quickPicks] : [];
       const text = useMood ? mood : "";
-      const res = await startSession({ groupId, quickPicks: picks, moodText: text });
+      const res = await startSession({
+        groupId,
+        quickPicks: picks,
+        moodText: text,
+      });
       const group = groups.find((g) => g.id === groupId);
       setSession({
         id: res.sessionId,
@@ -80,7 +119,9 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
         cards: res.cards,
         page: res.page,
         hasMore: res.hasMore,
-        label: [group?.name, ...picks.map((p) => p.toLowerCase())].filter(Boolean).join(" · "),
+        label: [group?.name, ...picks.map((p) => p.toLowerCase())]
+          .filter(Boolean)
+          .join(" · "),
       });
       setIndex(0);
       setHistory([]);
@@ -98,11 +139,20 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
     if (!session || loadingMore.current || !session.hasMore) return;
     if (session.cards.length - index > 5) return;
     loadingMore.current = true;
-    loadMore({ sessionId: session.id, page: session.page + 1, skip: session.cards.map(keyOf) })
+    loadMore({
+      sessionId: session.id,
+      page: session.page + 1,
+      skip: session.cards.map(keyOf),
+    })
       .then((res) =>
         setSession((s) =>
           s && s.id === res.sessionId
-            ? { ...s, cards: [...s.cards, ...res.cards], page: res.page, hasMore: res.hasMore && res.cards.length >= 0 }
+            ? {
+                ...s,
+                cards: [...s.cards, ...res.cards],
+                page: res.page,
+                hasMore: res.hasMore && res.cards.length >= 0,
+              }
             : s,
         ),
       )
@@ -124,8 +174,17 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
     setHistory((h) => [...h.slice(-19), entry]);
   }
 
-  function replaceTop(update: (u: Promise<Undo | null>) => Promise<Undo | null>) {
-    setHistory((h) => (h.length ? [...h.slice(0, -1), { ...h[h.length - 1], undo: update(h[h.length - 1].undo) }] : h));
+  function replaceTop(
+    update: (u: Promise<Undo | null>) => Promise<Undo | null>,
+  ) {
+    setHistory((h) =>
+      h.length
+        ? [
+            ...h.slice(0, -1),
+            { ...h[h.length - 1], undo: update(h[h.length - 1].undo) },
+          ]
+        : h,
+    );
   }
 
   function openSeen(c: Card): Promise<Undo | null> {
@@ -137,27 +196,53 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
     const c = card;
     const at = index;
     setIndex((i) => i + 1);
-    const base = { sessionId: session.id, groupId: session.groupId, ref: refOf(c) };
+    const base = {
+      sessionId: session.id,
+      groupId: session.groupId,
+      ref: refOf(c),
+    };
+    const group = groups.find((g) => g.id === session.groupId);
 
     if (dir === "right") {
       const undo = swipeRight(base).catch(() => null);
       push({ index: at, undo });
-      showToast("Sparad i listan", [
-        { label: "Vill gärna", onClick: () => void undo.then(() => setInterest({ ...base, interest: "want" })) },
-      ]);
+      showToast(
+        group?.kind === "solo"
+          ? "Sparad i din lista"
+          : `Sparad för ${group?.name}`,
+        [
+          {
+            label: "Vill gärna",
+            onClick: () =>
+              void undo.then(() => setInterest({ ...base, interest: "want" })),
+          },
+        ],
+      );
     } else if (dir === "left") {
-      const undo = swipeLeft({ sessionId: session.id, ref: refOf(c) }).catch(() => null);
+      const undo = swipeLeft({ sessionId: session.id, ref: refOf(c) }).catch(
+        () => null,
+      );
       push({ index: at, undo });
       const reason = (r: "not_for_me" | "seen") =>
-        undo.then((u) => u && setLeftReason({ interactionId: u.interactionIds[0], reason: r }));
+        undo.then(
+          (u) =>
+            u &&
+            setLeftReason({ interactionId: u.interactionIds[0], reason: r }),
+        );
       // "Inte nu" is the default; the chips can change it within two seconds.
       showToast("Inte nu", [
-        { label: "Inte min grej", onClick: () => void reason("not_for_me") },
+        // The reason applies in this group only, so the words follow the company.
+        {
+          label: group?.kind === "solo" ? "Inte min grej" : "Inte vår grej",
+          onClick: () => void reason("not_for_me"),
+        },
         {
           label: "Sett den",
           onClick: () => {
             void reason("seen");
-            replaceTop((prev) => Promise.all([prev, openSeen(c)]).then(([a, b]) => merge(a, b)));
+            replaceTop((prev) =>
+              Promise.all([prev, openSeen(c)]).then(([a, b]) => merge(a, b)),
+            );
           },
         },
       ]);
@@ -171,8 +256,19 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
     const { card: c, resolve } = seen;
     setSeen(null);
     try {
-      resolve(await recordSeen({ sessionId: session.id, groupId: session.groupId, ref: refOf(c), ...answers }));
-      showToast(answers.rating !== null ? "Betyget är sparat" : "Markerad som sett", [], 1600);
+      resolve(
+        await recordSeen({
+          sessionId: session.id,
+          groupId: session.groupId,
+          ref: refOf(c),
+          ...answers,
+        }),
+      );
+      showToast(
+        answers.rating !== null ? "Betyget är sparat" : "Markerad som sett",
+        [],
+        1600,
+      );
     } catch (e) {
       console.error(e);
       resolve(null);
@@ -204,8 +300,11 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
   useEffect(() => {
     if (phase !== "deck") return;
     const onKey = (e: KeyboardEvent) => {
-      if (detail || seen || (e.target as HTMLElement).tagName === "INPUT") return;
-      const dir = ({ ArrowRight: "right", ArrowLeft: "left", ArrowUp: "up" } as const)[e.key as "ArrowRight"];
+      if (detail || seen || (e.target as HTMLElement).tagName === "INPUT")
+        return;
+      const dir = (
+        { ArrowRight: "right", ArrowLeft: "left", ArrowUp: "up" } as const
+      )[e.key as "ArrowRight"];
       if (dir) {
         e.preventDefault();
         void decide(dir);
@@ -221,8 +320,16 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
     if (!session) return;
     setDetail({ card: c, fromDeck: true, trailer: null, loading: true });
     openDetail({ sessionId: session.id, ref: refOf(c) })
-      .then((r) => setDetail((d) => (d && d.card === c ? { ...d, trailer: r.trailerKey, loading: false } : d)))
-      .catch(() => setDetail((d) => (d && d.card === c ? { ...d, loading: false } : d)));
+      .then((r) =>
+        setDetail((d) =>
+          d && d.card === c
+            ? { ...d, trailer: r.trailerKey, loading: false }
+            : d,
+        ),
+      )
+      .catch(() =>
+        setDetail((d) => (d && d.card === c ? { ...d, loading: false } : d)),
+      );
   }
 
   // ---- render ---------------------------------------------------------------
@@ -234,7 +341,9 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
         groupId={groupId}
         onGroup={setGroupId}
         onAge={(id, age) => {
-          setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)));
+          setGroups((gs) =>
+            gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)),
+          );
           setYoungestAge({ groupId: id, age }).catch((e) => {
             console.error(e);
             setError("Det gick inte att spara åldern. Prova igen.");
@@ -262,7 +371,11 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
   return (
     <div className={styles.swipe}>
       <div className={styles.bar}>
-        <button type="button" className={styles.ctx} onClick={() => setPhase("start")}>
+        <button
+          type="button"
+          className={styles.ctx}
+          onClick={() => setPhase("start")}
+        >
           {session.label} ✎
         </button>
       </div>
@@ -271,11 +384,20 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
         {card ? (
           <>
             {next && (
-              <div className={`${styles.card} ${styles.under}`} aria-hidden="true">
+              <div
+                className={`${styles.card} ${styles.under}`}
+                aria-hidden="true"
+              >
                 <CardFace card={next} />
               </div>
             )}
-            <SwipeCard key={keyOf(card)} ref={cardRef} card={card} onSwipe={handleSwipe} onTap={() => showDetail(card)} />
+            <SwipeCard
+              key={keyOf(card)}
+              ref={cardRef}
+              card={card}
+              onSwipe={handleSwipe}
+              onTap={() => showDetail(card)}
+            />
           </>
         ) : (
           <div className={styles.empty}>
@@ -284,7 +406,11 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
             ) : (
               <>
                 <p>Slut på förslag för det här.</p>
-                <button type="button" className="primary" onClick={() => setPhase("start")}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setPhase("start")}
+                >
                   Ändra och börja om
                 </button>
               </>
@@ -293,20 +419,42 @@ export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[
         )}
       </div>
 
-      <p className={styles.hint}>Tryck: läs mer · Höger: vill se · Vänster: inte nu · Upp: sett</p>
+      <p className={styles.hint}>
+        Tryck: läs mer · Höger: vill se · Vänster: inte nu · Upp: sett
+      </p>
       <div className={styles.actions}>
         {history.length > 0 && (
-          <button type="button" className={styles.undo} aria-label="Ångra" onClick={undo}>
+          <button
+            type="button"
+            className={styles.undo}
+            aria-label="Ångra"
+            onClick={undo}
+          >
             ↶
           </button>
         )}
-        <button type="button" aria-label="Inte nu" onClick={() => decide("left")} disabled={!card}>
+        <button
+          type="button"
+          aria-label="Inte nu"
+          onClick={() => decide("left")}
+          disabled={!card}
+        >
           ✕
         </button>
-        <button type="button" aria-label="Sett den" onClick={() => decide("up")} disabled={!card}>
+        <button
+          type="button"
+          aria-label="Sett den"
+          onClick={() => decide("up")}
+          disabled={!card}
+        >
           Sett
         </button>
-        <button type="button" aria-label="Vill se" onClick={() => decide("right")} disabled={!card}>
+        <button
+          type="button"
+          aria-label="Vill se"
+          onClick={() => decide("right")}
+          disabled={!card}
+        >
           ♥
         </button>
       </div>

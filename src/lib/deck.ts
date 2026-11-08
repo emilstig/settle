@@ -3,10 +3,22 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { formatCertSE, formatRuntime } from "@/lib/format";
 import { DEFAULT_YOUNGEST_AGE, type Group } from "@/lib/groups";
-import { discover, getTitles, type DiscoverHit, type MediaType, type Title } from "@/lib/tmdb/titles";
+import {
+  discover,
+  getTitles,
+  type DiscoverHit,
+  type MediaType,
+  type Title,
+} from "@/lib/tmdb/titles";
 import { getGenreNames } from "@/lib/tmdb/genres";
 
-export const QUICK_PICKS = ["Lätt", "Spännande", "Kort", "Något tryggt", "Överraska mig"] as const;
+export const QUICK_PICKS = [
+  "Lätt",
+  "Spännande",
+  "Kort",
+  "Något tryggt",
+  "Överraska mig",
+] as const;
 export type QuickPick = (typeof QUICK_PICKS)[number];
 
 /** Stored in sessions.filters. Rule-based until Claude parses the mood (step 5). */
@@ -53,7 +65,12 @@ function maxCertForAge(age: number): number {
   if (age >= 7) return 7;
   return 0;
 }
-const CERT_LABEL: Record<number, string> = { 0: "Btl", 7: "7", 11: "11", 15: "15" };
+const CERT_LABEL: Record<number, string> = {
+  0: "Btl",
+  7: "7",
+  11: "11",
+  15: "15",
+};
 
 export function buildFilters(group: Group, quickPicks: string[]): DeckFilters {
   const picks = new Set(quickPicks);
@@ -93,36 +110,72 @@ export function buildFilters(group: Group, quickPicks: string[]): DeckFilters {
   }
 
   if (movieGenres.length) movie.with_genres = movieGenres.join("|");
-  if (tvGenres.length && group.kind !== "family") tv.with_genres = tvGenres.join("|");
+  if (tvGenres.length && group.kind !== "family")
+    tv.with_genres = tvGenres.join("|");
 
   return { mediaTypes: ["movie", "tv"], movie, tv, sortBy, firstPage, maxCert };
 }
 
-export const key = (t: { tmdb_id: number; media_type: string }) => `${t.media_type}:${t.tmdb_id}`;
+export const key = (t: { tmdb_id: number; media_type: string }) =>
+  `${t.media_type}:${t.tmdb_id}`;
 
 /**
- * Titles that must not be suggested now, per the domain rules: disliked,
- * dropped or already seen, "inte min grej", "inte nu" in the last 7 days,
- * and anything already on this group's list.
+ * Titles that must not be suggested now, per the domain rules. Facts about the
+ * user apply in every group: disliked, dropped or already seen. Decisions about
+ * the company apply in the group they were made in: "inte min grej" and the
+ * group's own list. "Inte nu" is about the moment and hides a title everywhere
+ * for 7 days.
  */
-async function getExcluded(userId: string, groupId: string): Promise<Set<string>> {
+async function getExcluded(
+  userId: string,
+  groupId: string,
+): Promise<Set<string>> {
   const supabase = await createClient();
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const [ratings, seen, left, listed] = await Promise.all([
-    supabase.from("ratings").select("tmdb_id, media_type").eq("user_id", userId).eq("rating", -1),
-    supabase.from("watch_log").select("tmdb_id, media_type").eq("user_id", userId),
+  const [ratings, seen, notNow, notForUs, listed] = await Promise.all([
+    supabase
+      .from("ratings")
+      .select("tmdb_id, media_type")
+      .eq("user_id", userId)
+      .eq("rating", -1),
+    supabase
+      .from("watch_log")
+      .select("tmdb_id, media_type")
+      .eq("user_id", userId),
     supabase
       .from("interactions")
-      .select("tmdb_id, media_type, reason, created_at")
+      .select("tmdb_id, media_type")
       .eq("user_id", userId)
       .eq("action", "left")
-      .or(`reason.eq.not_for_me,created_at.gte.${weekAgo}`),
-    supabase.from("watchlist").select("tmdb_id, media_type").eq("user_id", userId).eq("group_id", groupId),
+      .neq("reason", "not_for_me")
+      .gte("created_at", weekAgo),
+    // The session tells which group "inte min grej" was said in.
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type, sessions!inner(group_id)")
+      .eq("user_id", userId)
+      .eq("action", "left")
+      .eq("reason", "not_for_me")
+      .eq("sessions.group_id", groupId),
+    supabase
+      .from("watchlist")
+      .select("tmdb_id, media_type")
+      .eq("user_id", userId)
+      .eq("group_id", groupId),
   ]);
-  for (const r of [ratings, seen, left, listed]) if (r.error) throw r.error;
+  for (const r of [ratings, seen, notNow, notForUs, listed])
+    if (r.error) throw r.error;
 
   const out = new Set<string>();
-  for (const r of [...ratings.data!, ...seen.data!, ...left.data!, ...listed.data!]) out.add(key(r));
+  for (const r of [
+    ...ratings.data!,
+    ...seen.data!,
+    ...notNow.data!,
+    ...notForUs.data!,
+    ...listed.data!,
+  ]) {
+    out.add(key(r));
+  }
   return out;
 }
 
@@ -133,27 +186,40 @@ function certNumber(cert: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function toCard(t: Title, mine: Set<number>, genres: Record<number, string>): Card {
+export function toCard(
+  t: Title,
+  mine: Set<number>,
+  genres: Record<number, string>,
+): Card {
   const length =
     t.media_type === "movie"
       ? formatRuntime(t.runtime)
       : t.runtime && t.runtime >= 5 // TMDB has some bogus 1-minute episode lengths
         ? `${t.runtime} min/avsnitt`
         : null;
-  const genreNames = t.genre_ids.slice(0, 2).map((id) => genres[id]).filter(Boolean);
+  const genreNames = t.genre_ids
+    .slice(0, 2)
+    .map((id) => genres[id])
+    .filter(Boolean);
   return {
     tmdb_id: t.tmdb_id,
     media_type: t.media_type,
     title: t.title,
     year: t.year,
-    meta: [t.media_type === "movie" ? "Film" : "Serie", length, genreNames.join(", ")]
+    meta: [
+      t.media_type === "movie" ? "Film" : "Serie",
+      length,
+      genreNames.join(", "),
+    ]
       .filter(Boolean)
       .join(" · "),
     overview: t.overview,
     poster_path: t.poster_path,
     vote_average: t.vote_average,
     certification: formatCertSE(t.certification_se),
-    services: (t.providers_se?.flatrate ?? []).filter((p) => mine.has(p.id)).map((p) => p.name),
+    services: (t.providers_se?.flatrate ?? [])
+      .filter((p) => mine.has(p.id))
+      .map((p) => p.name),
     providers_link: t.providers_se?.link ?? null,
   };
 }
@@ -177,11 +243,18 @@ export async function loadDeckPage({
   const tmdbPage = filters.firstPage + page - 1;
   const results = await Promise.all(
     filters.mediaTypes.map((t) =>
-      discover(t, { providerIds, page: tmdbPage, sortBy: filters.sortBy, filters: filters[t] }),
+      discover(t, {
+        providerIds,
+        page: tmdbPage,
+        sortBy: filters.sortBy,
+        filters: filters[t],
+      }),
     ),
   );
   const longest = Math.max(0, ...results.map((r) => r.hits.length));
-  const hits: DiscoverHit[] = Array.from({ length: longest }, (_, i) => results.map((r) => r.hits[i]))
+  const hits: DiscoverHit[] = Array.from({ length: longest }, (_, i) =>
+    results.map((r) => r.hits[i]),
+  )
     .flat()
     .filter((h) => h !== undefined);
 
@@ -197,7 +270,8 @@ export async function loadDeckPage({
     const k = key(h);
     const row = rows.get(k);
     if (!row || excluded.has(k) || skipSet.has(k)) return [];
-    if (!(row.providers_se?.flatrate ?? []).some((p) => mine.has(p.id))) return [];
+    if (!(row.providers_se?.flatrate ?? []).some((p) => mine.has(p.id)))
+      return [];
     if (filters.maxCert !== null) {
       const cert = certNumber(row.certification_se);
       if (cert !== null && cert > filters.maxCert) return [];

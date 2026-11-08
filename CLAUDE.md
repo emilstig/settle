@@ -82,7 +82,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 
 ## Domänregler
 
-- **Ingen titel som användaren har ogillat eller avbrutit föreslås igen.** ”Inte nu” döljer en titel i 7 dagar. ”Inte min grej” räknas som ett milt ogillande.
+- **Fakta om användaren gäller överallt, beslut om sällskapet gäller i gruppen.** Ingen titel som användaren har ogillat, avbrutit eller sett föreslås igen i någon grupp. ”Inte nu” döljer en titel överallt i 7 dagar. ”Inte min grej” (”Inte vår grej” i andra grupper än Själv) döljer titeln bara i gruppen där det sades och räknas som ett milt ogillande i den gruppens historik. Vill se och Se igen gäller i sina grupper.
 - **Sedda titlar** föreslås bara när humöret är tryggt (`comfort: true`), och då helst sådana som fått betyget älskar och setts många gånger men inte de senaste 6 månaderna.
 - **Watchlist är per grupp.** ”Se igen med Familj” ska väga tungt när gruppen är Familj.
 - **Familj** betyder att alla tittar tillsammans: filtrera på svensk åldersgräns utifrån `youngest_age` (standard 7 år om den saknas) och inget skrämmande. Förslagen ska också fungera för de vuxna.
@@ -94,7 +94,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 
 - Följ flödena i `docs/prototype.html`: startvy, swipe, detaljvy, sett-sheet, Lista, Profil, Efter tittning. Tre flikar (Hitta, Lista, Profil) och en klocka i headern för Efter tittning.
 - Startvy: ”Vem tittar ikväll?” med grupperna, ”Vad är du sugen på?” med fritext och snabbvalen Lätt, Spännande, Kort, Något tryggt och Överraska mig, sedan ”Visa förslag” eller ”Bara swipea”. Valet visas som en etikett överst i kortleken och går att trycka på för att ändra.
-- Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp, ”Vill gärna” i toasten ger `want`), vänster betyder inte nu (sparas som `not_now`; toasten ”Inte nu” visar i 2 sekunder chipsen ”Inte min grej” och ”Sett den”), upp betyder sett och öppnar sett-sheet. Tryck öppnar detaljvyn och loggas som `open_detail`.
+- Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp, ”Vill gärna” i toasten ger `want`), vänster betyder inte nu (sparas som `not_now`; toasten ”Inte nu” visar i 2 sekunder chipsen ”Inte min grej”, eller ”Inte vår grej” i andra grupper än Själv, och ”Sett den”). Toasten efter höger säger ”Sparad i din lista” för Själv och ”Sparad för Partner” (gruppens namn) annars, upp betyder sett och öppnar sett-sheet. Tryck öppnar detaljvyn och loggas som `open_detail`.
 - Kortet visar titel, år, typ, längd, genrer och motiveringen från prompt 2.
 - Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” med aktuell grupp förvald. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
 - Toppval ikväll (steg 5): överst i svepvyn. Börjar med Claudes tre val och fylls på med det som svepas höger under sessionen. ”Välj” på varje titel sätter kvällens val på sessionen, och toasten efter ett svep höger har ”Välj för ikväll”. Förstavyn är fortfarande startvyn och svepet.
