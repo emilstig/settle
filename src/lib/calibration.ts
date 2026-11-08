@@ -13,7 +13,9 @@ import {
 export const CALIBRATION_SIZE = 20;
 /** TMDB pages fetched per round, and the most pages to look through. */
 const BATCH = 3;
-const MAX_PAGES = 15;
+const MAX_PAGES = 30;
+/** Answered titles per page, roughly: the four lists overlap, so less than 80. */
+const TITLES_PER_PAGE = 60;
 const TYPES: MediaType[] = ["movie", "tv"];
 /**
  * Two sources take turns: the most voted (widely seen) and the best rated with
@@ -67,10 +69,13 @@ export async function getCalibrationCards(
   // Fetch extra so spreading over genres and film series still leaves enough.
   const target = CALIBRATION_SIZE * 2;
 
-  // Fetch pages in batches until there are enough unanswered titles.
+  // Fetch pages in batches until there are enough unanswered titles. The
+  // more someone has answered, the further down they start: each page of the
+  // four lists holds up to 80 titles, and the first pages get used up.
+  const startPage = Math.max(1, Math.floor(done.size / TITLES_PER_PAGE));
   for (
-    let first = 1;
-    first <= MAX_PAGES && hits.length < target;
+    let first = startPage;
+    first < startPage + MAX_PAGES && hits.length < target;
     first += BATCH
   ) {
     const pages = Array.from({ length: BATCH }, (_, i) => first + i);
