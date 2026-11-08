@@ -223,7 +223,12 @@ export async function pickThree(
         input,
         payload,
         valid
-          ? { attempt, ...valid }
+          ? // keys: which titles were shown in the top 3, so they can rest.
+            {
+              attempt,
+              ...valid,
+              keys: valid.picks.map((p) => key(cards[p.id - 1])),
+            }
           : { attempt, error: "invalid", raw: text },
         latency,
       );
@@ -247,8 +252,41 @@ export async function pickThree(
   }
 
   // Fallback: the best rated candidates, without reasons.
-  return [...cards]
+  const fallback = [...cards]
     .sort((a, b) => (b.vote_average ?? 0) - (a.vote_average ?? 0))
     .slice(0, 3)
     .map((c) => ({ key: key(c), slot: "safe" as const, reason: null }));
+  await logRun(
+    input,
+    payload,
+    { fallback: true, keys: fallback.map((f) => f.key) },
+    0,
+  );
+  return fallback;
+}
+
+/** How long a top 3 pick rests before it can be a top 3 pick again. */
+const PICK_REST_MS = 3 * 24 * 3600 * 1000;
+
+/**
+ * Titles shown among the top 3 in the last 3 days. The user saw them and did
+ * not choose them for that evening, so the next sessions show something else.
+ */
+export async function recentPicks(userId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - PICK_REST_MS).toISOString();
+  const { data, error } = await supabase
+    .from("suggest_runs")
+    .select("output")
+    .eq("user_id", userId)
+    .eq("prompt", "pick")
+    .gte("created_at", since);
+  if (error) throw error;
+  const keys = new Set<string>();
+  for (const row of data) {
+    const out = row.output as { keys?: unknown };
+    if (Array.isArray(out?.keys))
+      for (const k of out.keys) if (typeof k === "string") keys.add(k);
+  }
+  return keys;
 }

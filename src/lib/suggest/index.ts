@@ -3,7 +3,7 @@ import { key, type Card, type DeckFilters } from "@/lib/deck";
 import type { Group } from "@/lib/groups";
 import { buildGroupHistory, type TasteProfile } from "@/lib/profile";
 import { extraCandidates, listCandidates } from "./candidates";
-import { pickThree } from "./pick";
+import { pickThree, recentPicks } from "./pick";
 
 /** About 20 candidates for prompt 2, per the project doc. */
 const FROM_DECK = 12;
@@ -57,21 +57,25 @@ export async function withPicks({
       affinity: profile.affinity,
       skip: new Set([...shown, ...deck.map(key)]),
     };
-    const [extras, fromLists, groupHistory] = await Promise.all([
+    const [extras, fromLists, groupHistory, rested] = await Promise.all([
       extraCandidates(ctx, EXTRAS),
       // Rotated per session and page.
       listCandidates({ ...ctx, seed: `${sessionId}:${shown.length}` }, comfort),
       buildGroupHistory(userId, group),
+      recentPicks(userId),
     ]);
 
     const byKey = new Map<string, Card>();
     // List titles only once per session, not on every page.
     const freshFromLists = fromLists.filter((c) => !shown.includes(key(c)));
-    for (const c of [
+    // Top 3 picks from the last 3 days rest, so each evening starts anew.
+    const pool = [
       ...freshFromLists,
-      ...deck.slice(0, FROM_DECK),
+      ...deck.slice(0, FROM_DECK + rested.size),
       ...extras,
-    ]) {
+    ];
+    for (const c of pool) {
+      if (rested.has(key(c))) continue;
       if (!byKey.has(key(c)) && byKey.size < MAX_CANDIDATES)
         byKey.set(key(c), c);
     }
