@@ -66,7 +66,8 @@ watchlist (lista av {group, interest}).
 
 Regler:
 1. Välj bara id:n ur kandidatlistan. Hitta aldrig på titlar.
-2. Sedda titlar bara om comfort = true. Föredra då my_rating 3
+2. Sedda titlar bara om comfort = true, utom de med watchlist
+   "rewatch" för aktuell grupp, som får väljas alltid. Föredra då my_rating 3
    och times_seen "many", men inte sedda senaste 6 månaderna.
 3. Watchlist för aktuell grupp väger tyngst: "rewatch" och
    "want" först, "maybe" därefter.
