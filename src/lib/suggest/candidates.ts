@@ -163,6 +163,8 @@ export async function listCandidates(
     seed: string;
   },
   comfort: boolean,
+  /** False when the mood asks for something new: no se igen or loved titles. */
+  allowSeen = true,
 ): Promise<Card[]> {
   const supabase = await createClient();
   const sixMonthsAgo = new Date(Date.now() - SIX_MONTHS_MS).toISOString();
@@ -205,8 +207,10 @@ export async function listCandidates(
   const refs = [
     ...pick(of("want"), FROM_LIST.want, "want"),
     ...pick(of("maybe"), FROM_LIST.maybe, "maybe"),
-    ...pick(of("rewatch"), FROM_LIST.rewatch, "rewatch"),
-    ...pick((loved.data ?? []) as Ref[], FROM_LIST.loved, "loved"),
+    ...(allowSeen ? pick(of("rewatch"), FROM_LIST.rewatch, "rewatch") : []),
+    ...(allowSeen
+      ? pick((loved.data ?? []) as Ref[], FROM_LIST.loved, "loved")
+      : []),
   ];
   const unique = [...new Map(refs.map((r) => [key(r), r])).values()];
   if (unique.length === 0) return [];

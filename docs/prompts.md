@@ -21,16 +21,23 @@ Fritext: {{MOOD_TEXT}}
 
 Regler:
 - Använd bara genre-id:n från listan ovan.
-- Sätt fält till null om inget antyder dem.
+- Sätt fält till null eller tom lista om inget antyder dem.
+- with_genres betyder någon av genrerna, inte alla.
+- "spännande" → thriller, kriminal och mysterium; "lätt", "rolig" → komedi.
 - "trött", "något tryggt", "hjärndöd" → comfort: true
-- "något nytt", "överraska mig" → novelty: "high"
+- "något nytt", "överraska mig", "inte sett" → novelty: "high"
+  och comfort: false
 - Tolka tid generöst: "en film före läggdags" ≈ max 110 min.
+- "höga betyg", "bra betyg" → min_vote 7.5. Annars null.
+- Land, region eller språk → languages med ISO 639-1-koder
+  ("skandinaviskt" → ["sv", "da", "no"], "koreanskt" → ["ko"]).
 - Grupp "family" → without_genres ska innehålla skräck och thriller.
 - vibe: 3–8 ord som fångar stämningen, används i nästa steg.
 
 {
   "media_type": "movie" | "tv" | "any",
   "with_genres": [id], "without_genres": [id],
+  "languages": [string],
   "max_runtime": number | null,
   "min_vote": number | null,
   "era": { "from": number | null, "to": number | null },
@@ -66,17 +73,21 @@ watchlist (lista av {group, interest}).
 
 Regler:
 1. Välj bara id:n ur kandidatlistan. Hitta aldrig på titlar.
-2. Sedda titlar bara om comfort = true, utom de med watchlist
-   "rewatch" för aktuell grupp, som får väljas alltid. Föredra då my_rating 3
-   och times_seen "many", men inte sedda senaste 6 månaderna.
-3. Watchlist för aktuell grupp väger tyngst: "rewatch" och
-   "want" först, "maybe" därefter.
+2. Sedda titlar (my_rating eller times_seen satt):
+   - aldrig om novelty = "high" eller humöret ber om något nytt
+     eller osett
+   - annars bara om comfort = true eller watchlist har "rewatch"
+     för aktuell grupp
+   - högst en sedd titel bland de tre, utom när comfort = true
+   - föredra my_rating 3 som inte setts de senaste 6 månaderna
+3. Watchlist för aktuell grupp väger tyngst: "want" först,
+   "maybe" därefter.
 4. Grupp "family": titeln ska vara lämplig för youngest_age och
    helst fungera för de vuxna också. Gruppens historik väger
    tyngre än den personliga profilen.
 5. Variera: ett säkert kort, ett från listan eller nära
    favoriterna, ett oväntat (hoppa över om novelty = "low").
-6. Motivering: svenska, max 15 ord, konkret, och den ska handla
+6. Motivering: svenska, högst 15 ord, konkret, och den ska handla
    om användaren, inte bara om filmen.
    - Finns en relevant titel i profilen: grunda i den
      ("Samma torra humor som Fargo, som du älskar").
@@ -85,7 +96,13 @@ Regler:
    - Annars: beskriv filmens känsla.
    - Kan gärna kombineras ("Lätt som du ville, med samma humor
      som Grand Budapest Hotel").
+   - Skiljer sig tonen från favoriterna, säg det
+     ("Lättsammare än Mindhunter, men samma jakt på en mördare").
    Nämn bara titlar som finns i profilen eller kandidaterna.
+7. Skriv som appen: "du har sparat den" om titeln finns på
+   aktuell grupps lista, "du ville se den igen" om den har
+   "rewatch". Nämn inte andra gruppers listor. Skriv aldrig
+   orden rewatch, watchlist, slot, kandidat eller id.
 
 { "picks": [
   { "id": number,

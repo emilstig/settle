@@ -11,6 +11,7 @@ import {
 import { getGroups } from "@/lib/groups";
 import { buildProfile } from "@/lib/profile";
 import { withPicks } from "@/lib/suggest";
+import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
 import { getTrailerKey } from "@/lib/tmdb/videos";
@@ -73,7 +74,7 @@ export async function startSession(
   const group = groups.find((g) => g.id === groupId);
   if (!group) throw new Error("Unknown group");
 
-  const filters = buildFilters(group, quickPicks);
+  let filters = buildFilters(group, quickPicks);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sessions")
@@ -88,13 +89,33 @@ export async function startSession(
     .single();
   if (error) throw error;
 
-  const [providerIds, profile] = await Promise.all([
+  // Prompt 1 turns the mood into filters. Without a mood it is skipped, and
+  // if it fails the rule-based filters stay.
+  const hasMood = moodText.trim() !== "" || quickPicks.length > 0;
+  const [providerIds, profile, parsed] = await Promise.all([
     getUserProviderIds(),
     buildProfile(user.id),
+    hasMood
+      ? parseMood({
+          sessionId: data.id,
+          userId: user.id,
+          group,
+          moodText,
+          quickPicks,
+        })
+      : Promise.resolve(null),
   ]);
+  if (parsed) {
+    filters = await applyParsed(filters, parsed, group);
+    const { error: updateError } = await supabase
+      .from("sessions")
+      .update({ filters })
+      .eq("id", data.id);
+    if (updateError) throw updateError;
+  }
   // Keep loading until there is something to show, so the start button
   // waits instead of opening an empty deck.
-  const { cards, page, hasMore } = await loadEnough(
+  let { cards, page, hasMore } = await loadEnough(
     {
       userId: user.id,
       groupId,
@@ -107,6 +128,31 @@ export async function startSession(
     [],
     MIN_START_CARDS,
   );
+  // Prompt 1's filters can be too narrow. Loosen them step by step until
+  // there is enough to show, and keep what was used on the session.
+  for (const level of [1, 2] as const) {
+    if (!parsed || cards.length >= MIN_START_CARDS) break;
+    filters = relax(filters, level);
+    ({ cards, page, hasMore } = await loadEnough(
+      {
+        userId: user.id,
+        groupId,
+        providerIds,
+        filters,
+        seed: data.id,
+        affinity: profile.affinity,
+      },
+      1,
+      [],
+      MIN_START_CARDS,
+    ));
+    const { error: relaxError } = await supabase
+      .from("sessions")
+      .update({ filters })
+      .eq("id", data.id);
+    if (relaxError) throw relaxError;
+  }
+
   // Claude's three picks first, with a reason each.
   const deck = await withPicks({
     sessionId: data.id,

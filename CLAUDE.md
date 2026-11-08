@@ -50,7 +50,7 @@ Alla nycklar används bara på servern (route handlers eller server actions), al
 - Cacha i `titles` i högst 6 månader. Uppdatera `providers_se` oftare (cirka en gång i veckan), eftersom katalogerna byts.
 
 **Anthropic**
-- Prompt 1 (humör till filter): `claude-haiku-5-5`
+- Prompt 1 (humör till filter): `claude-haiku-5-5`, utan tänkande. Körs bara när fritext eller snabbval finns. Tolkningen läggs ovanpå gruppens regler (Familjs åldersgräns ligger kvar), och ger filtren färre än 10 titlar lättas de i två steg: lägre betygskrav, sedan inga genrer. Språket behålls.
 - Prompt 2 (välj tre): `claude-sonnet-5-5`
 - Begär strikt JSON och validera svaret med zod. Vid ogiltigt svar: försök en gång till, annars fall tillbaka på kandidaterna sorterade efter TMDB-betyg.
 

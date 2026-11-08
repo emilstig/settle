@@ -32,6 +32,14 @@ export const deckFiltersSchema = z.object({
   sortBy: z.string(),
   firstPage: z.number().int().min(1),
   maxCert: z.number().int().nullable(),
+  /** What prompt 1 read from the mood, passed on to prompt 2. */
+  parsed: z
+    .object({
+      comfort: z.boolean(),
+      novelty: z.enum(["low", "medium", "high"]),
+      vibe: z.string(),
+    })
+    .optional(),
 });
 export type DeckFilters = z.infer<typeof deckFiltersSchema>;
 

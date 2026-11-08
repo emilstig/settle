@@ -44,8 +44,8 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 ## 5. Claude
 - [x] Prompt 2 enligt `docs/prompts.md`, validerad med zod, med ett nytt försök och reserv på TMDB-betyg
 - [x] Kandidater från fler källor: toppen av leken, välrecenserat i dina genrer och nyare titlar
-- [ ] Prompt 1 enligt `docs/prompts.md`, validerad med zod
-- [ ] Justera prompt 2 (i projektdokumentet först):
+- [x] Prompt 1 enligt `docs/prompts.md`, validerad med zod, med reserv på reglerna och filter som lättas steg för steg när de ger för få titlar
+- [x] Justera prompt 2 (i projektdokumentet först):
   - högst ett se igen-val av tre, fler bara vid tryggt humör
   - sedda titlar, även se igen, väljs inte när humöret säger att det ska vara något nytt eller osett
   - motiveringen använder appens ord: ”Du har sparat den” för aktuell grupp, nämner inte andra gruppers listor (det gör etiketten), ”se igen” i stället för rewatch, och inga interna ord som slot eller watchlist

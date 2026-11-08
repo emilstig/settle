@@ -43,12 +43,16 @@ export async function withPicks({
   shown?: string[];
 }): Promise<Card[]> {
   try {
-    const comfort = quickPicks.includes("Något tryggt");
-    const novelty = quickPicks.includes("Överraska mig")
-      ? "high"
-      : comfort
-        ? "low"
-        : "medium";
+    // Prompt 1's reading when there is one, otherwise the quick picks.
+    const comfort =
+      filters.parsed?.comfort ?? quickPicks.includes("Något tryggt");
+    const novelty =
+      filters.parsed?.novelty ??
+      (quickPicks.includes("Överraska mig")
+        ? "high"
+        : comfort
+          ? "low"
+          : "medium");
     const ctx = {
       userId,
       groupId: group.id,
@@ -60,7 +64,12 @@ export async function withPicks({
     const [extras, fromLists, groupHistory, rested] = await Promise.all([
       extraCandidates(ctx, EXTRAS),
       // Rotated per session and page.
-      listCandidates({ ...ctx, seed: `${sessionId}:${shown.length}` }, comfort),
+      // Seen titles stay out when the mood asks for something new.
+      listCandidates(
+        { ...ctx, seed: `${sessionId}:${shown.length}` },
+        comfort,
+        novelty !== "high",
+      ),
       buildGroupHistory(userId, group),
       recentPicks(userId),
     ]);
@@ -90,7 +99,7 @@ export async function withPicks({
         groupHistory,
         moodText,
         quickPicks,
-        filters: { comfort, novelty },
+        filters: { comfort, novelty, vibe: filters.parsed?.vibe ?? null },
         candidates,
       },
       new Map(groups.map((g) => [g.id, g.name])),

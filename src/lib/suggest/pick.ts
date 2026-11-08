@@ -41,7 +41,11 @@ export type PickInput = {
   moodText: string;
   quickPicks: string[];
   /** Rule-based reading of the quick picks until prompt 1 exists. */
-  filters: { comfort: boolean; novelty: "low" | "medium" | "high" };
+  filters: {
+    comfort: boolean;
+    novelty: "low" | "medium" | "high";
+    vibe: string | null;
+  };
   candidates: Card[];
 };
 
