@@ -101,7 +101,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - Toppval ikväll (steg 5): överst i svepvyn. Börjar med Claudes tre val och fylls på med det som svepas höger under sessionen. ”Välj” på varje titel sätter kvällens val på sessionen, och toasten efter ett svep höger har ”Välj för ikväll”. Förstavyn är fortfarande startvyn och svepet.
 - Lista (steg 6): rader om användaren, inte genrer: Vill se per grupp, Att se om, Fortsätt titta.
 - Detaljvy: helsida med motivering, handling, betyg, fakta och trailer, och en fast knapprad för beslut. ”Välj den här” sätter valet på sessionen.
-- Kalibrering: höger gillar, upp älskar, vänster ogillade, ner inte sett. Sist i onboarding efter tjänsterna, går att hoppa över eller avsluta med ”Klar”. Nås också från Profil och från ett kort i Hitta när profilen är tunn.
+- Kalibrering: höger gillar, upp älskar, vänster ogillade, ner inte sett. Sist i onboarding efter tjänsterna, går att hoppa över eller avsluta med ”Klar”. Slutskärmen har ”Fortsätt kalibrera” som hämtar 20 nya titlar. Nås också från Profil och från ett kort i Hitta när profilen är tunn.
 - Yngsta barnets ålder frågas första gången Familj väljs i startvyn. Utan svar gäller 7 år.
 - Efter tittning: klockan med siffra frågar om gårdagens val (betyg, eller status för serier). Push-notis först efter MVP.
 - Allt ska också gå att göra med knappar, inte bara gester.

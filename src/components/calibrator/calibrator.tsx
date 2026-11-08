@@ -12,6 +12,7 @@ import {
 import find from "@/app/(app)/find/find.module.css";
 import {
   finishCalibration,
+  moreCalibrationCards,
   markNotSeen,
   rateCalibration,
   undoCalibration,
@@ -44,12 +45,15 @@ const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
 
 /** Rate well-known titles with swipes: right likes, up loves, left disliked, down not seen. */
 export function Calibrator({
-  cards,
+  cards: initialCards,
   mode,
 }: {
   cards: Card[];
   mode: "onboarding" | "app";
 }) {
+  const [cards, setCards] = useState(initialCards);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [noMore, setNoMore] = useState(initialCards.length === 0);
   const [index, setIndex] = useState(0);
   const [history, setHistory] = useState<Step[]>([]);
   const [rated, setRated] = useState(0);
@@ -100,6 +104,26 @@ export function Calibrator({
     if (last.rated) setRated((n) => n - 1);
     const undo = await last.write;
     if (undo) await undoCalibration(undo).catch((e) => console.error(e));
+  }
+
+  async function continueCalibrating() {
+    setLoadingMore(true);
+    try {
+      // Let pending answers land so the next round skips them.
+      await Promise.all(history.map((h) => h.write));
+      const next = await moreCalibrationCards();
+      if (next.length === 0) {
+        setNoMore(true);
+        return;
+      }
+      setCards(next);
+      setIndex(0);
+      setHistory([]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   function finish() {
@@ -170,15 +194,26 @@ export function Calibrator({
               {rated === 0
                 ? "Inga betyg den här gången. Du kan kalibrera senare."
                 : `Tack! ${rated} betyg är sparade, och förslagen blir mer dina.`}
+              {noMore && " Det finns inga fler titlar att kalibrera just nu."}
             </p>
             <button
               type="button"
               className="primary"
               onClick={finish}
-              disabled={finishing}
+              disabled={finishing || loadingMore}
             >
               {finishing ? "Sparar …" : doneLabel}
             </button>
+            {!noMore && (
+              <button
+                type="button"
+                className="link"
+                onClick={continueCalibrating}
+                disabled={finishing || loadingMore}
+              >
+                {loadingMore ? "Hämtar fler …" : "Fortsätt kalibrera"}
+              </button>
+            )}
           </div>
         )}
       </div>

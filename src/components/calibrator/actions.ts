@@ -3,6 +3,9 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { getCalibrationCards } from "@/lib/calibration";
+import type { Card } from "@/lib/deck";
+import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
 
 const refSchema = z.object({
@@ -29,12 +32,10 @@ export async function rateCalibration(input: z.input<typeof rateSchema>) {
         { ...match, rating, group_id: null },
         { onConflict: "user_id,tmdb_id,media_type" },
       ),
-    supabase
-      .from("watch_log")
-      .upsert(match, {
-        onConflict: "user_id,tmdb_id,media_type",
-        ignoreDuplicates: true,
-      }),
+    supabase.from("watch_log").upsert(match, {
+      onConflict: "user_id,tmdb_id,media_type",
+      ignoreDuplicates: true,
+    }),
   ]);
   if (r.error) throw r.error;
   if (w.error) throw w.error;
@@ -105,4 +106,10 @@ export async function finishCalibration(mode: "onboarding" | "app") {
     await supabase.auth.refreshSession();
   }
   redirect("/");
+}
+
+/** "Fortsätt kalibrera": the next titles, skipping everything already answered. */
+export async function moreCalibrationCards(): Promise<Card[]> {
+  const user = await getCurrentUser();
+  return getCalibrationCards(user.id, await getUserProviderIds());
 }
