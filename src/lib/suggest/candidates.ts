@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import {
   certNumber,
+  getDeclined,
   getExcluded,
   key,
   toCard,
@@ -152,14 +153,14 @@ export async function seenCandidates(
 ): Promise<Card[]> {
   const supabase = await createClient();
   const sixMonthsAgo = new Date(Date.now() - SIX_MONTHS_MS).toISOString();
-  const [rewatch, loved] = await Promise.all([
+  const [rewatch, loved, declined] = await Promise.all([
     supabase
       .from("watchlist")
       .select("tmdb_id, media_type")
       .eq("user_id", ctx.userId)
       .eq("group_id", ctx.groupId)
       .eq("interest", "rewatch")
-      .limit(5),
+      .limit(20),
     comfort
       ? supabase
           .from("ratings")
@@ -167,8 +168,9 @@ export async function seenCandidates(
           .eq("user_id", ctx.userId)
           .eq("rating", 3)
           .lt("updated_at", sixMonthsAgo)
-          .limit(5)
+          .limit(20)
       : Promise.resolve({ data: [], error: null }),
+    getDeclined(ctx.userId, ctx.groupId),
   ]);
   if (rewatch.error) throw rewatch.error;
   if (loved.error) throw loved.error;
@@ -177,7 +179,10 @@ export async function seenCandidates(
     tmdb_id: number;
     media_type: MediaType;
   }[];
-  const unique = [...new Map(refs.map((r) => [key(r), r])).values()];
+  // "Inte nu", "vet inte" and "inte vår grej" apply to se igen titles too.
+  const unique = [...new Map(refs.map((r) => [key(r), r])).values()]
+    .filter((r) => !declined.has(key(r)))
+    .slice(0, 5);
   if (unique.length === 0) return [];
   const [rows, genres] = await Promise.all([
     getTitles(unique),

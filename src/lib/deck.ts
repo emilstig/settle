@@ -135,23 +135,18 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  * group's own list. "Inte nu" and "Vet inte" are about the moment and hide a
  * title everywhere for 7 days.
  */
-export async function getExcluded(
+/**
+ * Titles the user turned down for now: "inte nu" and "vet inte" anywhere in
+ * the last 7 days, and "inte min grej" in this group. Applies to every
+ * candidate, se igen titles included.
+ */
+export async function getDeclined(
   userId: string,
   groupId: string,
 ): Promise<Set<string>> {
   const supabase = await createClient();
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const [ratings, seen, notNow, notForUs, listed] = await Promise.all([
-    supabase
-      .from("ratings")
-      .select("tmdb_id, media_type")
-      .eq("user_id", userId)
-      .eq("rating", -1),
-    supabase
-      .from("watch_log")
-      .select("tmdb_id, media_type")
-      .eq("user_id", userId),
-    // "Inte nu" and "Vet inte" (swipe down) hide a title for a week.
+  const [notNow, notForUs] = await Promise.all([
     supabase
       .from("interactions")
       .select("tmdb_id, media_type")
@@ -167,25 +162,43 @@ export async function getExcluded(
       .eq("action", "left")
       .eq("reason", "not_for_me")
       .eq("sessions.group_id", groupId),
+  ]);
+  if (notNow.error) throw notNow.error;
+  if (notForUs.error) throw notForUs.error;
+  return new Set([...notNow.data, ...notForUs.data].map(key));
+}
+
+/**
+ * Everything the deck leaves out: disliked, seen, turned down (see
+ * getDeclined) and anything already on this group's list.
+ */
+export async function getExcluded(
+  userId: string,
+  groupId: string,
+): Promise<Set<string>> {
+  const supabase = await createClient();
+  const [ratings, seen, declined, listed] = await Promise.all([
+    supabase
+      .from("ratings")
+      .select("tmdb_id, media_type")
+      .eq("user_id", userId)
+      .eq("rating", -1),
+    supabase
+      .from("watch_log")
+      .select("tmdb_id, media_type")
+      .eq("user_id", userId),
+    getDeclined(userId, groupId),
     supabase
       .from("watchlist")
       .select("tmdb_id, media_type")
       .eq("user_id", userId)
       .eq("group_id", groupId),
   ]);
-  for (const r of [ratings, seen, notNow, notForUs, listed])
-    if (r.error) throw r.error;
+  for (const r of [ratings, seen, listed]) if (r.error) throw r.error;
 
-  const out = new Set<string>();
-  for (const r of [
-    ...ratings.data!,
-    ...seen.data!,
-    ...notNow.data!,
-    ...notForUs.data!,
-    ...listed.data!,
-  ]) {
+  const out = new Set<string>(declined);
+  for (const r of [...ratings.data!, ...seen.data!, ...listed.data!])
     out.add(key(r));
-  }
   return out;
 }
 
