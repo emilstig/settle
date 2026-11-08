@@ -1,21 +1,24 @@
 # Settle
 
-Arbetsnamn i butikerna: *Settle: What to Watch*. Prototypen heter fortfarande Soffan.
+Namnet är Settle, med butiksnamnet *Settle: What to Watch*.
 
 En app som hjälper användaren att snabbt hitta något att titta på bland de streamingtjänster hen faktiskt har. Användaren anger vem som tittar och vilket humör hen är i, swipear bland förslag och appen lär sig smaken över tid.
 
-**MVP-hypotes:** Soffan gör att användaren hittar något att titta på snabbare än genom att scrolla i tjänsternas egna appar. Bygg inget som inte hjälper till att testa det.
+**MVP-hypotes:** Settle gör att användaren hittar något att titta på snabbare än genom att scrolla i tjänsternas egna appar. Bygg inget som inte hjälper till att testa det.
+
+Det som skiljer Settle från konkurrenterna är profil och historik per grupp, check-in efter tittning och fokus på svensk katalog och svenska åldersgränser.
 
 ## Referenser
 
+- **Projektdokumentet** ”Settle – projektdokument” (https://claude.ai/artifact/43p5krNWS45a34e51DJs99) är sanningen för alla produktbeslut. Läs det med Claude Docs-verktygen innan varje steg. Där repot och dokumentet skiljer sig gäller dokumentet. När ett delsteg är klart: bocka av det under Byggplan och status i dokumentet och lägg till en rad i Beslutsloggen om något ändrades på vägen. Rader i Beslutsloggen med ”Nej” under ”I repot” förs in här och markeras sedan ”Ja”.
 - `docs/PLAN.md`: byggordningen. Jobba ett steg i taget och bocka av.
-- `docs/prompts.md`: de två Claude-promptarna. Ändra dem bara där, så att det finns en sanning.
-- `docs/prototype.html`: klickbar UX-prototyp och spec för flöden, gester och copy. Öppna den i en webbläsare. Den har påhittad data. Följ flödet, inte koden.
+- `docs/prompts.md`: kopia av sektionen Prompter i projektdokumentet. Ändra promptarna i dokumentet och synka hit.
+- `docs/prototype.html`: klickbar UX-prototyp och spec för flöden, gester och copy, samma som den publicerade versionen på https://claude.ai/artifact/5tGfN3hKPqmzkH2d6yKkQi. Den har påhittad data. Följ flödet, inte koden.
 
 ## Stack
 
-- Next.js (App Router, TypeScript, server components där det går)
-- Supabase: Postgres, Auth med magic link, Row Level Security på alla användartabeller
+- Next.js (App Router, TypeScript, server components där det går). Yarn och Node 24.
+- Supabase: Postgres, Auth med magic link, Row Level Security på alla användartabeller. De nya nycklarna används: publishable (`sb_publishable_…`) och secret (`sb_secret_…`), den senare bara på servern.
 - PWA: manifest och ikon så att appen kan läggas på hemskärmen. Ingen push i MVP.
 - Mobil först. Desktop behöver bara fungera.
 
@@ -59,22 +62,28 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - `sessions`: id, user_id, group_id, mood_text, quick_picks (text[]), filters (jsonb), started_at, picked_tmdb_id, picked_at
 - `suggest_runs`: id, session_id, prompt (`parse`/`pick`), input (jsonb), output (jsonb), model, latency_ms, created_at
 
-**Grupper i stället för fasta kategorier.** Allt som beror på sällskap pekar på `group_id`. I MVP:n visar UI:t bara de fyra förvalda grupperna. Medlemmar (kopplade konton och profiler utan konto), inbjudningar och egna grupper kommer senare, men datamodellen ska klara dem utan migrering av befintliga rader.
+**Grupper i stället för fasta kategorier.** Allt som beror på sällskap pekar på `group_id`. I MVP:n visar UI:t bara de fyra förvalda grupperna. Medlemmar (kopplade konton och profiler utan konto), inbjudningar och egna grupper kommer senare, men datamodellen ska klara dem utan migrering av befintliga rader. Appen ska vara fullt användbar även om bara en person i gruppen använder den.
 
 ## Domänregler
 
-- **Ingen titel som användaren har ogillat eller avbrutit föreslås igen.** ”Inte nu” döljer en titel i 7 dagar. ”Inte min grej” räknas som ett mildt ogillande.
+- **Ingen titel som användaren har ogillat eller avbrutit föreslås igen.** ”Inte nu” döljer en titel i 7 dagar. ”Inte min grej” räknas som ett milt ogillande.
 - **Sedda titlar** föreslås bara när humöret är tryggt (`comfort: true`), och då helst sådana som fått betyget älskar och setts många gånger men inte de senaste 6 månaderna.
 - **Watchlist är per grupp.** ”Se igen med Familj” ska väga tungt när gruppen är Familj.
 - **Familj** betyder att alla tittar tillsammans: filtrera på svensk åldersgräns utifrån `youngest_age` (standard 7 år om den saknas) och inget skrämmande. Förslagen ska också fungera för de vuxna.
 - **Gruppens egen historik** (vad som setts och betygsatts med gruppen) väger tyngre än den personliga profilen när gruppen inte är Själv.
 - **Smakprofilen** (`{{PROFILE}}` i prompt 2) byggs på servern vid varje förslag och hålls kort, runt 30 rader: topp 10 älskar, de senaste 10 betygen, ogillade och avbrutna från senaste året, och en genreprofil. Genreprofilen viktar älskar 3, gillar mycket 2, gillar 1, ogillar −2 och avbröt −1, med en halveringstid på ett år.
-- **Motiveringar** grundas i första hand i profilen, i andra hand i humör, tid eller sällskap, och beskriver bara filmen om inget av det finns. Se `docs/prompts.md`.
+- **Motiveringar** handlar om användaren, inte bara om filmen. De grundas i första hand i profilen, i andra hand i humör, tid eller grupp, och beskriver bara filmens känsla om inget av det finns. Se `docs/prompts.md`.
 
 ## UX-regler
 
-- Följ flödena i `docs/prototype.html`: startvy, swipe, detaljvy, sett-sheet, Lista, Profil, Efter tittning.
-- Swipe i Hitta: höger betyder vill se (`maybe`), vänster betyder nej (orsaks-chips i 2 sekunder, standard ”inte nu”), upp betyder sett. Tryck öppnar detaljvyn.
+- Följ flödena i `docs/prototype.html`: startvy, swipe, detaljvy, sett-sheet, Lista, Profil, Efter tittning. Tre flikar (Hitta, Lista, Profil) och en klocka i headern för Efter tittning.
+- Startvy: ”Vem tittar ikväll?” med grupperna, ”Vad är du sugen på?” med fritext och snabbvalen Lätt, Spännande, Kort, Något tryggt och Överraska mig, sedan ”Visa förslag” eller ”Bara swipea”. Valet visas som en etikett överst i kortleken och går att trycka på för att ändra.
+- Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp, ”Vill gärna” i toasten ger `want`), vänster betyder nej (orsaks-chips i 2 sekunder: ”Inte nu” som standard, ”Inte min grej”, ”Sett den”), upp betyder sett och öppnar sett-sheet. Tryck öppnar detaljvyn och loggas som `open_detail`.
+- Kortet visar titel, år, typ, längd, genrer och motiveringen från prompt 2.
+- Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” med aktuell grupp förvald. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
+- Detaljvy: helsida med motivering, handling, betyg, fakta och trailer, och en fast knapprad för beslut. ”Välj den här” sätter valet på sessionen.
+- Kalibrering (från Profil): höger gillar, upp älskar, vänster ogillade, ner inte sett.
+- Efter tittning: klockan med siffra frågar om gårdagens val (betyg, eller status för serier). Push-notis först efter MVP.
 - Allt ska också gå att göra med knappar, inte bara gester.
 - Ångra gäller senaste swipen, inklusive det den skrev till databasen.
 
@@ -83,4 +92,4 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - UI-text på svenska, i sentence case, med typografiska citattecken (” ”) och apostrofer (’). Kod, tabeller och variabler på engelska.
 - Använd inga påhittade siffror eller tjänster i UI:t. Visa bara det TMDB returnerar.
 - Varje steg i `docs/PLAN.md` ska sluta med något som går att använda på telefonen. Committa per delsteg.
-- Bygg inte sådant som står under ”Inte i MVP” i planen utan att fråga först.
+- Bygg inte sådant som står under ”Inte i MVP” utan ett beslut som först förts in i Beslutsloggen i projektdokumentet.

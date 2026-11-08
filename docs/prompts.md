@@ -1,5 +1,7 @@
 # Prompts
 
+Kopia av sektionen Prompter i projektdokumentet (se `CLAUDE.md`). Ändra promptarna där och synka hit.
+
 Variabler inom `{{ }}` fylls i på servern. Båda promptarna kräver strikt JSON. Validera med zod.
 
 ## Prompt 1: humör till filter
@@ -90,4 +92,4 @@ Regler:
     "reason": string } ] }
 ```
 
-Kortleken i Hitta börjar med de tre valda titlarna och fortsätter sedan med resten av kandidaterna sorterade efter genreprofilen. När kortleken tar slut körs prompt 2 igen på nästa sida med kandidater.
+Kortleken i Hitta börjar med de tre valda titlarna och fortsätter med resten av kandidaterna sorterade efter genreprofilen. När kortleken tar slut körs prompt 2 igen på nästa sida med kandidater.

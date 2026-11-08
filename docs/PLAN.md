@@ -1,6 +1,8 @@
 # Byggplan för MVP:n
 
-Ett steg i taget. Varje steg är klart när kriteriet ”Klart när” är uppfyllt på telefonen.
+Ett steg i taget. Varje steg är klart när kriteriet ”Klart när” är uppfyllt på telefonen. Commit per delsteg.
+
+Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md`). Bocka av på båda ställena.
 
 ## 1. Grund
 - [x] Next.js med TypeScript, Supabase-klient (server och klient)
@@ -63,4 +65,6 @@ Ett steg i taget. Varje steg är klart när kriteriet ”Klart när” är uppfy
 
 ## Inte i MVP
 
-Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen för antal gånger och när senast, redigering av historik, native app.
+Byggs inte utan ett beslut som först förts in i Beslutsloggen i projektdokumentet.
+
+Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, redigering av historik, native app.
