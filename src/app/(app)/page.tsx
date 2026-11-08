@@ -16,7 +16,7 @@ export default async function HomePage() {
         </form>
       </header>
 
-      <h1 className={`q ${styles.q}`}>Vem tittar ikväll?</h1>
+      <h1 className={`q ${styles.title}`}>Vem tittar ikväll?</h1>
       <ul className="chips">
         {groups.map((g) => (
           <li key={g.id} className="chip">

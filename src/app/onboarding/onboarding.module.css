@@ -11,7 +11,9 @@
 .step { color: var(--mute); font-size: 15px; }
 .lead { color: var(--mute); line-height: 1.45; font-size: 17px; }
 .form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; flex: 1; }
-.ages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.ages .chip { display: block; text-align: center; padding: 10px 0; }
+.fieldset { border: 0; min-width: 0; }
+.ages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.ages label { display: block; }
+.ages :global(.chip) { display: flex; align-items: center; justify-content: center; height: 44px; padding: 0; cursor: pointer; }
 .actions { margin-top: auto; display: grid; gap: 6px; padding-top: 16px; }
 .placeholder { height: 220px; }

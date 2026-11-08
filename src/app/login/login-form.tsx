@@ -13,9 +13,10 @@ export function LoginForm() {
     return (
       <form action={action} className={styles.form}>
         <p className={styles.lead}>
-          Vi har skickat ett mejl till <strong>{state.email}</strong>. Tryck på länken, eller skriv
-          in koden här. Koden är bäst om du har lagt appen på hemskärmen.
+          Vi har skickat en länk till <strong>{state.email}</strong>. Öppna mejlet och tryck på
+          länken.
         </p>
+        <p className={styles.lead}>Står det en kod i mejlet kan du skriva in den här i stället.</p>
         <label className={styles.label} htmlFor="code">
           Kod från mejlet
         </label>
@@ -61,7 +62,7 @@ export function LoginForm() {
       <button className="primary" name="intent" value="send" disabled={pending}>
         {pending ? "Skickar …" : "Skicka inloggningslänk"}
       </button>
-      <p className={styles.hint}>Inget lösenord. Du får en länk och en kod på mejlen.</p>
+      <p className={styles.hint}>Inget lösenord. Du får en inloggningslänk på mejlen.</p>
     </form>
   );
 }

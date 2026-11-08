@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { createClient as createPlainClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,7 +29,13 @@ export async function loginAction(prev: LoginState, formData: FormData): Promise
     const parsed = emailSchema.safeParse(String(formData.get("email") ?? "").trim().toLowerCase());
     if (!parsed.success) return { step: "email", error: "Skriv en giltig e-postadress." };
 
-    const supabase = await createClient();
+    // Implicit flow: the link carries the session itself, so it works in any
+    // browser or mail app, not only the one that asked for it.
+    const supabase = createPlainClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      { auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false } },
+    );
     const { error } = await supabase.auth.signInWithOtp({
       email: parsed.data,
       options: { shouldCreateUser: true, emailRedirectTo: `${await siteOrigin()}/auth/confirm` },

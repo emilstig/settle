@@ -35,7 +35,7 @@ async function AgeForm() {
 
   return (
     <form action={finishOnboarding} className={styles.form}>
-      <fieldset>
+      <fieldset className={styles.fieldset}>
         <legend className="visually-hidden">Yngsta barnets ålder i år</legend>
         <div className={styles.ages}>
           {AGES.map((age) => (
