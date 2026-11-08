@@ -71,4 +71,4 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 
 Byggs inte utan ett beslut som först förts in i Beslutsloggen i projektdokumentet.
 
-Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, redigering av historik, rader i Lista som Claude sätter ihop, native app.
+Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, redigering av historik, rader i Lista som Claude sätter ihop, inställningar per grupp (till exempel inga barnfilmer med Själv eller Vänner), native app.
