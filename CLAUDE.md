@@ -97,6 +97,8 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp, ”Vill gärna” i toasten ger `want`), vänster betyder inte nu (sparas som `not_now`; toasten ”Inte nu” visar i 2 sekunder chipsen ”Inte min grej” och ”Sett den”), upp betyder sett och öppnar sett-sheet. Tryck öppnar detaljvyn och loggas som `open_detail`.
 - Kortet visar titel, år, typ, längd, genrer och motiveringen från prompt 2.
 - Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” med aktuell grupp förvald. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
+- Toppval ikväll (steg 5): överst i svepvyn. Börjar med Claudes tre val och fylls på med det som svepas höger under sessionen. ”Välj” på varje titel sätter kvällens val på sessionen, och toasten efter ett svep höger har ”Välj för ikväll”. Förstavyn är fortfarande startvyn och svepet.
+- Lista (steg 6): rader om användaren, inte genrer: Vill se per grupp, Att se om, Fortsätt titta.
 - Detaljvy: helsida med motivering, handling, betyg, fakta och trailer, och en fast knapprad för beslut. ”Välj den här” sätter valet på sessionen.
 - Kalibrering: höger gillar, upp älskar, vänster ogillade, ner inte sett. Sist i onboarding efter tjänsterna, går att hoppa över eller avsluta med ”Klar”. Nås också från Profil och från ett kort i Hitta när profilen är tunn.
 - Yngsta barnets ålder frågas första gången Familj väljs i startvyn. Utan svar gäller 7 år.

@@ -45,12 +45,13 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 - [ ] Rensning av kandidater enligt domänreglerna, innan prompt 2
 - [ ] Logga varje körning i `suggest_runs`
 - [ ] Motiveringen visas på kortet
+- [ ] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
 - [ ] Tillfällig växel: Claude-sortering mot ren TMDB-sortering, för jämförelse
 
 **Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
 
 ## 6. Lista och check-in
-- [ ] Fliken Lista med filter per grupp
+- [ ] Fliken Lista som rader om dig: Vill se per grupp, Att se om, Fortsätt titta
 - [ ] Fliken Profil med betyg, tjänster och Kalibrera
 - [ ] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen
 - [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
@@ -68,4 +69,4 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 
 Byggs inte utan ett beslut som först förts in i Beslutsloggen i projektdokumentet.
 
-Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, redigering av historik, native app.
+Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, redigering av historik, rader i Lista som Claude sätter ihop, native app.
