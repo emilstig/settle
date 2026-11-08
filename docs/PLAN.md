@@ -23,12 +23,12 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 **Klart när:** du ser en lista med riktiga titlar som finns på dina tjänster.
 
 ## 3. Swipen
-- [ ] Startvy: grupp, snabbval, fritext, ”Bara swipea”. Skapar en rad i `sessions`.
-- [ ] Kortlek med gester och knappar enligt prototypen
-- [ ] Höger, vänster med orsaks-chips, upp med sett-sheet (betyg, och se igen med vem)
-- [ ] Detaljvy med handling, betyg, trailer och knappar för beslut
-- [ ] Skriver till `interactions`, `ratings`, `watch_log` och `watchlist`
-- [ ] Ångra för senaste swipen
+- [x] Startvy: grupp, snabbval, fritext, ”Bara swipea”. Skapar en rad i `sessions`.
+- [x] Kortlek med gester och knappar enligt prototypen
+- [x] Höger, vänster med orsaks-chips, upp med sett-sheet (betyg, och se igen med vem)
+- [x] Detaljvy med handling, betyg, trailer och knappar för beslut
+- [x] Skriver till `interactions`, `ratings`, `watch_log` och `watchlist`
+- [x] Ångra för senaste swipen
 
 **Klart när:** du har använt det själv tre kvällar, även om sorteringen är dum.
 

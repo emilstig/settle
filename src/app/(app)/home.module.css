@@ -1,15 +1,4 @@
-.main { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 24px; }
+.main { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 0; }
 .header { display: flex; align-items: center; gap: 8px; }
 .header :global(.logo) { flex: 1; }
-.title { margin-top: 12px; }
-.meta { color: var(--mute); font-size: 15px; }
-.section { display: grid; gap: 4px; margin-top: 16px; }
-.sectionHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.h2 { font-size: 18px; }
-.list { list-style: none; }
-.row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.poster { width: 56px; height: 84px; border-radius: 10px; flex: none; object-fit: cover; background: var(--line); }
-.rowText { display: grid; gap: 2px; min-width: 0; }
-.rowText b { font-size: 17px; }
-.rowText small { color: var(--mute); font-size: 13px; }
-.footer { display: grid; gap: 8px; margin-top: 24px; }
+.links { display: flex; gap: 8px; align-items: center; margin-left: -6px; }
