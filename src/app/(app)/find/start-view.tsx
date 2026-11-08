@@ -190,7 +190,12 @@ export function StartView({
         onClick={onStart}
         disabled={loading}
       >
-        {loading ? "Väljer åt dig …" : "Visa förslag"}
+        {loading
+          ? "Väljer åt dig …"
+          : // The button says what happens: taste only, or what was asked for.
+            mood.trim() || quickPicks.size > 0
+            ? "Visa förslag"
+            : "Föreslå utifrån min smak"}
       </button>
 
       <div className={styles.startFooter}>{footer}</div>
