@@ -1,5 +1,21 @@
 # Settle
 
+## Gemensam spec
+
+Produktbeslut finns i Claude-dokumentet "Settle – projektdokument":
+https://claude.ai/artifact/43p5krNWS45a34e51DJs99
+
+- Läs dokumentet innan du börjar på ett nytt steg i planen.
+- Dokumentet är sanningen. Där repot skiljer sig, uppdatera repot.
+- När ett delsteg är klart: ändra status i tabellen Byggplan och
+  status i dokumentet.
+- När något ändras under bygget: lägg till en rad i Beslutsloggen
+  (nyast först) och uppdatera rätt sektion i dokumentet.
+- Promptarna ändras bara i dokumentet. docs/prompts.md är en kopia.
+- Skapa inga egna dokumentationssidor.
+
+## Produkten
+
 Namnet är Settle, med butiksnamnet *Settle: What to Watch*.
 
 En app som hjälper användaren att snabbt hitta något att titta på bland de streamingtjänster hen faktiskt har. Användaren anger vem som tittar och vilket humör hen är i, swipear bland förslag och appen lär sig smaken över tid.
@@ -10,7 +26,7 @@ Det som skiljer Settle från konkurrenterna är profil och historik per grupp, c
 
 ## Referenser
 
-- **Projektdokumentet** ”Settle – projektdokument” (https://claude.ai/artifact/43p5krNWS45a34e51DJs99) är sanningen för alla produktbeslut. Läs det med Claude Docs-verktygen innan varje steg. Där repot och dokumentet skiljer sig gäller dokumentet. När ett delsteg är klart: bocka av det under Byggplan och status i dokumentet och lägg till en rad i Beslutsloggen om något ändrades på vägen. Rader i Beslutsloggen med ”Nej” under ”I repot” förs in här och markeras sedan ”Ja”.
+- **Projektdokumentet**: se Gemensam spec ovan. Läs det med Claude Docs-verktygen. Rader i Beslutsloggen med ”Nej” under ”I repot” förs in i repot och markeras sedan ”Ja”.
 - `docs/PLAN.md`: byggordningen. Jobba ett steg i taget och bocka av.
 - `docs/prompts.md`: kopia av sektionen Prompter i projektdokumentet. Ändra promptarna i dokumentet och synka hit.
 - `docs/prototype.html`: klickbar UX-prototyp och spec för flöden, gester och copy, samma som den publicerade versionen på https://claude.ai/artifact/5tGfN3hKPqmzkH2d6yKkQi. Den har påhittad data. Följ flödet, inte koden.
