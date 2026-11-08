@@ -5,26 +5,36 @@ import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import type { Card } from "@/lib/deck";
 import styles from "./find.module.css";
 
-export type Dir = "left" | "right" | "up";
+export type Dir = "left" | "right" | "up" | "down";
 export type SwipeCardHandle = { fly: (dir: Dir) => Promise<void> };
+/** Label and colour shown while dragging. Directions without a stamp are not allowed. */
+export type Stamps = Partial<Record<Dir, [string, string]>>;
 
-const STAMPS: Record<Dir, [string, string]> = {
+const FIND_STAMPS: Stamps = {
   right: ["Vill se", "var(--yes)"],
   left: ["Inte nu", "var(--no)"],
   up: ["Sett", "var(--seen)"],
 };
+const FLY: Record<Dir, string> = {
+  right: "translate(600px,0) rotate(24deg)",
+  left: "translate(-600px,0) rotate(-24deg)",
+  up: "translate(0,-800px)",
+  down: "translate(0,800px)",
+};
 const THRESHOLD = 90;
 const vote = (v: number | null) => (v ? v.toFixed(1).replace(".", ",") : null);
 
-function dirOf(dx: number, dy: number): Dir | null {
+function dirOf(dx: number, dy: number, stamps: Stamps): Dir | null {
+  let dir: Dir | null = null;
   if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > THRESHOLD) return "right";
-    if (dx < -THRESHOLD) return "left";
-  } else if (dy < -THRESHOLD) return "up";
-  return null;
+    if (dx > THRESHOLD) dir = "right";
+    else if (dx < -THRESHOLD) dir = "left";
+  } else if (dy < -THRESHOLD) dir = "up";
+  else if (dy > THRESHOLD) dir = "down";
+  return dir && stamps[dir] ? dir : null;
 }
 
-export function CardFace({ card }: { card: Card }) {
+export function CardFace({ card, note = "Tryck för mer" }: { card: Card; note?: string | null }) {
   const img = card.poster_path ? `https://image.tmdb.org/t/p/w500${card.poster_path}` : null;
   const extra = [card.certification, vote(card.vote_average) ? `★ ${vote(card.vote_average)}` : null]
     .filter(Boolean)
@@ -41,15 +51,23 @@ export function CardFace({ card }: { card: Card }) {
           {card.services.join(", ")}
           {extra ? ` · ${extra}` : ""}
         </div>
-        <div className={styles.flipnote}>Tryck för mer</div>
+        {note && <div className={styles.flipnote}>{note}</div>}
       </div>
     </>
   );
 }
 
+type SwipeCardProps = {
+  card: Card;
+  onSwipe: (dir: Dir) => void;
+  /** Without onTap the card only swipes (calibration). */
+  onTap?: () => void;
+  stamps?: Stamps;
+};
+
 /** The top card: drag to decide, tap to open. */
-export const SwipeCard = forwardRef<SwipeCardHandle, { card: Card; onSwipe: (dir: Dir) => void; onTap: () => void }>(
-  function SwipeCard({ card, onSwipe, onTap }, ref) {
+export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
+  function SwipeCard({ card, onSwipe, onTap, stamps = FIND_STAMPS }, ref) {
     const el = useRef<HTMLDivElement>(null);
     const start = useRef<{ x: number; y: number } | null>(null);
     const delta = useRef({ x: 0, y: 0 });
@@ -64,9 +82,10 @@ export const SwipeCard = forwardRef<SwipeCardHandle, { card: Card; onSwipe: (dir
       });
     useImperativeHandle(ref, () => ({ fly }));
 
-    const current = flying ?? (drag ? dirOf(drag.x, drag.y) : null);
+    const current = flying ?? (drag ? dirOf(drag.x, drag.y, stamps) : null);
+    const stamp = current ? stamps[current] : undefined;
     const transform = flying
-      ? { right: "translate(600px,0) rotate(24deg)", left: "translate(-600px,0) rotate(-24deg)", up: "translate(0,-800px)" }[flying]
+      ? FLY[flying]
       : drag
         ? `translate(${drag.x}px,${drag.y}px) rotate(${drag.x / 18}deg)`
         : undefined;
@@ -76,11 +95,11 @@ export const SwipeCard = forwardRef<SwipeCardHandle, { card: Card; onSwipe: (dir
         ref={el}
         className={`${styles.card} ${drag ? styles.dragging : ""}`}
         style={{ transform }}
-        role="button"
-        tabIndex={0}
-        aria-label={`${card.title}. Tryck för mer.`}
+        role={onTap ? "button" : undefined}
+        tabIndex={onTap ? 0 : undefined}
+        aria-label={onTap ? `${card.title}. Tryck för mer.` : card.title}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
+          if (onTap && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
             onTap();
           }
@@ -101,12 +120,12 @@ export const SwipeCard = forwardRef<SwipeCardHandle, { card: Card; onSwipe: (dir
           if (!start.current) return;
           start.current = null;
           const { x, y } = delta.current;
-          const dir = dirOf(x, y);
+          const dir = dirOf(x, y, stamps);
           if (dir) {
             fly(dir).then(() => onSwipe(dir));
           } else {
             setDrag(null);
-            if (Math.abs(x) < 6 && Math.abs(y) < 6) onTap();
+            if (onTap && Math.abs(x) < 6 && Math.abs(y) < 6) onTap();
           }
         }}
         onPointerCancel={() => {
@@ -116,12 +135,12 @@ export const SwipeCard = forwardRef<SwipeCardHandle, { card: Card; onSwipe: (dir
       >
         <span
           className={styles.stamp}
-          style={current ? { opacity: 1, background: STAMPS[current][1] } : undefined}
+          style={stamp ? { opacity: 1, background: stamp[1] } : undefined}
           aria-hidden="true"
         >
-          {current ? STAMPS[current][0] : ""}
+          {stamp ? stamp[0] : ""}
         </span>
-        <CardFace card={card} />
+        <CardFace card={card} note={onTap ? undefined : null} />
       </div>
     );
   },

@@ -98,7 +98,8 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - Kortet visar titel, år, typ, längd, genrer och motiveringen från prompt 2.
 - Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” med aktuell grupp förvald. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
 - Detaljvy: helsida med motivering, handling, betyg, fakta och trailer, och en fast knapprad för beslut. ”Välj den här” sätter valet på sessionen.
-- Kalibrering (från Profil): höger gillar, upp älskar, vänster ogillade, ner inte sett.
+- Kalibrering: höger gillar, upp älskar, vänster ogillade, ner inte sett. Sist i onboarding efter tjänsterna, går att hoppa över eller avsluta med ”Klar”. Nås också från Profil och från ett kort i Hitta när profilen är tunn.
+- Yngsta barnets ålder frågas första gången Familj väljs i startvyn. Utan svar gäller 7 år.
 - Efter tittning: klockan med siffra frågar om gårdagens val (betyg, eller status för serier). Push-notis först efter MVP.
 - Allt ska också gå att göra med knappar, inte bara gester.
 - Ångra gäller senaste swipen, inklusive det den skrev till databasen.

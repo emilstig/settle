@@ -1,0 +1,12 @@
+.lead { color: var(--mute); font-size: 15px; line-height: 1.4; }
+.profile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.button { text-align: center; margin-bottom: calc(16px + env(safe-area-inset-bottom)); }

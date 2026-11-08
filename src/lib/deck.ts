@@ -98,7 +98,7 @@ export function buildFilters(group: Group, quickPicks: string[]): DeckFilters {
   return { mediaTypes: ["movie", "tv"], movie, tv, sortBy, firstPage, maxCert };
 }
 
-const key = (t: { tmdb_id: number; media_type: string }) => `${t.media_type}:${t.tmdb_id}`;
+export const key = (t: { tmdb_id: number; media_type: string }) => `${t.media_type}:${t.tmdb_id}`;
 
 /**
  * Titles that must not be suggested now, per the domain rules: disliked,
@@ -133,7 +133,7 @@ function certNumber(cert: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function toCard(t: Title, mine: Set<number>, genres: Record<number, string>): Card {
+export function toCard(t: Title, mine: Set<number>, genres: Record<number, string>): Card {
   const length =
     t.media_type === "movie"
       ? formatRuntime(t.runtime)

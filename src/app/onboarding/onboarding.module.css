@@ -3,17 +3,11 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  padding: calc(24px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
   max-width: 420px;
   width: 100%;
   margin: 0 auto;
 }
 .step { color: var(--mute); font-size: 15px; }
 .lead { color: var(--mute); line-height: 1.45; font-size: 17px; }
-.form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; flex: 1; }
-.fieldset { border: 0; min-width: 0; }
-.ages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
-.ages label { display: block; }
-.ages :global(.chip) { display: flex; align-items: center; justify-content: center; height: 44px; padding: 0; cursor: pointer; }
-.actions { margin-top: auto; display: grid; gap: 6px; padding-top: 16px; }
 .placeholder { height: 220px; }

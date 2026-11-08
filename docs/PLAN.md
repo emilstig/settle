@@ -9,7 +9,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 - [x] Inloggning med magic link och en skyddad layout
 - [x] PWA-manifest, ikon och temafärg
 - [x] Migreringar för alla tabeller i `CLAUDE.md`, med RLS
-- [x] Skapa de fyra standardgrupperna vid registrering, och fråga efter yngsta barnets ålder för Familj i onboarding
+- [x] Skapa de fyra standardgrupperna vid registrering, och fråga efter yngsta barnets ålder för Familj (flyttat till första Familj-valet i steg 4)
 - [x] Deploy (Vercel) med miljövariabler
 
 **Klart när:** du kan logga in på telefonen och appen ligger på hemskärmen.
@@ -33,9 +33,10 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 **Klart när:** du har använt det själv tre kvällar, även om sorteringen är dum.
 
 ## 4. Kalibrering och profil
-- [ ] Kalibrering: 20 populära titlar på dina tjänster, med swipe för betyg
-- [ ] SQL eller vy som bygger smakprofilen enligt domänreglerna
-- [ ] Funktion som genererar texten till `{{PROFILE}}`
+- [x] Kalibrering: 20 kända titlar på dina tjänster, med swipe för betyg. Sist i onboarding och går att hoppa över, nås också från ett kort i Hitta när profilen är tunn
+- [x] Yngsta barnets ålder frågas första gången Familj väljs, inte i onboarding
+- [x] Funktion som bygger smakprofilen enligt domänreglerna (`src/lib/profile.ts`)
+- [x] Funktion som genererar texten till `{{PROFILE}}`, visad på sidan Din smakprofil
 
 **Klart när:** profiltexten för ditt konto ser ut att stämma när du läser den.
 
