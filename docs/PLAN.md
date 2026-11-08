@@ -47,6 +47,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 - [ ] Logga varje körning i `suggest_runs`
 - [ ] Motiveringen visas på kortet
 - [ ] Se igen: gruppens `rewatch`-titlar och, vid tryggt humör, älskade sedda titlar läggs till som kandidater, med etiketten ”Se igen” på kortet
+- [ ] ”Vet inte”-titlar kommer tillbaka efter kortare tid än 7 dagar, med en motivering som förklarar vad det är
 - [ ] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
 - [ ] Tillfällig växel: Claude-sortering mot ren TMDB-sortering, för jämförelse
 
