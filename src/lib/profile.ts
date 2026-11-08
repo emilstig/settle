@@ -30,7 +30,7 @@ const LOW_GENRES = 3;
  * few titles towards zero, so one loved film cannot top the list.
  */
 const GENRE_PRIOR = 3;
-const MIN_GENRE_TITLES = 2;
+const MIN_GENRE_TITLES = 4;
 /**
  * TMDB has separate genres for series. Each is counted as the film genres it
  * covers, so sci-fi is one genre whether it is a film or a series.
