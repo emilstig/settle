@@ -38,16 +38,19 @@ export async function loginAction(prev: LoginState, formData: FormData): Promise
     );
     const { error } = await supabase.auth.signInWithOtp({
       email: parsed.data,
-      options: { shouldCreateUser: true, emailRedirectTo: `${await siteOrigin()}/auth/confirm` },
+      // Closed beta: only existing (invited) users can sign in. Signups are also off in Supabase.
+      options: { shouldCreateUser: false, emailRedirectTo: `${await siteOrigin()}/auth/confirm` },
     });
     if (error) {
       return {
         step: "email",
         email: parsed.data,
         error:
-          error.status === 429
-            ? "För många försök. Vänta en minut och prova igen."
-            : "Det gick inte att skicka mejlet. Prova igen.",
+          error.code === "otp_disabled" || error.code === "signup_disabled"
+            ? "Den här adressen har inte tillgång än. Settle är bara öppen för inbjudna just nu."
+            : error.status === 429
+              ? "För många försök. Vänta en minut och prova igen."
+              : "Det gick inte att skicka mejlet. Prova igen.",
       };
     }
     return { step: "code", email: parsed.data };

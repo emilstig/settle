@@ -29,6 +29,13 @@ Nycklarna finns under *Project Settings → API Keys*. Använd de nya nycklarna,
    med egen SMTP: lägg in SMTP under *Authentication → Emails → SMTP Settings*, avkommentera mallarna
    i `config.toml` och kör `config push` igen.
 
+## Vem som kan logga in
+
+Settle är stängd för nyregistrering (`enable_signup = false` i `supabase/config.toml`). Bara konton som
+redan finns kan logga in. Lägg till en testare under *Authentication → Users → Add user* (bocka i
+*Auto confirm*), så kan hen sedan logga in med länk. Supabases inbyggda mejl går bara till medlemmar i
+organisationen, så testare behöver egen SMTP för att få inloggningsmejlet.
+
 ## Ikoner
 
 `node scripts/generate-icons.mjs` ritar om ikonerna i `public/icons`.
