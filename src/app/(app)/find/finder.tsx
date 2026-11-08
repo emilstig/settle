@@ -539,7 +539,6 @@ export function Finder({
         <SeenSheet
           title={seen.card.title}
           groups={groups}
-          currentGroupId={session.groupId}
           onDone={finishSeen}
         />
       )}

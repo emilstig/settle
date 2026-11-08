@@ -24,36 +24,48 @@ const STEPS = [
 const TOTAL_STEPS = STEPS.length + 1;
 
 /**
- * Two steps after "Sett" in the MVP: rating, then see again with whom.
+ * Two steps after "Sett" in the MVP: rating, then see again with whom (no
+ * group chosen from the start).
  * "Hur många gånger?" and "När senast?" are out of MVP (project doc).
  */
 export function SeenSheet({
   title,
   groups,
-  currentGroupId,
   onDone,
 }: {
   title: string;
   groups: GroupOption[];
-  currentGroupId: string;
   onDone: (answers: SeenAnswers) => void;
 }) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<SeenAnswers>({ rating: null, rewatchGroupIds: [] });
-  const [again, setAgain] = useState<Set<string>>(() => new Set([currentGroupId]));
+  const [answers, setAnswers] = useState<SeenAnswers>({
+    rating: null,
+    rewatchGroupIds: [],
+  });
+  // Nothing chosen from the start: "se igen" is a wish that weighs heavily
+  // later, so it must not be saved by tapping past the question.
+  const [again, setAgain] = useState<Set<string>>(() => new Set());
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    (rowRef.current?.querySelector("button") as HTMLButtonElement | null)?.focus();
+    (
+      rowRef.current?.querySelector("button") as HTMLButtonElement | null
+    )?.focus();
   }, [step]);
 
-  const finish = (rewatch: string[]) => onDone({ ...answers, rewatchGroupIds: rewatch });
+  const finish = (rewatch: string[]) =>
+    onDone({ ...answers, rewatchGroupIds: rewatch });
   const current = STEPS[step];
 
   return (
     <>
       <div className={styles.scrim} onClick={() => finish([])} />
-      <div className={`${styles.sheet} ${styles.sheetOpen}`} role="dialog" aria-modal="true" aria-labelledby="seen-title">
+      <div
+        className={`${styles.sheet} ${styles.sheetOpen}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="seen-title"
+      >
         <div className={styles.sheetHead}>
           <div className={styles.dots}>
             {Array.from({ length: TOTAL_STEPS }, (_, i) => (
@@ -63,7 +75,12 @@ export function SeenSheet({
               Steg {step + 1} av {TOTAL_STEPS}
             </small>
           </div>
-          <button type="button" className={styles.sheetClose} aria-label="Stäng" onClick={() => finish([])}>
+          <button
+            type="button"
+            className={styles.sheetClose}
+            aria-label="Stäng"
+            onClick={() => finish([])}
+          >
             ✕
           </button>
         </div>
@@ -86,7 +103,11 @@ export function SeenSheet({
                 </button>
               ))}
             </div>
-            <button type="button" className={styles.sheetSkip} onClick={() => setStep((s) => s + 1)}>
+            <button
+              type="button"
+              className={styles.sheetSkip}
+              onClick={() => setStep((s) => s + 1)}
+            >
               Hoppa över steget
             </button>
           </>
@@ -115,11 +136,20 @@ export function SeenSheet({
                   </button>
                 );
               })}
-              <button type="button" className={styles.ok} onClick={() => finish([...again])}>
+              <button
+                type="button"
+                className={styles.ok}
+                disabled={again.size === 0}
+                onClick={() => finish([...again])}
+              >
                 Klar
               </button>
             </div>
-            <button type="button" className={styles.sheetSkip} onClick={() => finish([])}>
+            <button
+              type="button"
+              className={styles.sheetSkip}
+              onClick={() => finish([])}
+            >
               Nej, inte igen
             </button>
           </>
