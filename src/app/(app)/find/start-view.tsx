@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { GroupOption } from "./types";
 import styles from "./find.module.css";
 
@@ -190,15 +190,45 @@ export function StartView({
         onClick={onStart}
         disabled={loading}
       >
-        {loading
-          ? "Väljer åt dig …"
-          : // The button says what happens: taste only, or what was asked for.
-            mood.trim() || quickPicks.size > 0
-            ? "Visa förslag"
-            : "Föreslå utifrån min smak"}
+        {loading ? (
+          <LoadingLabel />
+        ) : // The button says what happens: taste only, or what was asked for.
+        mood.trim() || quickPicks.size > 0 ? (
+          "Visa förslag"
+        ) : (
+          "Föreslå utifrån min smak"
+        )}
       </button>
 
       <div className={styles.startFooter}>{footer}</div>
     </div>
+  );
+}
+
+/** What the wait is spent on, shown in turn so it feels like something happens. */
+const LOADING_PHRASES = [
+  "Läser din smak …",
+  "Letar på dina tjänster …",
+  "Jämför med det du älskar …",
+  "Väljer tre åt dig …",
+  "Skriver varför …",
+];
+const PHRASE_MS = 1600;
+
+function LoadingLabel() {
+  // Start at a random phrase, then go round in order.
+  const [start] = useState(() =>
+    Math.floor(Math.random() * LOADING_PHRASES.length),
+  );
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => s + 1), PHRASE_MS);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className={styles.loadingLabel} role="status">
+      <span className={styles.spinner} aria-hidden="true" />
+      {LOADING_PHRASES[(start + step) % LOADING_PHRASES.length]}
+    </span>
   );
 }

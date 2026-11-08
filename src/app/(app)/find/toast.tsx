@@ -4,7 +4,13 @@ import { useEffect } from "react";
 import type { ToastState } from "./types";
 import styles from "./find.module.css";
 
-export function Toast({ toast, onClose }: { toast: ToastState | null; onClose: () => void }) {
+export function Toast({
+  toast,
+  onClose,
+}: {
+  toast: ToastState | null;
+  onClose: () => void;
+}) {
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => {

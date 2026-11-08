@@ -123,6 +123,31 @@ const moreSchema = z.object({
   skip: z.array(z.string().max(20)).max(500),
 });
 
+/** Swipes needed before a new page gets Claude's picks again. */
+const SWIPES_BETWEEN_PICKS = 15;
+
+async function swipedSinceLastPicks(sessionId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data: last, error } = await supabase
+    .from("suggest_runs")
+    .select("created_at")
+    .eq("session_id", sessionId)
+    .eq("prompt", "pick")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!last) return Infinity;
+  const { count, error: countError } = await supabase
+    .from("interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("session_id", sessionId)
+    .in("action", ["right", "left", "unsure", "seen"])
+    .gte("created_at", last.created_at);
+  if (countError) throw countError;
+  return count ?? 0;
+}
+
 export async function loadMore(
   input: z.infer<typeof moreSchema>,
 ): Promise<DeckResult> {
@@ -152,23 +177,26 @@ export async function loadMore(
     seed: sessionId,
     affinity: profile.affinity,
   });
-  // Prompt 2 runs again on each new page, per the project doc.
+  // Prompt 2 runs again on a new page only once the user has swiped through
+  // enough of the last picks. A page fetched ahead of time right after the
+  // start would otherwise run Claude for cards nobody reaches.
   const group = groups.find((g) => g.id === session.group_id);
-  const deck = group
-    ? await withPicks({
-        sessionId,
-        userId: user.id,
-        group,
-        groups,
-        providerIds,
-        filters,
-        profile,
-        moodText: session.mood_text ?? "",
-        quickPicks: session.quick_picks ?? [],
-        deck: cards,
-        shown: skip,
-      })
-    : cards;
+  const deck =
+    group && (await swipedSinceLastPicks(sessionId)) >= SWIPES_BETWEEN_PICKS
+      ? await withPicks({
+          sessionId,
+          userId: user.id,
+          group,
+          groups,
+          providerIds,
+          filters,
+          profile,
+          moodText: session.mood_text ?? "",
+          quickPicks: session.quick_picks ?? [],
+          deck: cards,
+          shown: skip,
+        })
+      : cards;
   return { sessionId, cards: deck, page, hasMore };
 }
 
@@ -353,8 +381,25 @@ const seenSchema = z.object({
   rating: z
     .union([z.literal(-1), z.literal(1), z.literal(2), z.literal(3)])
     .nullable(),
-  rewatchGroupIds: z.array(uuid).max(10),
+  /** Null leaves se igen as it was (the sheet was closed). */
+  rewatchGroupIds: z.array(uuid).max(10).nullable(),
 });
+
+/** Groups where the title is already on the se igen list, for the sheet. */
+export async function rewatchGroupsFor(input: Ref): Promise<string[]> {
+  const user = await getCurrentUser();
+  const r = ref.parse(input);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("watchlist")
+    .select("group_id")
+    .eq("user_id", user.id)
+    .eq("tmdb_id", r.tmdb_id)
+    .eq("media_type", r.media_type)
+    .eq("interest", "rewatch");
+  if (error) throw error;
+  return data.map((row) => row.group_id as string);
+}
 
 /**
  * Up, or "Sett den": marks it seen in the watch log, writes the rating and any
@@ -413,13 +458,27 @@ export async function recordSeen(
     if (error) throw error;
   }
 
-  const groups = new Set((await getGroups()).map((g) => g.id));
-  for (const groupId of s.rewatchGroupIds.filter((g) => groups.has(g))) {
-    undo.watchlist.push({
-      group_id: groupId,
-      prev: await currentInterest(user.id, groupId, s.ref),
-    });
-    await upsertWatchlist(user.id, groupId, s.ref, "rewatch");
+  // The answer is the full set of groups: chosen ones get se igen, and
+  // groups that had it but were deselected lose it.
+  if (s.rewatchGroupIds !== null) {
+    const owned = new Set((await getGroups()).map((g) => g.id));
+    const chosen = new Set(s.rewatchGroupIds.filter((g) => owned.has(g)));
+    const before = await rewatchGroupsFor(s.ref);
+    for (const groupId of new Set([...chosen, ...before])) {
+      const prev = await currentInterest(user.id, groupId, s.ref);
+      if (chosen.has(groupId)) {
+        if (prev === "rewatch") continue;
+        undo.watchlist.push({ group_id: groupId, prev });
+        await upsertWatchlist(user.id, groupId, s.ref, "rewatch");
+      } else {
+        undo.watchlist.push({ group_id: groupId, prev });
+        const { error } = await supabase
+          .from("watchlist")
+          .delete()
+          .match({ ...match, group_id: groupId });
+        if (error) throw error;
+      }
+    }
   }
 
   return undo;

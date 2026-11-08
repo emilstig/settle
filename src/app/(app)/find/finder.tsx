@@ -8,6 +8,7 @@ import {
   loadMore,
   openDetail,
   recordSeen,
+  rewatchGroupsFor,
   setInterest,
   setLeftReason,
   setListGroups,
@@ -96,6 +97,7 @@ export function Finder({
   const [seen, setSeen] = useState<{
     card: Card;
     resolve: (u: Undo | null) => void;
+    rewatch: string[];
   } | null>(null);
   const [moving, setMoving] = useState<{
     card: Card;
@@ -244,7 +246,12 @@ export function Finder({
   }
 
   function openSeen(c: Card): Promise<Undo | null> {
-    return new Promise((resolve) => setSeen({ card: c, resolve }));
+    return new Promise((resolve) => {
+      // Show where it is already on the se igen list before asking.
+      rewatchGroupsFor(refOf(c))
+        .catch(() => [] as string[])
+        .then((rewatch) => setSeen({ card: c, resolve, rewatch }));
+    });
   }
 
   function handleSwipe(dir: Dir) {
@@ -542,6 +549,7 @@ export function Finder({
           title={seen.card.title}
           groups={groups}
           onDone={finishSeen}
+          rewatchGroupIds={seen.rewatch}
         />
       )}
 

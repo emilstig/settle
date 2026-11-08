@@ -41,7 +41,12 @@ export function GroupSheet({
             ✕
           </button>
         </div>
-        <p>Vill se med vem?</p>
+        <p>
+          Spara för vilka grupper? Nu sparad för{" "}
+          {groups.find((g) => g.id === currentGroupId)?.name ??
+            "den här gruppen"}
+          .
+        </p>
         <div className={styles.sheetRow}>
           {groups.map((g) => {
             const on = chosen.has(g.id);

@@ -97,7 +97,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp). Toasten säger ”Sparad i din lista” för Själv och ”Sparad för Partner” (gruppens namn) annars, med chipsen ”Vill gärna” (ger `want`) och ”Med annan grupp” (välj vilka gruppers listor titeln ska ligga på). Vänster betyder inte nu (sparas som `not_now`; toasten ”Inte nu” visar i 2 sekunder chipset ”Inte min grej”, eller ”Inte vår grej” i andra grupper än Själv). Upp betyder sett och öppnar sett-sheet. Ner betyder vet inte (sparas som `unsure`), samma riktning som ”Inte sett” i kalibreringen. Tryck öppnar detaljvyn och loggas som `open_detail`.
 - Leken och kalibreringen visar en film per filmserie åt gången och låter genrerna turas om. Titlar som användaren svarat på i en annan grupp den senaste månaden hamnar sist på sidan, och kortet visar ”Sparad för Själv” om titeln redan ligger på en annan grupps lista. Ordningen varieras lite per session. Kalibreringen blandar de mest röstade titlarna med välrecenserade.
 - Kortet visar titel, år, typ, längd, genrer och motiveringen från prompt 2.
-- Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” utan förval, och ”Klar” går att trycka på först när en grupp är vald. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
+- Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” där bara grupper som redan har titeln på se igen-listan är förvalda. ”Klar” sparar exakt de valda grupperna (avvalda tappar se igen), ”Nej, inte igen” tar bort se igen och krysset lämnar se igen orört. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
 - Toppval ikväll (steg 5): överst i svepvyn. Börjar med Claudes tre val och fylls på med det som svepas höger under sessionen. ”Välj” på varje titel sätter kvällens val på sessionen, och toasten efter ett svep höger har ”Välj för ikväll”. Förstavyn är fortfarande startvyn och svepet.
 - Lista (steg 6): rader om användaren, inte genrer: Vill se per grupp, Att se om, Fortsätt titta.
 - Detaljvy: helsida med motivering, handling, betyg, fakta och trailer, och en fast knapprad för beslut. ”Välj den här” sätter valet på sessionen.
@@ -105,6 +105,8 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - Yngsta barnets ålder frågas första gången Familj väljs i startvyn. Utan svar gäller 7 år.
 - Efter tittning: klockan med siffra frågar om gårdagens val (betyg, eller status för serier). Push-notis först efter MVP.
 - Allt ska också gå att göra med knappar, inte bara gester.
+- Förval får bara visa hur det redan är, aldrig skapa en ny önskan. ”Med annan grupp” förväljer gruppen där titeln redan är sparad; sett-sheeten förväljer bara grupper där den redan ligger på se igen-listan.
+- Medan förslagen tas fram visar knappen en spinner och fraser som växlar. Prompt 2 körs på en ny sida först när användaren har svept minst 15 kort sedan förra körningen.
 - Ångra gäller senaste swipen, inklusive det den skrev till databasen.
 
 ## Konventioner

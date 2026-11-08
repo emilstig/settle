@@ -6,7 +6,8 @@ import styles from "./find.module.css";
 
 export type SeenAnswers = {
   rating: -1 | 1 | 2 | 3 | null;
-  rewatchGroupIds: string[];
+  /** Null when closed: se igen stays as it was. */
+  rewatchGroupIds: string[] | null;
 };
 
 const STEPS = [
@@ -32,10 +33,13 @@ export function SeenSheet({
   title,
   groups,
   onDone,
+  rewatchGroupIds = [],
 }: {
   title: string;
   groups: GroupOption[];
   onDone: (answers: SeenAnswers) => void;
+  /** Groups where it is already on the se igen list: shown as chosen. */
+  rewatchGroupIds?: string[];
 }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<SeenAnswers>({
@@ -44,7 +48,10 @@ export function SeenSheet({
   });
   // Nothing chosen from the start: "se igen" is a wish that weighs heavily
   // later, so it must not be saved by tapping past the question.
-  const [again, setAgain] = useState<Set<string>>(() => new Set());
+  // A preselection only shows what is already saved, never a new wish.
+  const [again, setAgain] = useState<Set<string>>(
+    () => new Set(rewatchGroupIds),
+  );
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,13 +60,13 @@ export function SeenSheet({
     )?.focus();
   }, [step]);
 
-  const finish = (rewatch: string[]) =>
+  const finish = (rewatch: string[] | null) =>
     onDone({ ...answers, rewatchGroupIds: rewatch });
   const current = STEPS[step];
 
   return (
     <>
-      <div className={styles.scrim} onClick={() => finish([])} />
+      <div className={styles.scrim} onClick={() => finish(null)} />
       <div
         className={`${styles.sheet} ${styles.sheetOpen}`}
         role="dialog"
@@ -79,7 +86,7 @@ export function SeenSheet({
             type="button"
             className={styles.sheetClose}
             aria-label="Stäng"
-            onClick={() => finish([])}
+            onClick={() => finish(null)}
           >
             ✕
           </button>
