@@ -5,7 +5,8 @@ import { useEffect, useRef } from "react";
 import type { Card } from "@/lib/deck";
 import styles from "./find.module.css";
 
-const poster = (p: string | null) => (p ? `https://image.tmdb.org/t/p/w500${p}` : null);
+const poster = (p: string | null) =>
+  p ? `https://image.tmdb.org/t/p/w500${p}` : null;
 const vote = (v: number | null) => (v ? v.toFixed(1).replace(".", ",") : null);
 
 export function DetailView({
@@ -40,20 +41,41 @@ export function DetailView({
 
   return (
     <>
-      <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <div
+        className={styles.overlay}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-title"
+      >
         <div className={styles.dwrap}>
-          <button ref={backRef} type="button" className={styles.dback} onClick={onClose}>
+          <button
+            ref={backRef}
+            type="button"
+            className={styles.dback}
+            onClick={onClose}
+          >
             ‹ Tillbaka
           </button>
           <div className={styles.dhero}>
-            {img && <Image src={img} alt="" fill sizes="420px" className={styles.heroImg} />}
+            {img && (
+              <Image
+                src={img}
+                alt=""
+                fill
+                sizes="420px"
+                className={styles.heroImg}
+              />
+            )}
             <div className={styles.heroText}>
               {card.year && <span>{card.year}</span>}
               <h2 id="detail-title">{card.title}</h2>
               <div>{card.meta}</div>
             </div>
           </div>
-          <p className={styles.dplot}>{card.overview || "Ingen beskrivning på svenska än."}</p>
+          {card.reason && <p className={styles.dwhy}>{card.reason}</p>}
+          <p className={styles.dplot}>
+            {card.overview || "Ingen beskrivning på svenska än."}
+          </p>
           {facts.length > 0 && (
             <div className={styles.dfacts}>
               {facts.map((f) => (
@@ -72,10 +94,17 @@ export function DetailView({
                 ▶ Se trailer
               </a>
             ) : (
-              !trailerLoading && <span className={styles.dmuted}>Ingen trailer hittades</span>
+              !trailerLoading && (
+                <span className={styles.dmuted}>Ingen trailer hittades</span>
+              )
             )}
             {card.providers_link && (
-              <a className="link" href={card.providers_link} target="_blank" rel="noopener noreferrer">
+              <a
+                className="link"
+                href={card.providers_link}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Var den finns (JustWatch)
               </a>
             )}

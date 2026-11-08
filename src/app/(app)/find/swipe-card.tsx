@@ -67,10 +67,17 @@ export function CardFace({
       <div className={styles.cardShade} />
       {card.year && <span className={styles.yr}>{card.year}</span>}
       <div className={styles.cardText}>
-        {card.savedFor.length > 0 && (
-          <span className={styles.saved}>
-            Sparad för {card.savedFor.join(" och ")}
-          </span>
+        {(card.slot === "rewatch" || card.savedFor.length > 0) && (
+          <div className={styles.tags}>
+            {card.slot === "rewatch" && (
+              <span className={styles.saved}>Se igen</span>
+            )}
+            {card.savedFor.length > 0 && (
+              <span className={styles.saved}>
+                Sparad för {card.savedFor.join(" och ")}
+              </span>
+            )}
+          </div>
         )}
         <h2>{card.title}</h2>
         <div className={styles.meta}>{card.meta}</div>
@@ -78,6 +85,7 @@ export function CardFace({
           {card.services.join(", ")}
           {extra ? ` · ${extra}` : ""}
         </div>
+        {card.reason && <p className={styles.why}>{card.reason}</p>}
         {note && <div className={styles.flipnote}>{note}</div>}
       </div>
     </>

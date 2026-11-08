@@ -9,6 +9,8 @@ import {
   type Card,
 } from "@/lib/deck";
 import { getGroups } from "@/lib/groups";
+import { buildProfile } from "@/lib/profile";
+import { withPicks } from "@/lib/suggest";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
 import { getTrailerKey } from "@/lib/tmdb/videos";
@@ -67,7 +69,8 @@ export async function startSession(
 ): Promise<DeckResult> {
   const user = await getCurrentUser();
   const { groupId, quickPicks, moodText } = startSchema.parse(input);
-  const group = (await getGroups()).find((g) => g.id === groupId);
+  const groups = await getGroups();
+  const group = groups.find((g) => g.id === groupId);
   if (!group) throw new Error("Unknown group");
 
   const filters = buildFilters(group, quickPicks);
@@ -85,7 +88,10 @@ export async function startSession(
     .single();
   if (error) throw error;
 
-  const providerIds = await getUserProviderIds();
+  const [providerIds, profile] = await Promise.all([
+    getUserProviderIds(),
+    buildProfile(user.id),
+  ]);
   const { cards, hasMore } = await loadDeckPage({
     userId: user.id,
     groupId,
@@ -93,8 +99,22 @@ export async function startSession(
     filters,
     page: 1,
     seed: data.id,
+    affinity: profile.affinity,
   });
-  return { sessionId: data.id, cards, page: 1, hasMore };
+  // Claude's three picks first, with a reason each.
+  const deck = await withPicks({
+    sessionId: data.id,
+    userId: user.id,
+    group,
+    groups,
+    providerIds,
+    filters,
+    profile,
+    moodText,
+    quickPicks,
+    deck: cards,
+  });
+  return { sessionId: data.id, cards: deck, page: 1, hasMore };
 }
 
 const moreSchema = z.object({
@@ -111,13 +131,17 @@ export async function loadMore(
   const supabase = await createClient();
   const { data: session, error } = await supabase
     .from("sessions")
-    .select("id, group_id, filters")
+    .select("id, group_id, filters, mood_text, quick_picks")
     .eq("id", sessionId)
     .single();
   if (error) throw error;
 
   const filters = deckFiltersSchema.parse(session.filters);
-  const providerIds = await getUserProviderIds();
+  const [providerIds, profile, groups] = await Promise.all([
+    getUserProviderIds(),
+    buildProfile(user.id),
+    getGroups(),
+  ]);
   const { cards, hasMore } = await loadDeckPage({
     userId: user.id,
     groupId: session.group_id,
@@ -126,8 +150,26 @@ export async function loadMore(
     page,
     skip,
     seed: sessionId,
+    affinity: profile.affinity,
   });
-  return { sessionId, cards, page, hasMore };
+  // Prompt 2 runs again on each new page, per the project doc.
+  const group = groups.find((g) => g.id === session.group_id);
+  const deck = group
+    ? await withPicks({
+        sessionId,
+        userId: user.id,
+        group,
+        groups,
+        providerIds,
+        filters,
+        profile,
+        moodText: session.mood_text ?? "",
+        quickPicks: session.quick_picks ?? [],
+        deck: cards,
+        shown: skip,
+      })
+    : cards;
+  return { sessionId, cards: deck, page, hasMore };
 }
 
 // ---------------------------------------------------------------------------

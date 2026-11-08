@@ -42,11 +42,13 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 **Klart när:** profiltexten för ditt konto ser ut att stämma när du läser den.
 
 ## 5. Claude
-- [ ] Prompt 1 och 2 enligt `docs/prompts.md`, validerade med zod
-- [ ] Rensning av kandidater enligt domänreglerna, innan prompt 2
-- [ ] Logga varje körning i `suggest_runs`
-- [ ] Motiveringen visas på kortet
-- [ ] Se igen: gruppens `rewatch`-titlar och, vid tryggt humör, älskade sedda titlar läggs till som kandidater, med etiketten ”Se igen” på kortet
+- [x] Prompt 2 enligt `docs/prompts.md`, validerad med zod, med ett nytt försök och reserv på TMDB-betyg
+- [x] Kandidater från fler källor: toppen av leken, välrecenserat i dina genrer och nyare titlar
+- [ ] Prompt 1 enligt `docs/prompts.md`, validerad med zod
+- [x] Rensning av kandidater enligt domänreglerna, innan prompt 2
+- [x] Logga varje körning i `suggest_runs`
+- [x] Motiveringen visas på kortet och i detaljvyn
+- [x] Se igen: gruppens `rewatch`-titlar och, vid tryggt humör, älskade sedda titlar läggs till som kandidater, med etiketten ”Se igen” på kortet
 - [ ] ”Vet inte”-titlar kommer tillbaka efter kortare tid än 7 dagar, med en motivering som förklarar vad det är
 - [ ] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
 - [ ] Tillfällig växel: Claude-sortering mot ren TMDB-sortering, för jämförelse

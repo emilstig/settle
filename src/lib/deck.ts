@@ -12,6 +12,7 @@ import {
 } from "@/lib/tmdb/titles";
 import { getGenreNames } from "@/lib/tmdb/genres";
 import { spread } from "@/lib/spread";
+import { genresOf } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const QUICK_PICKS = [
@@ -48,6 +49,10 @@ export type Card = {
   providers_link: string | null;
   /** Other groups whose list the title is already on, such as ["Själv"]. */
   savedFor: string[];
+  /** Claude's reason from prompt 2, for the three picks. */
+  reason: string | null;
+  /** Which slot prompt 2 chose it for; "rewatch" shows the label "Se igen". */
+  slot: "safe" | "watchlist" | "wildcard" | "rewatch" | null;
 };
 
 const G = {
@@ -130,7 +135,7 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  * group's own list. "Inte nu" and "Vet inte" are about the moment and hide a
  * title everywhere for 7 days.
  */
-async function getExcluded(
+export async function getExcluded(
   userId: string,
   groupId: string,
 ): Promise<Set<string>> {
@@ -184,7 +189,7 @@ async function getExcluded(
   return out;
 }
 
-function certNumber(cert: string | null): number | null {
+export function certNumber(cert: string | null): number | null {
   if (!cert) return null;
   if (cert === "Btl") return 0;
   const n = Number(cert);
@@ -228,6 +233,8 @@ export function toCard(
       .map((p) => p.name),
     providers_link: t.providers_se?.link ?? null,
     savedFor,
+    reason: null,
+    slot: null,
   };
 }
 
@@ -330,6 +337,7 @@ export async function loadDeckPage({
   page,
   skip = [],
   seed,
+  affinity = {},
 }: {
   userId: string;
   groupId: string;
@@ -339,6 +347,8 @@ export async function loadDeckPage({
   skip?: string[];
   /** The session id, so the order varies between sessions. */
   seed: string;
+  /** Genre weights from the taste profile; liked genres come first. */
+  affinity?: Record<number, number>;
 }): Promise<{ cards: Card[]; hasMore: boolean }> {
   const tmdbPage = filters.firstPage + page - 1;
   const results = await Promise.all(
@@ -382,7 +392,14 @@ export async function loadDeckPage({
   // One film per series at a time, genres taking turns. Series already shown
   // earlier in the session stay out of this page.
   // Titles already handled in another group come after the new ones.
-  const spreadRows = spread(kept, await collectionsOf(skip));
+  // Sorted by the taste profile, then spread so genres still take turns.
+  const score = (row: Title) =>
+    genresOf(row.genre_ids).reduce((sum, g) => sum + (affinity[g] ?? 0), 0);
+  const sorted = kept
+    .map((row, i) => ({ row, i, s: score(row) }))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.row);
+  const spreadRows = spread(sorted, await collectionsOf(skip));
   const fresh = spreadRows.filter((r) => !other.reacted.has(key(r)));
   const known = spreadRows.filter((r) => other.reacted.has(key(r)));
   const cards = [...jitter(fresh, `${seed}:${page}`), ...known].map((row) =>

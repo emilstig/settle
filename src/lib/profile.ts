@@ -41,7 +41,7 @@ const TV_GENRE_AS: Record<number, number[]> = {
   10768: [10752], // War & Politics → Krig
   10762: [10751], // Kids → Familj
 };
-const genresOf = (ids: number[]) => [
+export const genresOf = (ids: number[]) => [
   ...new Set(ids.flatMap((g) => TV_GENRE_AS[g] ?? [g])),
 ];
 
@@ -54,6 +54,8 @@ export type TasteProfile = {
   ratingCount: number;
   /** Ratings made with other groups, left out of the profile. */
   groupRatingCount: number;
+  /** Average weight per genre (film genre ids), for sorting the deck. */
+  affinity: Record<number, number>;
 };
 
 export async function countRatings(userId: string): Promise<number> {
@@ -106,7 +108,12 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   const groupRatingCount = allRatings.length - ratings.length;
 
   if (ratings.length === 0 && dropped.length === 0) {
-    return { text: "Inga egna betyg än.", ratingCount: 0, groupRatingCount };
+    return {
+      text: "Inga egna betyg än.",
+      ratingCount: 0,
+      groupRatingCount,
+      affinity: {},
+    };
   }
 
   // Titles are cached in `titles` when they are shown, so every rated title is there.
@@ -200,5 +207,101 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
     text: lines.join("\n"),
     ratingCount: ratings.length,
     groupRatingCount,
+    affinity: Object.fromEntries(ranked),
   };
+}
+
+const INTEREST_LABEL: Record<string, string> = {
+  maybe: "vill se",
+  want: "vill gärna se",
+  rewatch: "vill se igen",
+};
+
+/**
+ * {{GROUP_HISTORY}} in prompt 2: what has been rated, saved and turned down
+ * with this group. Short, like the profile. Själv has no separate history.
+ */
+export async function buildGroupHistory(
+  userId: string,
+  group: { id: string; kind: string; name: string },
+): Promise<string> {
+  if (group.kind === "solo")
+    return "Ingen, gruppen är Själv (se smakprofilen).";
+  const supabase = await createClient();
+  const yearAgo = new Date(Date.now() - YEAR_MS).toISOString();
+  const [ratingsRes, listRes, notForUsRes] = await Promise.all([
+    supabase
+      .from("ratings")
+      .select("tmdb_id, media_type, rating")
+      .eq("user_id", userId)
+      .eq("group_id", group.id)
+      .order("updated_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("watchlist")
+      .select("tmdb_id, media_type, interest")
+      .eq("user_id", userId)
+      .eq("group_id", group.id)
+      .order("added_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type, sessions!inner(group_id)")
+      .eq("user_id", userId)
+      .eq("action", "left")
+      .eq("reason", "not_for_me")
+      .eq("sessions.group_id", group.id)
+      .gte("created_at", yearAgo)
+      .limit(10),
+  ]);
+  for (const r of [ratingsRes, listRes, notForUsRes])
+    if (r.error) throw r.error;
+
+  const refs = [
+    ...ratingsRes.data!,
+    ...listRes.data!,
+    ...notForUsRes.data!,
+  ] as Ref[];
+  if (refs.length === 0)
+    return `Inget sparat eller betygsatt med ${group.name} än.`;
+  const { data: rows, error } = await supabase
+    .from("titles")
+    .select("tmdb_id, media_type, title, year")
+    .in("tmdb_id", [...new Set(refs.map((r) => r.tmdb_id))]);
+  if (error) throw error;
+  const titles = new Map(
+    rows.map((t) => [
+      keyOf(t as Ref),
+      t as { title: string; year: number | null },
+    ]),
+  );
+  const name = (r: Ref) => {
+    const t = titles.get(keyOf(r));
+    return t ? `${t.title}${t.year ? ` (${t.year})` : ""}` : null;
+  };
+
+  const lines: string[] = [];
+  const add = (heading: string, items: (string | null)[]) => {
+    const kept = items.filter((x): x is string => x !== null);
+    if (kept.length) lines.push(heading, ...kept.map((x) => `- ${x}`));
+  };
+  add(
+    `Betyg med ${group.name}:`,
+    (ratingsRes.data as (Ref & { rating: number })[]).map((r) => {
+      const n = name(r);
+      return n && `${n}: ${RATING_LABEL[r.rating]}`;
+    }),
+  );
+  add(
+    `Sparat för ${group.name}:`,
+    (listRes.data as (Ref & { interest: string })[]).map((r) => {
+      const n = name(r);
+      return n && `${n}: ${INTEREST_LABEL[r.interest] ?? r.interest}`;
+    }),
+  );
+  add(
+    `Inte vår grej med ${group.name}:`,
+    (notForUsRes.data as Ref[]).map(name),
+  );
+  return lines.join("\n");
 }

@@ -78,8 +78,19 @@
   text-wrap: balance;
 }
 .meta { font-size: 15px; opacity: 0.9; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.why {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.dwhy { font-size: 18px; font-weight: 600; line-height: 1.35; margin: 4px 0 8px; }
 .saved {
   justify-self: start;
+  align-self: start;
   font-size: 13px;
   font-weight: 600;
   background: rgba(255, 255, 255, 0.18);
