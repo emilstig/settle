@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { formatCertSE, formatRuntime } from "@/lib/format";
-import { DEFAULT_YOUNGEST_AGE, type Group } from "@/lib/groups";
+import { DEFAULT_YOUNGEST_AGE, getGroups, type Group } from "@/lib/groups";
 import {
   discover,
   getTitles,
@@ -46,6 +46,8 @@ export type Card = {
   certification: string | null;
   services: string[];
   providers_link: string | null;
+  /** Other groups whose list the title is already on, such as ["Själv"]. */
+  savedFor: string[];
 };
 
 const G = {
@@ -193,6 +195,7 @@ export function toCard(
   t: Title,
   mine: Set<number>,
   genres: Record<number, string>,
+  savedFor: string[] = [],
 ): Card {
   const length =
     t.media_type === "movie"
@@ -224,7 +227,82 @@ export function toCard(
       .filter((p) => mine.has(p.id))
       .map((p) => p.name),
     providers_link: t.providers_se?.link ?? null,
+    savedFor,
   };
+}
+
+/** How long a reaction in another group pushes a title back in this one. */
+const OTHER_GROUP_DAYS = 30;
+
+/**
+ * What the user already did with titles in other groups. Those titles are not
+ * hidden, since the company is different, but they go after new ones, and the
+ * card says which lists they are already on.
+ */
+async function getOtherGroups(
+  userId: string,
+  groupId: string,
+): Promise<{ reacted: Set<string>; savedFor: Map<string, string[]> }> {
+  const supabase = await createClient();
+  const since = new Date(
+    Date.now() - OTHER_GROUP_DAYS * 24 * 3600 * 1000,
+  ).toISOString();
+  const [interactions, listed, groups] = await Promise.all([
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type, sessions!inner(group_id)")
+      .eq("user_id", userId)
+      .in("action", ["right", "left", "unsure"])
+      .neq("sessions.group_id", groupId)
+      .gte("created_at", since),
+    supabase
+      .from("watchlist")
+      .select("tmdb_id, media_type, group_id")
+      .eq("user_id", userId)
+      .neq("group_id", groupId),
+    getGroups(),
+  ]);
+  if (interactions.error) throw interactions.error;
+  if (listed.error) throw listed.error;
+
+  const names = new Map(groups.map((g) => [g.id, g.name]));
+  const savedFor = new Map<string, string[]>();
+  for (const w of listed.data) {
+    const name = names.get(w.group_id);
+    if (!name) continue;
+    const k = key(w);
+    savedFor.set(k, [...(savedFor.get(k) ?? []), name]);
+  }
+  const reacted = new Set(interactions.data.map(key));
+  for (const k of savedFor.keys()) reacted.add(k);
+  return { reacted, savedFor };
+}
+
+/** Deterministic shuffle per session, so a reload keeps the order. */
+function seededRandom(seed: string) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++)
+    h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  };
+}
+
+/** Shuffles within short windows: the order varies, popular still comes first. */
+function jitter<T>(items: T[], seed: string, window = 5): T[] {
+  const rand = seededRandom(seed);
+  const out: T[] = [];
+  for (let i = 0; i < items.length; i += window) {
+    const chunk = items.slice(i, i + window);
+    for (let j = chunk.length - 1; j > 0; j--) {
+      const r = Math.floor(rand() * (j + 1));
+      [chunk[j], chunk[r]] = [chunk[r], chunk[j]];
+    }
+    out.push(...chunk);
+  }
+  return out;
 }
 
 /** Collections of the films already shown, from their "movie:123" keys. */
@@ -251,6 +329,7 @@ export async function loadDeckPage({
   filters,
   page,
   skip = [],
+  seed,
 }: {
   userId: string;
   groupId: string;
@@ -258,6 +337,8 @@ export async function loadDeckPage({
   filters: DeckFilters;
   page: number;
   skip?: string[];
+  /** The session id, so the order varies between sessions. */
+  seed: string;
 }): Promise<{ cards: Card[]; hasMore: boolean }> {
   const tmdbPage = filters.firstPage + page - 1;
   const results = await Promise.all(
@@ -277,8 +358,9 @@ export async function loadDeckPage({
     .flat()
     .filter((h) => h !== undefined);
 
-  const [excluded, rows, genres] = await Promise.all([
+  const [excluded, other, rows, genres] = await Promise.all([
     getExcluded(userId, groupId),
+    getOtherGroups(userId, groupId),
     getTitles(hits),
     getGenreNames(),
   ]);
@@ -299,8 +381,12 @@ export async function loadDeckPage({
   });
   // One film per series at a time, genres taking turns. Series already shown
   // earlier in the session stay out of this page.
-  const cards = spread(kept, await collectionsOf(skip)).map((row) =>
-    toCard(row, mine, genres),
+  // Titles already handled in another group come after the new ones.
+  const spreadRows = spread(kept, await collectionsOf(skip));
+  const fresh = spreadRows.filter((r) => !other.reacted.has(key(r)));
+  const known = spreadRows.filter((r) => other.reacted.has(key(r)));
+  const cards = [...jitter(fresh, `${seed}:${page}`), ...known].map((row) =>
+    toCard(row, mine, genres, other.savedFor.get(key(row)) ?? []),
   );
 
   return { cards, hasMore: results.some((r) => tmdbPage < r.totalPages) };

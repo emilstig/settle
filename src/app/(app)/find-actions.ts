@@ -92,6 +92,7 @@ export async function startSession(
     providerIds,
     filters,
     page: 1,
+    seed: data.id,
   });
   return { sessionId: data.id, cards, page: 1, hasMore };
 }
@@ -124,6 +125,7 @@ export async function loadMore(
     filters,
     page,
     skip,
+    seed: sessionId,
   });
   return { sessionId, cards, page, hasMore };
 }

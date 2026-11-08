@@ -67,6 +67,11 @@ export function CardFace({
       <div className={styles.cardShade} />
       {card.year && <span className={styles.yr}>{card.year}</span>}
       <div className={styles.cardText}>
+        {card.savedFor.length > 0 && (
+          <span className={styles.saved}>
+            Sparad för {card.savedFor.join(" och ")}
+          </span>
+        )}
         <h2>{card.title}</h2>
         <div className={styles.meta}>{card.meta}</div>
         <div className={styles.meta}>
