@@ -4,10 +4,28 @@ import { useState } from "react";
 import type { GroupOption } from "./types";
 import styles from "./find.module.css";
 
-export const QUICK_PICKS = ["Lätt", "Spännande", "Kort", "Något tryggt", "Överraska mig"];
+export const QUICK_PICKS = [
+  "Lätt",
+  "Spännande",
+  "Kort",
+  "Något tryggt",
+  "Överraska mig",
+];
 const AGES = Array.from({ length: 18 }, (_, i) => i);
 /** Used when the question is skipped, per the domain rules. */
 const DEFAULT_AGE = 7;
+
+/** The line under a group's name: the family age limit, or what is saved. */
+function tileSub(g: GroupOption, on: boolean): string {
+  if (g.kind === "family") {
+    if (g.youngest_age === null) return "Ange ålder";
+    return on
+      ? `Från ${g.youngest_age} år · ändra`
+      : `Från ${g.youngest_age} år`;
+  }
+  if (g.savedCount === 0) return "Inget sparat än";
+  return g.savedCount === 1 ? "1 sparad" : `${g.savedCount} sparade`;
+}
 
 export function StartView({
   groups,
@@ -39,7 +57,8 @@ export function StartView({
   const [editingAge, setEditingAge] = useState(false);
   const selected = groups.find((g) => g.id === groupId);
   const family = selected?.kind === "family" ? selected : null;
-  const askAge = family !== null && (family.youngest_age === null || editingAge);
+  const askAge =
+    family !== null && (family.youngest_age === null || editingAge);
 
   function pickAge(age: number) {
     if (!family) return;
@@ -49,19 +68,55 @@ export function StartView({
 
   return (
     <div className={styles.start}>
-      <h1 className="q">Vem tittar ikväll?</h1>
-      <div className="chips" role="group" aria-label="Vem tittar">
-        {groups.map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            className="chip"
-            aria-pressed={g.id === groupId}
-            onClick={() => onGroup(g.id)}
-          >
-            {g.name}
-          </button>
-        ))}
+      <h1 className="q" id="who-q">
+        Vem tittar ikväll?
+      </h1>
+      {/* One choice, so tiles and a radio group rather than pills like the mood. */}
+      <div
+        className={styles.who}
+        role="radiogroup"
+        aria-labelledby="who-q"
+        onKeyDown={(e) => {
+          const step = {
+            ArrowRight: 1,
+            ArrowDown: 1,
+            ArrowLeft: -1,
+            ArrowUp: -1,
+          }[e.key];
+          if (!step) return;
+          e.preventDefault();
+          const i = groups.findIndex((g) => g.id === groupId);
+          const next = groups[(i + step + groups.length) % groups.length];
+          onGroup(next.id);
+          (
+            e.currentTarget.querySelector(
+              `[data-id="${next.id}"]`,
+            ) as HTMLElement | null
+          )?.focus();
+        }}
+      >
+        {groups.map((g) => {
+          const on = g.id === groupId;
+          return (
+            <button
+              key={g.id}
+              data-id={g.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              tabIndex={on ? 0 : -1}
+              className={styles.tile}
+              onClick={() => {
+                // Tapping Familj again opens the age question.
+                if (on && g.kind === "family") setEditingAge((v) => !v);
+                else onGroup(g.id);
+              }}
+            >
+              <span className={styles.tileName}>{g.name}</span>
+              <span className={styles.tileSub}>{tileSub(g, on)}</span>
+            </button>
+          );
+        })}
       </div>
 
       {askAge && family && (
@@ -69,7 +124,9 @@ export function StartView({
           <p id="age-q" className={styles.ageQ}>
             Hur gammal är den yngsta?
           </p>
-          <p className={styles.ageLead}>Vi föreslår bara sådant som passar alla i soffan.</p>
+          <p className={styles.ageLead}>
+            Vi föreslår bara sådant som passar alla i soffan.
+          </p>
           <div className={styles.ages}>
             {AGES.map((age) => (
               <button
@@ -84,19 +141,15 @@ export function StartView({
             ))}
           </div>
           {family.youngest_age === null && (
-            <button type="button" className="link" onClick={() => pickAge(DEFAULT_AGE)}>
+            <button
+              type="button"
+              className="link"
+              onClick={() => pickAge(DEFAULT_AGE)}
+            >
               Hoppa över (7 år)
             </button>
           )}
         </div>
-      )}
-      {family && !askAge && family.youngest_age !== null && (
-        <p className={styles.ageNote}>
-          Passar barn från {family.youngest_age} år.{" "}
-          <button type="button" className="link" onClick={() => setEditingAge(true)}>
-            Ändra
-          </button>
-        </p>
       )}
 
       <h1 className="q">Vad är du sugen på?</h1>
@@ -119,6 +172,8 @@ export function StartView({
             aria-pressed={quickPicks.has(q)}
             onClick={() => onToggleQuick(q)}
           >
+            {/* The tick says several can be picked. */}
+            {quickPicks.has(q) && <span aria-hidden="true">✓ </span>}
             {q}
           </button>
         ))}
@@ -129,10 +184,20 @@ export function StartView({
           {error}
         </p>
       )}
-      <button type="button" className={`primary ${styles.go}`} onClick={() => onStart(true)} disabled={loading}>
+      <button
+        type="button"
+        className={`primary ${styles.go}`}
+        onClick={() => onStart(true)}
+        disabled={loading}
+      >
         {loading ? "Letar …" : "Visa förslag"}
       </button>
-      <button type="button" className="link" onClick={() => onStart(false)} disabled={loading}>
+      <button
+        type="button"
+        className="link"
+        onClick={() => onStart(false)}
+        disabled={loading}
+      >
         Bara swipea
       </button>
 

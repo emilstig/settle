@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Card } from "@/lib/deck";
 import { setYoungestAge } from "../actions";
@@ -70,6 +71,17 @@ export function Finder({
   footer: React.ReactNode;
 }) {
   const [groups, setGroups] = useState(initialGroups);
+  const router = useRouter();
+  // Fresh counts from the server after returning to the start view.
+  const [lastInitial, setLastInitial] = useState(initialGroups);
+  if (lastInitial !== initialGroups) {
+    setLastInitial(initialGroups);
+    setGroups(initialGroups);
+  }
+  const backToStart = () => {
+    setPhase("start");
+    router.refresh();
+  };
   const [phase, setPhase] = useState<"start" | "deck">("start");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const [quickPicks, setQuickPicks] = useState<Set<string>>(new Set());
@@ -433,11 +445,7 @@ export function Finder({
   return (
     <div className={styles.swipe}>
       <div className={styles.bar}>
-        <button
-          type="button"
-          className={styles.ctx}
-          onClick={() => setPhase("start")}
-        >
+        <button type="button" className={styles.ctx} onClick={backToStart}>
           {session.label} ✎
         </button>
       </div>
@@ -468,11 +476,7 @@ export function Finder({
             ) : (
               <>
                 <p>Slut på förslag för det här.</p>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => setPhase("start")}
-                >
+                <button type="button" className="primary" onClick={backToStart}>
                   Ändra och börja om
                 </button>
               </>

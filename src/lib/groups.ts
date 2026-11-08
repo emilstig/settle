@@ -23,3 +23,19 @@ export async function getGroups(): Promise<Group[]> {
   if (error) throw error;
   return data as Group[];
 }
+
+/** How many titles are on each group's list, by group id. */
+export async function countSavedByGroup(
+  userId: string,
+): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("watchlist")
+    .select("group_id")
+    .eq("user_id", userId);
+  if (error) throw error;
+  const counts = new Map<string, number>();
+  for (const row of data)
+    counts.set(row.group_id, (counts.get(row.group_id) ?? 0) + 1);
+  return counts;
+}

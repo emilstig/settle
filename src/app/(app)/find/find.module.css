@@ -3,14 +3,25 @@
 .start { display: flex; flex-direction: column; gap: 12px; flex: 1; padding-bottom: 16px; }
 .start :global(.q) { margin-top: 12px; }
 .go { margin-top: 6px; }
+.who { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.tile[aria-checked="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tileName { font-size: 17px; font-weight: 700; }
+.tileSub { font-size: 13px; opacity: 0.7; }
 .age { display: grid; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
 .ageQ { font-weight: 700; font-size: 17px; }
 .ageLead { color: var(--mute); font-size: 15px; }
 .ages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .ages :global(.chip) { height: 40px; padding: 0; }
 .age > :global(.link) { justify-self: start; padding-left: 0; }
-.ageNote { color: var(--mute); font-size: 15px; }
-.ageNote :global(.link) { padding: 0; font-size: 15px; }
 .startFooter { margin-top: auto; padding-top: 24px; display: grid; gap: 10px; }
 
 .swipe { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; padding-bottom: 12px; }

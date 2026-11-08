@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Attribution } from "@/components/attribution";
 import { getCurrentUser } from "@/lib/auth";
-import { getGroups } from "@/lib/groups";
+import { countSavedByGroup, getGroups } from "@/lib/groups";
 import { countRatings } from "@/lib/profile";
 import { signOut } from "./actions";
 import { Finder } from "./find/finder";
@@ -26,9 +26,10 @@ export default function FindPage() {
 
 async function Find() {
   const user = await getCurrentUser();
-  const [groups, ratings] = await Promise.all([
+  const [groups, ratings, saved] = await Promise.all([
     getGroups(),
     countRatings(user.id),
+    countSavedByGroup(user.id),
   ]);
 
   return (
@@ -38,6 +39,7 @@ async function Find() {
         name,
         kind,
         youngest_age,
+        savedCount: saved.get(id) ?? 0,
       }))}
       footer={
         <>
