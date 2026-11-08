@@ -2,7 +2,12 @@
 
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import { buildFilters, deckFiltersSchema, loadDeckPage, type Card } from "@/lib/deck";
+import {
+  buildFilters,
+  deckFiltersSchema,
+  loadDeckPage,
+  type Card,
+} from "@/lib/deck";
 import { getGroups } from "@/lib/groups";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
@@ -12,12 +17,18 @@ import { getTrailerKey } from "@/lib/tmdb/videos";
 // Shapes shared with the client
 // ---------------------------------------------------------------------------
 
-const ref = z.object({ tmdb_id: z.number().int().positive(), media_type: z.enum(["movie", "tv"]) });
+const ref = z.object({
+  tmdb_id: z.number().int().positive(),
+  media_type: z.enum(["movie", "tv"]),
+});
 type Ref = z.infer<typeof ref>;
 const uuid = z.uuid();
 
 const interest = z.enum(["maybe", "want", "rewatch"]);
-const ratingRow = z.object({ rating: z.number().int(), group_id: z.uuid().nullable() });
+const ratingRow = z.object({
+  rating: z.number().int(),
+  group_id: z.uuid().nullable(),
+});
 const watchLogRow = z.object({
   times_seen: z.enum(["once", "few", "many"]).nullable(),
   last_seen_approx: z.enum(["recent", "this_year", "long_ago"]).nullable(),
@@ -34,7 +45,12 @@ const undoSchema = z.object({
 });
 export type Undo = z.infer<typeof undoSchema>;
 
-export type DeckResult = { sessionId: string; cards: Card[]; page: number; hasMore: boolean };
+export type DeckResult = {
+  sessionId: string;
+  cards: Card[];
+  page: number;
+  hasMore: boolean;
+};
 
 // ---------------------------------------------------------------------------
 // Session and deck
@@ -46,7 +62,9 @@ const startSchema = z.object({
   moodText: z.string().max(500),
 });
 
-export async function startSession(input: z.infer<typeof startSchema>): Promise<DeckResult> {
+export async function startSession(
+  input: z.infer<typeof startSchema>,
+): Promise<DeckResult> {
   const user = await getCurrentUser();
   const { groupId, quickPicks, moodText } = startSchema.parse(input);
   const group = (await getGroups()).find((g) => g.id === groupId);
@@ -68,7 +86,13 @@ export async function startSession(input: z.infer<typeof startSchema>): Promise<
   if (error) throw error;
 
   const providerIds = await getUserProviderIds();
-  const { cards, hasMore } = await loadDeckPage({ userId: user.id, groupId, providerIds, filters, page: 1 });
+  const { cards, hasMore } = await loadDeckPage({
+    userId: user.id,
+    groupId,
+    providerIds,
+    filters,
+    page: 1,
+  });
   return { sessionId: data.id, cards, page: 1, hasMore };
 }
 
@@ -78,7 +102,9 @@ const moreSchema = z.object({
   skip: z.array(z.string().max(20)).max(500),
 });
 
-export async function loadMore(input: z.infer<typeof moreSchema>): Promise<DeckResult> {
+export async function loadMore(
+  input: z.infer<typeof moreSchema>,
+): Promise<DeckResult> {
   const user = await getCurrentUser();
   const { sessionId, page, skip } = moreSchema.parse(input);
   const supabase = await createClient();
@@ -110,7 +136,7 @@ async function logInteraction(
   userId: string,
   sessionId: string,
   r: Ref,
-  action: "right" | "left" | "seen" | "open_detail" | "undo",
+  action: "right" | "left" | "seen" | "open_detail" | "undo" | "unsure",
   reason: "not_now" | "not_for_me" | "seen" | null = null,
 ): Promise<number> {
   const supabase = await createClient();
@@ -137,7 +163,12 @@ async function currentInterest(userId: string, groupId: string, r: Ref) {
   return (data?.interest as z.infer<typeof interest> | undefined) ?? null;
 }
 
-async function upsertWatchlist(userId: string, groupId: string, r: Ref, value: z.infer<typeof interest>) {
+async function upsertWatchlist(
+  userId: string,
+  groupId: string,
+  r: Ref,
+  value: z.infer<typeof interest>,
+) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("watchlist")
@@ -151,24 +182,36 @@ async function upsertWatchlist(userId: string, groupId: string, r: Ref, value: z
 const swipeSchema = z.object({ sessionId: uuid, groupId: uuid, ref });
 
 /** Right: wants to see it. Lands on the group's list as "maybe". */
-export async function swipeRight(input: z.infer<typeof swipeSchema>): Promise<Undo> {
+export async function swipeRight(
+  input: z.infer<typeof swipeSchema>,
+): Promise<Undo> {
   const user = await getCurrentUser();
   const { sessionId, groupId, ref: r } = swipeSchema.parse(input);
   const prev = await currentInterest(user.id, groupId, r);
   const id = await logInteraction(user.id, sessionId, r, "right");
   await upsertWatchlist(user.id, groupId, r, "maybe");
-  return { ref: r, sessionId, interactionIds: [id], watchlist: [{ group_id: groupId, prev }] };
+  return {
+    ref: r,
+    sessionId,
+    interactionIds: [id],
+    watchlist: [{ group_id: groupId, prev }],
+  };
 }
 
 /** "Vill gärna" on the toast after a right swipe. */
-export async function setInterest(input: z.infer<typeof swipeSchema> & { interest: "maybe" | "want" }) {
+export async function setInterest(
+  input: z.infer<typeof swipeSchema> & { interest: "maybe" | "want" },
+) {
   const user = await getCurrentUser();
   const { groupId, ref: r } = swipeSchema.parse(input);
   await upsertWatchlist(user.id, groupId, r, interest.parse(input.interest));
 }
 
 /** Left: no. Starts as "inte nu"; the reason chips can change it. */
-export async function swipeLeft(input: { sessionId: string; ref: Ref }): Promise<Undo> {
+export async function swipeLeft(input: {
+  sessionId: string;
+  ref: Ref;
+}): Promise<Undo> {
   const user = await getCurrentUser();
   const sessionId = uuid.parse(input.sessionId);
   const r = ref.parse(input.ref);
@@ -176,12 +219,80 @@ export async function swipeLeft(input: { sessionId: string; ref: Ref }): Promise
   return { ref: r, sessionId, interactionIds: [id], watchlist: [] };
 }
 
-export async function setLeftReason(input: { interactionId: number; reason: "not_now" | "not_for_me" | "seen" }) {
+/** Down: "Vet inte". No opinion yet; hidden for 7 days like "inte nu". */
+export async function swipeDown(input: {
+  sessionId: string;
+  ref: Ref;
+}): Promise<Undo> {
+  const user = await getCurrentUser();
+  const sessionId = uuid.parse(input.sessionId);
+  const r = ref.parse(input.ref);
+  const id = await logInteraction(user.id, sessionId, r, "unsure");
+  return { ref: r, sessionId, interactionIds: [id], watchlist: [] };
+}
+
+const groupsSchema = z.object({
+  sessionId: uuid,
+  ref,
+  fromGroupId: uuid,
+  groupIds: z.array(uuid).min(1).max(10),
+});
+
+/**
+ * "Med annan grupp" on the toast after a right swipe: the title ends up on the
+ * lists of the chosen groups instead. Returns the undo for the groups touched.
+ */
+export async function setListGroups(
+  input: z.infer<typeof groupsSchema>,
+): Promise<Undo> {
+  const user = await getCurrentUser();
+  const {
+    sessionId,
+    ref: r,
+    fromGroupId,
+    groupIds,
+  } = groupsSchema.parse(input);
+  const owned = new Set((await getGroups()).map((g) => g.id));
+  const targets = [...new Set(groupIds)].filter((id) => owned.has(id));
+  const touched = [...new Set([fromGroupId, ...targets])];
+
+  const prev = await Promise.all(
+    touched.map((g) => currentInterest(user.id, g, r)),
+  );
+  const supabase = await createClient();
+  for (const g of touched) {
+    if (targets.includes(g)) {
+      await upsertWatchlist(user.id, g, r, prev[touched.indexOf(g)] ?? "maybe");
+    } else {
+      const { error } = await supabase.from("watchlist").delete().match({
+        user_id: user.id,
+        group_id: g,
+        tmdb_id: r.tmdb_id,
+        media_type: r.media_type,
+      });
+      if (error) throw error;
+    }
+  }
+  return {
+    ref: r,
+    sessionId,
+    interactionIds: [],
+    watchlist: touched.map((g, i) => ({ group_id: g, prev: prev[i] })),
+  };
+}
+
+export async function setLeftReason(input: {
+  interactionId: number;
+  reason: "not_now" | "not_for_me" | "seen";
+}) {
   await getCurrentUser();
   const id = z.number().int().parse(input.interactionId);
   const reason = z.enum(["not_now", "not_for_me", "seen"]).parse(input.reason);
   const supabase = await createClient();
-  const { error } = await supabase.from("interactions").update({ reason }).eq("id", id);
+  const { error } = await supabase
+    .from("interactions")
+    .update({ reason })
+    .eq("id", id);
   if (error) throw error;
 }
 
@@ -189,7 +300,9 @@ const seenSchema = z.object({
   sessionId: uuid,
   groupId: uuid,
   ref,
-  rating: z.union([z.literal(-1), z.literal(1), z.literal(2), z.literal(3)]).nullable(),
+  rating: z
+    .union([z.literal(-1), z.literal(1), z.literal(2), z.literal(3)])
+    .nullable(),
   rewatchGroupIds: z.array(uuid).max(10),
 });
 
@@ -197,15 +310,29 @@ const seenSchema = z.object({
  * Up, or "Sett den": marks it seen in the watch log, writes the rating and any
  * "se igen med" rows. How many times and when are not asked in the MVP.
  */
-export async function recordSeen(input: z.infer<typeof seenSchema>): Promise<Undo> {
+export async function recordSeen(
+  input: z.infer<typeof seenSchema>,
+): Promise<Undo> {
   const user = await getCurrentUser();
   const s = seenSchema.parse(input);
   const supabase = await createClient();
-  const match = { user_id: user.id, tmdb_id: s.ref.tmdb_id, media_type: s.ref.media_type };
+  const match = {
+    user_id: user.id,
+    tmdb_id: s.ref.tmdb_id,
+    media_type: s.ref.media_type,
+  };
 
   const [prevRating, prevLog] = await Promise.all([
-    supabase.from("ratings").select("rating, group_id").match(match).maybeSingle(),
-    supabase.from("watch_log").select("times_seen, last_seen_approx").match(match).maybeSingle(),
+    supabase
+      .from("ratings")
+      .select("rating, group_id")
+      .match(match)
+      .maybeSingle(),
+    supabase
+      .from("watch_log")
+      .select("times_seen, last_seen_approx")
+      .match(match)
+      .maybeSingle(),
   ]);
   if (prevRating.error) throw prevRating.error;
   if (prevLog.error) throw prevLog.error;
@@ -219,22 +346,29 @@ export async function recordSeen(input: z.infer<typeof seenSchema>): Promise<Und
     watchLog: { prev: prevLog.data ?? null },
   };
 
-  const { error: logError } = await supabase
-    .from("watch_log")
-    .upsert(match, { onConflict: "user_id,tmdb_id,media_type", ignoreDuplicates: true });
+  const { error: logError } = await supabase.from("watch_log").upsert(match, {
+    onConflict: "user_id,tmdb_id,media_type",
+    ignoreDuplicates: true,
+  });
   if (logError) throw logError;
 
   if (s.rating !== null) {
     undo.rating = { prev: prevRating.data ?? null };
     const { error } = await supabase
       .from("ratings")
-      .upsert({ ...match, rating: s.rating, group_id: s.groupId }, { onConflict: "user_id,tmdb_id,media_type" });
+      .upsert(
+        { ...match, rating: s.rating, group_id: s.groupId },
+        { onConflict: "user_id,tmdb_id,media_type" },
+      );
     if (error) throw error;
   }
 
   const groups = new Set((await getGroups()).map((g) => g.id));
   for (const groupId of s.rewatchGroupIds.filter((g) => groups.has(g))) {
-    undo.watchlist.push({ group_id: groupId, prev: await currentInterest(user.id, groupId, s.ref) });
+    undo.watchlist.push({
+      group_id: groupId,
+      prev: await currentInterest(user.id, groupId, s.ref),
+    });
     await upsertWatchlist(user.id, groupId, s.ref, "rewatch");
   }
 
@@ -246,11 +380,18 @@ export async function undoSwipe(input: Undo) {
   const user = await getCurrentUser();
   const u = undoSchema.parse(input);
   const supabase = await createClient();
-  const match = { user_id: user.id, tmdb_id: u.ref.tmdb_id, media_type: u.ref.media_type };
+  const match = {
+    user_id: user.id,
+    tmdb_id: u.ref.tmdb_id,
+    media_type: u.ref.media_type,
+  };
 
   for (const w of u.watchlist) {
     if (w.prev === null) {
-      const { error } = await supabase.from("watchlist").delete().match({ ...match, group_id: w.group_id });
+      const { error } = await supabase
+        .from("watchlist")
+        .delete()
+        .match({ ...match, group_id: w.group_id });
       if (error) throw error;
     } else {
       await upsertWatchlist(user.id, w.group_id, u.ref, w.prev);
@@ -259,20 +400,33 @@ export async function undoSwipe(input: Undo) {
 
   if (u.rating) {
     const { error } = u.rating.prev
-      ? await supabase.from("ratings").upsert({ ...match, ...u.rating.prev }, { onConflict: "user_id,tmdb_id,media_type" })
+      ? await supabase
+          .from("ratings")
+          .upsert(
+            { ...match, ...u.rating.prev },
+            { onConflict: "user_id,tmdb_id,media_type" },
+          )
       : await supabase.from("ratings").delete().match(match);
     if (error) throw error;
   }
 
   if (u.watchLog) {
     const { error } = u.watchLog.prev
-      ? await supabase.from("watch_log").upsert({ ...match, ...u.watchLog.prev }, { onConflict: "user_id,tmdb_id,media_type" })
+      ? await supabase
+          .from("watch_log")
+          .upsert(
+            { ...match, ...u.watchLog.prev },
+            { onConflict: "user_id,tmdb_id,media_type" },
+          )
       : await supabase.from("watch_log").delete().match(match);
     if (error) throw error;
   }
 
   if (u.interactionIds.length) {
-    const { error } = await supabase.from("interactions").delete().in("id", u.interactionIds);
+    const { error } = await supabase
+      .from("interactions")
+      .delete()
+      .in("id", u.interactionIds);
     if (error) throw error;
   }
   await logInteraction(user.id, u.sessionId, u.ref, "undo");
@@ -283,7 +437,10 @@ export async function undoSwipe(input: Undo) {
 // ---------------------------------------------------------------------------
 
 /** Logs that the card was opened and returns the trailer, fetched on demand. */
-export async function openDetail(input: { sessionId: string; ref: Ref }): Promise<{ trailerKey: string | null }> {
+export async function openDetail(input: {
+  sessionId: string;
+  ref: Ref;
+}): Promise<{ trailerKey: string | null }> {
   const user = await getCurrentUser();
   const sessionId = uuid.parse(input.sessionId);
   const r = ref.parse(input.ref);

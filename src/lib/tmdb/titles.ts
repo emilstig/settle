@@ -22,6 +22,8 @@ export type Title = {
   vote_average: number | null;
   certification_se: string | null;
   providers_se: ProvidersSE | null;
+  /** TMDB collection for films in a series, such as all Harry Potter films. */
+  collection_id: number | null;
   providers_updated_at: string | null;
   updated_at: string;
 };
@@ -148,6 +150,7 @@ const movieDetails = z.object({
   overview: z.string().nullable().optional(),
   poster_path: z.string().nullable().optional(),
   vote_average: z.number().nullable().optional(),
+  belongs_to_collection: z.object({ id: z.number() }).nullable().optional(),
   release_dates: z
     .object({
       results: z.array(
@@ -204,6 +207,7 @@ async function fetchDetails(mediaType: MediaType, id: number): Promise<TitleWrit
       vote_average: d.vote_average ?? null,
       certification_se: normalizeCertSE(cert),
       providers_se: toProvidersSE(d["watch/providers"]),
+      collection_id: d.belongs_to_collection?.id ?? null,
     };
   }
 
@@ -227,6 +231,7 @@ async function fetchDetails(mediaType: MediaType, id: number): Promise<TitleWrit
       d.content_ratings?.results.find((r) => r.iso_3166_1 === REGION)?.rating,
     ),
     providers_se: toProvidersSE(d["watch/providers"]),
+    collection_id: null,
   };
 }
 

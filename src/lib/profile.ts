@@ -13,7 +13,12 @@ const YEAR_MS = 365 * 24 * 3600 * 1000;
 /** Genre weights from the domain rules. */
 const WEIGHT: Record<number, number> = { 3: 3, 2: 2, 1: 1, [-1]: -2 };
 const DROPPED_WEIGHT = -1;
-const RATING_LABEL: Record<number, string> = { 3: "älskar", 2: "gillar mycket", 1: "gillar", [-1]: "ogillade" };
+const RATING_LABEL: Record<number, string> = {
+  3: "älskar",
+  2: "gillar mycket",
+  1: "gillar",
+  [-1]: "ogillade",
+};
 const TOP_GENRES = 6;
 const LOW_GENRES = 3;
 
@@ -37,7 +42,8 @@ export async function countRatings(userId: string): Promise<number> {
 
 const keyOf = (r: Ref) => `${r.media_type}:${r.tmdb_id}`;
 /** Halves every year. */
-const decay = (at: string, now: number) => Math.pow(0.5, Math.max(0, now - Date.parse(at)) / YEAR_MS);
+const decay = (at: string, now: number) =>
+  Math.pow(0.5, Math.max(0, now - Date.parse(at)) / YEAR_MS);
 const fmt = (n: number) => n.toFixed(1).replace(".", ",").replace("-", "−");
 
 export async function buildProfile(userId: string): Promise<TasteProfile> {
@@ -58,7 +64,11 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   ]);
   if (ratingsRes.error) throw ratingsRes.error;
   if (droppedRes.error) throw droppedRes.error;
-  const ratings = ratingsRes.data as (Ref & { rating: number; group_id: string | null; updated_at: string })[];
+  const ratings = ratingsRes.data as (Ref & {
+    rating: number;
+    group_id: string | null;
+    updated_at: string;
+  })[];
   const dropped = droppedRes.data as (Ref & { updated_at: string })[];
 
   if (ratings.length === 0 && dropped.length === 0) {
@@ -72,9 +82,13 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
     .select("tmdb_id, media_type, title, year, genre_ids")
     .in("tmdb_id", ids);
   if (error) throw error;
-  const titles = new Map<string, TitleInfo>(rows.map((t) => [keyOf(t as Ref), t as TitleInfo]));
+  const titles = new Map<string, TitleInfo>(
+    rows.map((t) => [keyOf(t as Ref), t as TitleInfo]),
+  );
 
-  const groupName = new Map(groups.filter((g) => g.kind !== "solo").map((g) => [g.id, g.name]));
+  const groupName = new Map(
+    groups.filter((g) => g.kind !== "solo").map((g) => [g.id, g.name]),
+  );
   const name = (r: Ref & { group_id?: string | null }) => {
     const t = titles.get(keyOf(r));
     if (!t) return null;
@@ -93,7 +107,10 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
 
   section(
     "Älskar:",
-    ratings.filter((r) => r.rating === 3).slice(0, 10).map(name),
+    ratings
+      .filter((r) => r.rating === 3)
+      .slice(0, 10)
+      .map(name),
   );
   section(
     "Senaste betyg:",
@@ -104,14 +121,18 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   );
   const recent = (at: string) => now - Date.parse(at) < YEAR_MS;
   section("Ogillade eller avbrutna senaste året:", [
-    ...ratings.filter((r) => r.rating === -1 && recent(r.updated_at)).map((r) => {
-      const n = name(r);
-      return n && `${n}: ogillade`;
-    }),
-    ...dropped.filter((d) => recent(d.updated_at)).map((d) => {
-      const n = name(d);
-      return n && `${n}: avbröt`;
-    }),
+    ...ratings
+      .filter((r) => r.rating === -1 && recent(r.updated_at))
+      .map((r) => {
+        const n = name(r);
+        return n && `${n}: ogillade`;
+      }),
+    ...dropped
+      .filter((d) => recent(d.updated_at))
+      .map((d) => {
+        const n = name(d);
+        return n && `${n}: avbröt`;
+      }),
   ]);
 
   // Genre profile: weighted ratings and drops, halved every year.
@@ -128,8 +149,12 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
     .filter(([g, s]) => genreNames[g] && Math.abs(s) >= 0.5)
     .sort((a, b) => b[1] - a[1]);
   const liked = ranked.filter(([, s]) => s > 0).slice(0, TOP_GENRES);
-  const avoided = ranked.filter(([, s]) => s < 0).slice(-LOW_GENRES).reverse();
-  const genreLine = (list: [number, number][]) => list.map(([g, s]) => `${genreNames[g]} ${fmt(s)}`).join(", ");
+  const avoided = ranked
+    .filter(([, s]) => s < 0)
+    .slice(-LOW_GENRES)
+    .reverse();
+  const genreLine = (list: [number, number][]) =>
+    list.map(([g, s]) => `${genreNames[g]} ${fmt(s)}`).join(", ");
   if (liked.length) lines.push(`Genrer som väger mest: ${genreLine(liked)}`);
   if (avoided.length) lines.push(`Genrer som undviks: ${genreLine(avoided)}`);
 

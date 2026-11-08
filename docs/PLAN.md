@@ -29,6 +29,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 - [x] Detaljvy med handling, betyg, trailer och knappar för beslut
 - [x] Skriver till `interactions`, `ratings`, `watch_log` och `watchlist`
 - [x] Ångra för senaste swipen
+- [x] Efter test: svep nedåt ”Vet inte”, ”Med annan grupp” efter höger, en film per filmserie och genrer som turas om
 
 **Klart när:** du har använt det själv tre kvällar, även om sorteringen är dum.
 

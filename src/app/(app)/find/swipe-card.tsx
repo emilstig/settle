@@ -14,6 +14,7 @@ const FIND_STAMPS: Stamps = {
   right: ["Vill se", "var(--yes)"],
   left: ["Inte nu", "var(--no)"],
   up: ["Sett", "var(--seen)"],
+  down: ["Vet inte", "#555"],
 };
 const FLY: Record<Dir, string> = {
   right: "translate(600px,0) rotate(24deg)",
@@ -34,14 +35,35 @@ function dirOf(dx: number, dy: number, stamps: Stamps): Dir | null {
   return dir && stamps[dir] ? dir : null;
 }
 
-export function CardFace({ card, note = "Tryck för mer" }: { card: Card; note?: string | null }) {
-  const img = card.poster_path ? `https://image.tmdb.org/t/p/w500${card.poster_path}` : null;
-  const extra = [card.certification, vote(card.vote_average) ? `★ ${vote(card.vote_average)}` : null]
+export function CardFace({
+  card,
+  note = "Tryck för mer",
+}: {
+  card: Card;
+  note?: string | null;
+}) {
+  const img = card.poster_path
+    ? `https://image.tmdb.org/t/p/w500${card.poster_path}`
+    : null;
+  const extra = [
+    card.certification,
+    vote(card.vote_average) ? `★ ${vote(card.vote_average)}` : null,
+  ]
     .filter(Boolean)
     .join(" · ");
   return (
     <>
-      {img && <Image src={img} alt="" fill sizes="420px" className={styles.cardImg} draggable={false} priority />}
+      {img && (
+        <Image
+          src={img}
+          alt=""
+          fill
+          sizes="420px"
+          className={styles.cardImg}
+          draggable={false}
+          priority
+        />
+      )}
       <div className={styles.cardShade} />
       {card.year && <span className={styles.yr}>{card.year}</span>}
       <div className={styles.cardText}>
@@ -113,7 +135,10 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
         }}
         onPointerMove={(e) => {
           if (!start.current) return;
-          delta.current = { x: e.clientX - start.current.x, y: e.clientY - start.current.y };
+          delta.current = {
+            x: e.clientX - start.current.x,
+            y: e.clientY - start.current.y,
+          };
           setDrag(delta.current);
         }}
         onPointerUp={() => {

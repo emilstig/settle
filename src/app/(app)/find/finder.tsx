@@ -9,13 +9,16 @@ import {
   recordSeen,
   setInterest,
   setLeftReason,
+  setListGroups,
   startSession,
+  swipeDown,
   swipeLeft,
   swipeRight,
   undoSwipe,
   type Undo,
 } from "../find-actions";
 import { DetailView } from "./detail-view";
+import { GroupSheet } from "./group-sheet";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
 import { StartView } from "./start-view";
 import {
@@ -42,16 +45,22 @@ type HistoryEntry = { index: number; undo: Promise<Undo | null> };
 
 const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
-const merge = (a: Undo | null, b: Undo | null): Undo | null =>
-  !a
-    ? b
-    : !b
-      ? a
-      : {
-          ...b,
-          interactionIds: [...a.interactionIds, ...b.interactionIds],
-          watchlist: [...a.watchlist, ...b.watchlist],
-        };
+/** Combines two undos for one swipe; per group the earliest snapshot wins. */
+const merge = (a: Undo | null, b: Undo | null): Undo | null => {
+  if (!a) return b;
+  if (!b) return a;
+  const known = new Set(a.watchlist.map((w) => w.group_id));
+  return {
+    ...b,
+    ...(a.rating ? { rating: a.rating } : {}),
+    ...(a.watchLog ? { watchLog: a.watchLog } : {}),
+    interactionIds: [...a.interactionIds, ...b.interactionIds],
+    watchlist: [
+      ...a.watchlist,
+      ...b.watchlist.filter((w) => !known.has(w.group_id)),
+    ],
+  };
+};
 
 export function Finder({
   groups: initialGroups,
@@ -73,6 +82,10 @@ export function Finder({
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [seen, setSeen] = useState<{
+    card: Card;
+    resolve: (u: Undo | null) => void;
+  } | null>(null);
+  const [moving, setMoving] = useState<{
     card: Card;
     resolve: (u: Undo | null) => void;
   } | null>(null);
@@ -187,6 +200,35 @@ export function Finder({
     );
   }
 
+  function openGroups(c: Card): Promise<Undo | null> {
+    return new Promise((resolve) => setMoving({ card: c, resolve }));
+  }
+
+  async function finishGroups(groupIds: string[] | null) {
+    if (!moving || !session) return;
+    const { card: c, resolve } = moving;
+    setMoving(null);
+    if (!groupIds) return resolve(null);
+    try {
+      resolve(
+        await setListGroups({
+          sessionId: session.id,
+          ref: refOf(c),
+          fromGroupId: session.groupId,
+          groupIds,
+        }),
+      );
+      const names = groups
+        .filter((g) => groupIds.includes(g.id))
+        .map((g) => g.name);
+      showToast(`Sparad för ${names.join(" och ")}`, [], 1600);
+    } catch (e) {
+      console.error(e);
+      resolve(null);
+      showToast("Det gick inte att spara", [], 2200);
+    }
+  }
+
   function openSeen(c: Card): Promise<Undo | null> {
     return new Promise((resolve) => setSeen({ card: c, resolve }));
   }
@@ -216,6 +258,13 @@ export function Finder({
             onClick: () =>
               void undo.then(() => setInterest({ ...base, interest: "want" })),
           },
+          {
+            label: "Med annan grupp",
+            onClick: () =>
+              replaceTop((prev) =>
+                prev.then((a) => openGroups(c).then((b) => merge(a, b))),
+              ),
+          },
         ],
       );
     } else if (dir === "left") {
@@ -223,30 +272,29 @@ export function Finder({
         () => null,
       );
       push({ index: at, undo });
-      const reason = (r: "not_for_me" | "seen") =>
-        undo.then(
-          (u) =>
-            u &&
-            setLeftReason({ interactionId: u.interactionIds[0], reason: r }),
-        );
-      // "Inte nu" is the default; the chips can change it within two seconds.
+      // "Inte nu" is the default. The chip applies in this group only, so the
+      // words follow the company. "Sett" is the up swipe, so it has no chip.
       showToast("Inte nu", [
-        // The reason applies in this group only, so the words follow the company.
         {
           label: group?.kind === "solo" ? "Inte min grej" : "Inte vår grej",
-          onClick: () => void reason("not_for_me"),
-        },
-        {
-          label: "Sett den",
-          onClick: () => {
-            void reason("seen");
-            replaceTop((prev) =>
-              Promise.all([prev, openSeen(c)]).then(([a, b]) => merge(a, b)),
-            );
-          },
+          onClick: () =>
+            void undo.then(
+              (u) =>
+                u &&
+                setLeftReason({
+                  interactionId: u.interactionIds[0],
+                  reason: "not_for_me",
+                }),
+            ),
         },
       ]);
-    } else if (dir === "up") {
+    } else if (dir === "down") {
+      const undo = swipeDown({ sessionId: session.id, ref: refOf(c) }).catch(
+        () => null,
+      );
+      push({ index: at, undo });
+      showToast("Vet inte · visas igen om en vecka", [], 1400);
+    } else {
       push({ index: at, undo: openSeen(c) });
     }
   }
@@ -285,6 +333,10 @@ export function Finder({
       s?.resolve(null);
       return null;
     });
+    setMoving((m) => {
+      m?.resolve(null);
+      return null;
+    });
     setIndex(last.index);
     const u = await last.undo;
     if (u) await undoSwipe(u).catch((e) => console.error(e));
@@ -300,10 +352,20 @@ export function Finder({
   useEffect(() => {
     if (phase !== "deck") return;
     const onKey = (e: KeyboardEvent) => {
-      if (detail || seen || (e.target as HTMLElement).tagName === "INPUT")
+      if (
+        detail ||
+        seen ||
+        moving ||
+        (e.target as HTMLElement).tagName === "INPUT"
+      )
         return;
       const dir = (
-        { ArrowRight: "right", ArrowLeft: "left", ArrowUp: "up" } as const
+        {
+          ArrowRight: "right",
+          ArrowLeft: "left",
+          ArrowUp: "up",
+          ArrowDown: "down",
+        } as const
       )[e.key as "ArrowRight"];
       if (dir) {
         e.preventDefault();
@@ -420,7 +482,7 @@ export function Finder({
       </div>
 
       <p className={styles.hint}>
-        Tryck: läs mer · Höger: vill se · Vänster: inte nu · Upp: sett
+        Höger: vill se · Vänster: inte nu · Upp: sett · Ner: vet inte
       </p>
       <div className={styles.actions}>
         {history.length > 0 && (
@@ -440,6 +502,14 @@ export function Finder({
           disabled={!card}
         >
           ✕
+        </button>
+        <button
+          type="button"
+          aria-label="Vet inte"
+          onClick={() => decide("down")}
+          disabled={!card}
+        >
+          ?
         </button>
         <button
           type="button"
@@ -467,6 +537,15 @@ export function Finder({
           groups={groups}
           currentGroupId={session.groupId}
           onDone={finishSeen}
+        />
+      )}
+
+      {moving && (
+        <GroupSheet
+          title={moving.card.title}
+          groups={groups}
+          currentGroupId={session.groupId}
+          onDone={finishGroups}
         />
       )}
 

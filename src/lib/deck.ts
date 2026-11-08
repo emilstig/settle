@@ -11,6 +11,8 @@ import {
   type Title,
 } from "@/lib/tmdb/titles";
 import { getGenreNames } from "@/lib/tmdb/genres";
+import { spread } from "@/lib/spread";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const QUICK_PICKS = [
   "Lätt",
@@ -123,8 +125,8 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  * Titles that must not be suggested now, per the domain rules. Facts about the
  * user apply in every group: disliked, dropped or already seen. Decisions about
  * the company apply in the group they were made in: "inte min grej" and the
- * group's own list. "Inte nu" is about the moment and hides a title everywhere
- * for 7 days.
+ * group's own list. "Inte nu" and "Vet inte" are about the moment and hide a
+ * title everywhere for 7 days.
  */
 async function getExcluded(
   userId: string,
@@ -142,12 +144,13 @@ async function getExcluded(
       .from("watch_log")
       .select("tmdb_id, media_type")
       .eq("user_id", userId),
+    // "Inte nu" and "Vet inte" (swipe down) hide a title for a week.
     supabase
       .from("interactions")
       .select("tmdb_id, media_type")
       .eq("user_id", userId)
-      .eq("action", "left")
-      .neq("reason", "not_for_me")
+      .in("action", ["left", "unsure"])
+      .or("reason.is.null,reason.neq.not_for_me")
       .gte("created_at", weekAgo),
     // The session tells which group "inte min grej" was said in.
     supabase
@@ -224,6 +227,22 @@ export function toCard(
   };
 }
 
+/** Collections of the films already shown, from their "movie:123" keys. */
+async function collectionsOf(keys: string[]): Promise<Set<number>> {
+  const ids = keys
+    .filter((k) => k.startsWith("movie:"))
+    .map((k) => Number(k.slice(6)));
+  if (ids.length === 0) return new Set();
+  const { data, error } = await createAdminClient()
+    .from("titles")
+    .select("collection_id")
+    .eq("media_type", "movie")
+    .in("tmdb_id", ids)
+    .not("collection_id", "is", null);
+  if (error) throw error;
+  return new Set(data.map((r) => r.collection_id as number));
+}
+
 /** One page of cards for a session: discover, refresh the cache, apply the rules. */
 export async function loadDeckPage({
   userId,
@@ -266,7 +285,7 @@ export async function loadDeckPage({
   const skipSet = new Set(skip);
   const mine = new Set(providerIds);
 
-  const cards = hits.flatMap((h) => {
+  const kept = hits.flatMap((h) => {
     const k = key(h);
     const row = rows.get(k);
     if (!row || excluded.has(k) || skipSet.has(k)) return [];
@@ -276,8 +295,13 @@ export async function loadDeckPage({
       const cert = certNumber(row.certification_se);
       if (cert !== null && cert > filters.maxCert) return [];
     }
-    return [toCard(row, mine, genres)];
+    return [row];
   });
+  // One film per series at a time, genres taking turns. Series already shown
+  // earlier in the session stay out of this page.
+  const cards = spread(kept, await collectionsOf(skip)).map((row) =>
+    toCard(row, mine, genres),
+  );
 
   return { cards, hasMore: results.some((r) => tmdbPage < r.totalPages) };
 }

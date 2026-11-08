@@ -69,12 +69,12 @@ ANTHROPIC_API_KEY=
 Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där användaren bara ser sina egna rader. `media_type` är `movie` eller `tv`.
 
 - `user_providers`: user_id, provider_id (TMDB:s id), region (`SE`)
-- `titles` (cache, delad): tmdb_id, media_type, title, original_title, year, runtime, genre_ids, overview, poster_path, vote_average, certification_se, providers_se (jsonb), updated_at
+- `titles` (cache, delad): tmdb_id, media_type, title, original_title, year, runtime, genre_ids, overview, poster_path, vote_average, certification_se, providers_se (jsonb), collection_id (TMDB-samling för filmserier), updated_at
 - `groups`: id, user_id (ägare), name, kind (`solo`/`partner`/`family`/`friends`/`custom`), youngest_age (int, bara för familj), sort, created_at. Fyra grupper skapas automatiskt per användare: Själv, Partner, Familj och Vänner.
 - `ratings`: user_id, tmdb_id, media_type, rating (−1 ogillade, 1 gillar, 2 gillar mycket, 3 älskar), group_id, updated_at
 - `watch_log`: user_id, tmdb_id, media_type, times_seen (`once`/`few`/`many`), last_seen (date, null tillåtet), last_seen_approx (`recent`/`this_year`/`long_ago`, null tillåtet), status (`watching`/`finished`/`dropped`, för serier)
 - `watchlist`: user_id, tmdb_id, media_type, group_id, interest (`maybe`/`want`/`rewatch`), added_at. En rad per grupp.
-- `interactions`: user_id, tmdb_id, media_type, action (`right`/`left`/`seen`/`open_detail`/`undo`/`not_seen`, där `not_seen` är ”Inte sett” i kalibreringen), reason (`not_now`/`not_for_me`/`seen`, null tillåtet), session_id, created_at
+- `interactions`: user_id, tmdb_id, media_type, action (`right`/`left`/`seen`/`open_detail`/`undo`/`not_seen`/`unsure`, där `not_seen` är ”Inte sett” i kalibreringen och `unsure` är ”Vet inte” i Hitta), reason (`not_now`/`not_for_me`/`seen`, null tillåtet), session_id, created_at
 - `sessions`: id, user_id, group_id, mood_text, quick_picks (text[]), filters (jsonb), started_at, picked_tmdb_id, picked_at
 - `suggest_runs`: id, session_id, prompt (`parse`/`pick`), input (jsonb), output (jsonb), model, latency_ms, created_at
 
@@ -82,7 +82,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 
 ## Domänregler
 
-- **Fakta om användaren gäller överallt, beslut om sällskapet gäller i gruppen.** Ingen titel som användaren har ogillat, avbrutit eller sett föreslås igen i någon grupp. ”Inte nu” döljer en titel överallt i 7 dagar. ”Inte min grej” (”Inte vår grej” i andra grupper än Själv) döljer titeln bara i gruppen där det sades och räknas som ett milt ogillande i den gruppens historik. Vill se och Se igen gäller i sina grupper.
+- **Fakta om användaren gäller överallt, beslut om sällskapet gäller i gruppen.** Ingen titel som användaren har ogillat, avbrutit eller sett föreslås igen i någon grupp. ”Inte nu” och ”Vet inte” döljer en titel överallt i 7 dagar. ”Inte min grej” (”Inte vår grej” i andra grupper än Själv) döljer titeln bara i gruppen där det sades och räknas som ett milt ogillande i den gruppens historik. Vill se och Se igen gäller i sina grupper.
 - **Sedda titlar** föreslås bara när humöret är tryggt (`comfort: true`), och då helst sådana som fått betyget älskar och setts många gånger men inte de senaste 6 månaderna.
 - **Watchlist är per grupp.** ”Se igen med Familj” ska väga tungt när gruppen är Familj.
 - **Familj** betyder att alla tittar tillsammans: filtrera på svensk åldersgräns utifrån `youngest_age` (standard 7 år om den saknas) och inget skrämmande. Förslagen ska också fungera för de vuxna.
@@ -94,7 +94,8 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 
 - Följ flödena i `docs/prototype.html`: startvy, swipe, detaljvy, sett-sheet, Lista, Profil, Efter tittning. Tre flikar (Hitta, Lista, Profil) och en klocka i headern för Efter tittning.
 - Startvy: ”Vem tittar ikväll?” med grupperna, ”Vad är du sugen på?” med fritext och snabbvalen Lätt, Spännande, Kort, Något tryggt och Överraska mig, sedan ”Visa förslag” eller ”Bara swipea”. Valet visas som en etikett överst i kortleken och går att trycka på för att ändra.
-- Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp, ”Vill gärna” i toasten ger `want`), vänster betyder inte nu (sparas som `not_now`; toasten ”Inte nu” visar i 2 sekunder chipsen ”Inte min grej”, eller ”Inte vår grej” i andra grupper än Själv, och ”Sett den”). Toasten efter höger säger ”Sparad i din lista” för Själv och ”Sparad för Partner” (gruppens namn) annars, upp betyder sett och öppnar sett-sheet. Tryck öppnar detaljvyn och loggas som `open_detail`.
+- Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp). Toasten säger ”Sparad i din lista” för Själv och ”Sparad för Partner” (gruppens namn) annars, med chipsen ”Vill gärna” (ger `want`) och ”Med annan grupp” (välj vilka gruppers listor titeln ska ligga på). Vänster betyder inte nu (sparas som `not_now`; toasten ”Inte nu” visar i 2 sekunder chipset ”Inte min grej”, eller ”Inte vår grej” i andra grupper än Själv). Upp betyder sett och öppnar sett-sheet. Ner betyder vet inte (sparas som `unsure`), samma riktning som ”Inte sett” i kalibreringen. Tryck öppnar detaljvyn och loggas som `open_detail`.
+- Leken och kalibreringen visar en film per filmserie åt gången och låter genrerna turas om. Kalibreringen blandar de mest röstade titlarna med välrecenserade.
 - Kortet visar titel, år, typ, längd, genrer och motiveringen från prompt 2.
 - Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” med aktuell grupp förvald. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
 - Toppval ikväll (steg 5): överst i svepvyn. Börjar med Claudes tre val och fylls på med det som svepas höger under sessionen. ”Välj” på varje titel sätter kvällens val på sessionen, och toasten efter ett svep höger har ”Välj för ikväll”. Förstavyn är fortfarande startvyn och svepet.

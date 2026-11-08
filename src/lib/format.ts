@@ -1,5 +1,7 @@
 /** "1 tim 43 min", "45 min". */
-export function formatRuntime(minutes: number | null | undefined): string | null {
+export function formatRuntime(
+  minutes: number | null | undefined,
+): string | null {
   if (!minutes) return null;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

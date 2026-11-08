@@ -3,7 +3,11 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type CurrentUser = { id: string; email: string | null; onboarded: boolean };
+export type CurrentUser = {
+  id: string;
+  email: string | null;
+  onboarded: boolean;
+};
 
 /** Reads and verifies the session. Redirects to /login when signed out. */
 export const getCurrentUser = cache(async (): Promise<CurrentUser> => {

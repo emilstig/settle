@@ -25,15 +25,25 @@ export async function rateCalibration(input: z.input<typeof rateSchema>) {
   const [r, w] = await Promise.all([
     supabase
       .from("ratings")
-      .upsert({ ...match, rating, group_id: null }, { onConflict: "user_id,tmdb_id,media_type" }),
-    supabase.from("watch_log").upsert(match, { onConflict: "user_id,tmdb_id,media_type", ignoreDuplicates: true }),
+      .upsert(
+        { ...match, rating, group_id: null },
+        { onConflict: "user_id,tmdb_id,media_type" },
+      ),
+    supabase
+      .from("watch_log")
+      .upsert(match, {
+        onConflict: "user_id,tmdb_id,media_type",
+        ignoreDuplicates: true,
+      }),
   ]);
   if (r.error) throw r.error;
   if (w.error) throw w.error;
 }
 
 /** "Inte sett": remembered so the next calibration shows other titles. */
-export async function markNotSeen(input: z.input<typeof refSchema>): Promise<number> {
+export async function markNotSeen(
+  input: z.input<typeof refSchema>,
+): Promise<number> {
   const ref = refSchema.parse(input);
   const user = await getCurrentUser();
   const supabase = await createClient();
@@ -48,7 +58,10 @@ export async function markNotSeen(input: z.input<typeof refSchema>): Promise<num
 
 const undoSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("rating"), ref: refSchema }),
-  z.object({ kind: z.literal("not_seen"), interactionId: z.number().int().positive() }),
+  z.object({
+    kind: z.literal("not_seen"),
+    interactionId: z.number().int().positive(),
+  }),
 ]);
 export type CalibrationUndo = z.infer<typeof undoSchema>;
 
@@ -84,7 +97,9 @@ export async function undoCalibration(input: CalibrationUndo) {
 export async function finishCalibration(mode: "onboarding" | "app") {
   if (mode === "onboarding") {
     const supabase = await createClient();
-    const { error } = await supabase.auth.updateUser({ data: { onboarded: true } });
+    const { error } = await supabase.auth.updateUser({
+      data: { onboarded: true },
+    });
     if (error) throw error;
     // Refresh the session so the new metadata is in the token the layout reads.
     await supabase.auth.refreshSession();
