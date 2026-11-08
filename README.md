@@ -1,6 +1,6 @@
 # Settle
 
-Produktion: https://settle-pink.vercel.app
+Produktion: https://settle-tonight.vercel.app
 
 Se `CLAUDE.md` för produkt, stack och regler, och `docs/PLAN.md` för byggordningen.
 
