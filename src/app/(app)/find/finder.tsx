@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Card } from "@/lib/deck";
+import { setYoungestAge } from "../actions";
 import {
   loadMore,
   openDetail,
@@ -39,7 +40,8 @@ const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
 const merge = (a: Undo | null, b: Undo | null): Undo | null =>
   !a ? b : !b ? a : { ...b, interactionIds: [...a.interactionIds, ...b.interactionIds], watchlist: [...a.watchlist, ...b.watchlist] };
 
-export function Finder({ groups, footer }: { groups: GroupOption[]; footer: React.ReactNode }) {
+export function Finder({ groups: initialGroups, footer }: { groups: GroupOption[]; footer: React.ReactNode }) {
+  const [groups, setGroups] = useState(initialGroups);
   const [phase, setPhase] = useState<"start" | "deck">("start");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const [quickPicks, setQuickPicks] = useState<Set<string>>(new Set());
@@ -159,7 +161,7 @@ export function Finder({ groups, footer }: { groups: GroupOption[]; footer: Reac
           },
         },
       ]);
-    } else {
+    } else if (dir === "up") {
       push({ index: at, undo: openSeen(c) });
     }
   }
@@ -231,6 +233,13 @@ export function Finder({ groups, footer }: { groups: GroupOption[]; footer: Reac
         groups={groups}
         groupId={groupId}
         onGroup={setGroupId}
+        onAge={(id, age) => {
+          setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)));
+          setYoungestAge({ groupId: id, age }).catch((e) => {
+            console.error(e);
+            setError("Det gick inte att spara åldern. Prova igen.");
+          });
+        }}
         quickPicks={quickPicks}
         onToggleQuick={(q) =>
           setQuickPicks((s) => {
