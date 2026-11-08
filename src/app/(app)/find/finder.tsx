@@ -126,12 +126,14 @@ export function Finder({
 
   // ---- session ------------------------------------------------------------
 
-  async function start(useMood: boolean) {
+  // One button: the mood is optional. Without it, prompt 2 picks from the
+  // taste profile alone.
+  async function start() {
     setStarting(true);
     setError(null);
     try {
-      const picks = useMood ? [...quickPicks] : [];
-      const text = useMood ? mood : "";
+      const picks = [...quickPicks];
+      const text = mood;
       const res = await startSession({
         groupId,
         quickPicks: picks,

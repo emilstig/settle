@@ -49,7 +49,7 @@ export function StartView({
   onToggleQuick: (pick: string) => void;
   mood: string;
   onMood: (text: string) => void;
-  onStart: (useMood: boolean) => void;
+  onStart: () => void;
   loading: boolean;
   error: string | null;
   footer: React.ReactNode;
@@ -157,11 +157,11 @@ export function StartView({
         className="field"
         value={mood}
         onChange={(e) => onMood(e.target.value)}
-        placeholder="T.ex. något lätt, max en och en halv timme"
+        placeholder="Valfritt, t.ex. något lätt, max en och en halv timme"
         autoComplete="off"
         maxLength={300}
         aria-label="Vad är du sugen på"
-        onKeyDown={(e) => e.key === "Enter" && onStart(true)}
+        onKeyDown={(e) => e.key === "Enter" && onStart()}
       />
       <div className="chips" role="group" aria-label="Snabbval">
         {QUICK_PICKS.map((q) => (
@@ -187,18 +187,10 @@ export function StartView({
       <button
         type="button"
         className={`primary ${styles.go}`}
-        onClick={() => onStart(true)}
+        onClick={onStart}
         disabled={loading}
       >
-        {loading ? "Letar …" : "Visa förslag"}
-      </button>
-      <button
-        type="button"
-        className="link"
-        onClick={() => onStart(false)}
-        disabled={loading}
-      >
-        Bara swipea
+        {loading ? "Väljer åt dig …" : "Visa förslag"}
       </button>
 
       <div className={styles.startFooter}>{footer}</div>

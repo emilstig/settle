@@ -40,7 +40,7 @@ Regler:
 }
 ```
 
-Om varken snabbval eller fritext finns (”Bara swipea”) hoppar du över prompt 1 och använder standardfilter.
+Om varken snabbval eller fritext finns hoppar du över prompt 1 och använder standardfilter.
 
 ## Prompt 2: välj tre
 

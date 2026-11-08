@@ -23,7 +23,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 **Klart när:** du ser en lista med riktiga titlar som finns på dina tjänster.
 
 ## 3. Swipen
-- [x] Startvy: grupp, snabbval, fritext, ”Bara swipea”. Skapar en rad i `sessions`.
+- [x] Startvy: grupp, snabbval, fritext och en knapp, ”Visa förslag” (humöret är valfritt). Skapar en rad i `sessions`.
 - [x] Kortlek med gester och knappar enligt prototypen
 - [x] Höger, vänster med orsaks-chips, upp med sett-sheet (betyg, och se igen med vem)
 - [x] Detaljvy med handling, betyg, trailer och knappar för beslut
