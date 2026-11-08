@@ -215,7 +215,7 @@ const LOADING_PHRASES = [
 ];
 const PHRASE_MS = 1600;
 
-function LoadingLabel() {
+export function LoadingLabel() {
   // Start at a random phrase, then go round in order.
   const [start] = useState(() =>
     Math.floor(Math.random() * LOADING_PHRASES.length),

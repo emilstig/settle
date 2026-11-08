@@ -22,7 +22,7 @@ import {
 import { DetailView } from "./detail-view";
 import { GroupSheet } from "./group-sheet";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
-import { StartView } from "./start-view";
+import { LoadingLabel, StartView } from "./start-view";
 import {
   CardFace,
   SwipeCard,
@@ -481,7 +481,9 @@ export function Finder({
         ) : (
           <div className={styles.empty}>
             {session.hasMore ? (
-              <p>Hämtar fler …</p>
+              <p>
+                <LoadingLabel />
+              </p>
             ) : (
               <>
                 <p>Slut på förslag för det här.</p>

@@ -92,15 +92,21 @@ export async function startSession(
     getUserProviderIds(),
     buildProfile(user.id),
   ]);
-  const { cards, hasMore } = await loadDeckPage({
-    userId: user.id,
-    groupId,
-    providerIds,
-    filters,
-    page: 1,
-    seed: data.id,
-    affinity: profile.affinity,
-  });
+  // Keep loading until there is something to show, so the start button
+  // waits instead of opening an empty deck.
+  const { cards, page, hasMore } = await loadEnough(
+    {
+      userId: user.id,
+      groupId,
+      providerIds,
+      filters,
+      seed: data.id,
+      affinity: profile.affinity,
+    },
+    1,
+    [],
+    MIN_START_CARDS,
+  );
   // Claude's three picks first, with a reason each.
   const deck = await withPicks({
     sessionId: data.id,
@@ -114,7 +120,7 @@ export async function startSession(
     quickPicks,
     deck: cards,
   });
-  return { sessionId: data.id, cards: deck, page: 1, hasMore };
+  return { sessionId: data.id, cards: deck, page, hasMore };
 }
 
 const moreSchema = z.object({
@@ -122,6 +128,41 @@ const moreSchema = z.object({
   page: z.number().int().min(2).max(50),
   skip: z.array(z.string().max(20)).max(500),
 });
+
+/** Cards to have before showing the deck, and before a refill counts. */
+const MIN_START_CARDS = 10;
+const MIN_MORE_CARDS = 6;
+/** TMDB pages to try in one go before giving up on filling the deck. */
+const MAX_PAGES_AT_ONCE = 4;
+
+/**
+ * Loads deck pages from `firstPage` until there are enough cards. Pages can
+ * come back nearly empty once most titles are answered, which used to open
+ * an empty deck that then waited on the next page.
+ */
+async function loadEnough(
+  base: Omit<Parameters<typeof loadDeckPage>[0], "page" | "skip">,
+  firstPage: number,
+  skip: string[],
+  min: number,
+): Promise<{ cards: Card[]; page: number; hasMore: boolean }> {
+  const cards: Card[] = [];
+  const seen = [...skip];
+  let page = firstPage;
+  let hasMore = true;
+  for (let i = 0; i < MAX_PAGES_AT_ONCE; i++, page++) {
+    const res = await loadDeckPage({ ...base, page, skip: seen });
+    cards.push(...res.cards);
+    seen.push(...res.cards.map((c) => `${c.media_type}:${c.tmdb_id}`));
+    hasMore = res.hasMore;
+    if (cards.length >= min || !hasMore) break;
+  }
+  return {
+    cards,
+    page: Math.min(page, firstPage + MAX_PAGES_AT_ONCE - 1),
+    hasMore,
+  };
+}
 
 /** Swipes needed before a new page gets Claude's picks again. */
 const SWIPES_BETWEEN_PICKS = 15;
@@ -167,16 +208,20 @@ export async function loadMore(
     buildProfile(user.id),
     getGroups(),
   ]);
-  const { cards, hasMore } = await loadDeckPage({
-    userId: user.id,
-    groupId: session.group_id,
-    providerIds,
-    filters,
+  const loaded = await loadEnough(
+    {
+      userId: user.id,
+      groupId: session.group_id,
+      providerIds,
+      filters,
+      seed: sessionId,
+      affinity: profile.affinity,
+    },
     page,
     skip,
-    seed: sessionId,
-    affinity: profile.affinity,
-  });
+    MIN_MORE_CARDS,
+  );
+  const { cards, hasMore } = loaded;
   // Prompt 2 runs again on a new page only once the user has swiped through
   // enough of the last picks. A page fetched ahead of time right after the
   // start would otherwise run Claude for cards nobody reaches.
@@ -197,7 +242,7 @@ export async function loadMore(
           shown: skip,
         })
       : cards;
-  return { sessionId, cards: deck, page, hasMore };
+  return { sessionId, cards: deck, page: loaded.page, hasMore };
 }
 
 // ---------------------------------------------------------------------------

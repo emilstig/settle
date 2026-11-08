@@ -106,7 +106,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - Efter tittning: klockan med siffra frågar om gårdagens val (betyg, eller status för serier). Push-notis först efter MVP.
 - Allt ska också gå att göra med knappar, inte bara gester.
 - Förval får bara visa hur det redan är, aldrig skapa en ny önskan. ”Med annan grupp” förväljer gruppen där titeln redan är sparad; sett-sheeten förväljer bara grupper där den redan ligger på se igen-listan.
-- Medan förslagen tas fram visar knappen en spinner och fraser som växlar. Prompt 2 körs på en ny sida först när användaren har svept minst 15 kort sedan förra körningen.
+- Medan förslagen tas fram visar knappen en spinner och fraser som växlar, och knappen laddar tills det finns minst 10 kort att visa (upp till 4 TMDB-sidor), så att leken aldrig öppnas tom. ”Hämtar fler” visar samma spinner. Prompt 2 körs på en ny sida först när användaren har svept minst 15 kort sedan förra körningen.
 - Ångra gäller senaste swipen, inklusive det den skrev till databasen.
 
 ## Konventioner
