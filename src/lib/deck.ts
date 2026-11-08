@@ -57,6 +57,8 @@ export type Card = {
   providers_link: string | null;
   /** Other groups whose list the title is already on, such as ["Själv"]. */
   savedFor: string[];
+  /** Minutes: the film, or one episode. */
+  runtime: number | null;
   /** Claude's reason from prompt 2, for the three picks. */
   reason: string | null;
   /** Which slot prompt 2 chose it for; "rewatch" shows the label "Se igen". */
@@ -254,6 +256,7 @@ export function toCard(
       .map((p) => p.name),
     providers_link: t.providers_se?.link ?? null,
     savedFor,
+    runtime: t.runtime && t.runtime >= 5 ? t.runtime : null,
     reason: null,
     slot: null,
   };

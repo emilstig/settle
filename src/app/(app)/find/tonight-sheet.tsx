@@ -1,27 +1,50 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
+import { formatRuntime } from "@/lib/format";
 import type { Card } from "@/lib/deck";
 import styles from "./find.module.css";
 
-export type TonightItem = { card: Card; source: "pick" | "saved" };
+const SORTS = [
+  ["latest", "Senast"],
+  ["rating", "Betyg"],
+  ["short", "Kortast"],
+] as const;
+type Sort = (typeof SORTS)[number][0];
 
 const thumb = (p: string | null) =>
   p ? `https://image.tmdb.org/t/p/w92${p}` : null;
 const vote = (v: number | null) => (v ? v.toFixed(1).replace(".", ",") : null);
+const length = (c: Card) =>
+  c.runtime === null
+    ? null
+    : c.media_type === "movie"
+      ? formatRuntime(c.runtime)
+      : `${c.runtime} min/avsnitt`;
 
-/** Tonight's candidates: the top picks and what was saved, each with "Välj". */
+/** Tonight's shortlist: what was saved tonight, latest first, each with "Välj". */
 export function TonightSheet({
   items,
   busy,
   onChoose,
   onClose,
 }: {
-  items: TonightItem[];
+  items: Card[];
   busy: boolean;
   onChoose: (card: Card) => void;
   onClose: () => void;
 }) {
+  const [sort, setSort] = useState<Sort>("latest");
+  const sorted =
+    sort === "latest"
+      ? items
+      : [...items].sort((a, b) =>
+          sort === "rating"
+            ? (b.vote_average ?? 0) - (a.vote_average ?? 0)
+            : (a.runtime ?? Infinity) - (b.runtime ?? Infinity),
+        );
+
   return (
     <>
       <div className={styles.scrim} onClick={onClose} />
@@ -42,13 +65,26 @@ export function TonightSheet({
             ✕
           </button>
         </div>
-        <p>Toppvalen och det du har sparat ikväll.</p>
+        <p>Det du har sparat ikväll.</p>
+        <div className="chips" role="group" aria-label="Sortera">
+          {SORTS.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className="chip"
+              aria-pressed={sort === value}
+              onClick={() => setSort(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <ul className={styles.tonightList}>
-          {items.map(({ card, source }) => {
+          {sorted.map((card) => {
             const img = thumb(card.poster_path);
             const info = [
-              source === "pick" ? "Toppval" : "Du sparade",
               card.media_type === "movie" ? "Film" : "Serie",
+              length(card),
               vote(card.vote_average) ? `★ ${vote(card.vote_average)}` : null,
             ]
               .filter(Boolean)

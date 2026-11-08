@@ -22,7 +22,7 @@ import {
   undoSwipe,
   type Undo,
 } from "../find-actions";
-import { ChosenView, TonightSheet, type TonightItem } from "./tonight-sheet";
+import { ChosenView, TonightSheet } from "./tonight-sheet";
 import { DetailView } from "./detail-view";
 import { GroupSheet } from "./group-sheet";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
@@ -124,7 +124,6 @@ export function Finder({
   const [tonightChoice, setTonightChoice] = useState<Card | null>(null);
   const [tonightOpen, setTonightOpen] = useState(false);
   const [choosing, setChoosing] = useState(false);
-  const [declined, setDeclined] = useState<Set<string>>(new Set());
   const loadingMore = useRef(false);
   const cardRef = useRef<SwipeCardHandle>(null);
   const toastId = useRef(0);
@@ -158,20 +157,9 @@ export function Finder({
     };
   }, [groupId]);
 
-  // The top picks of this session not turned down, then what was saved.
-  // Only the session's own group: switching group on the start view shows
-  // that group's evening.
-  const picks =
-    session && session.groupId === groupId
-      ? session.cards.filter((c) => c.slot !== null && !declined.has(keyOf(c)))
-      : [];
-  const pickKeys = new Set(picks.map(keyOf));
-  const tonightItems: TonightItem[] = [
-    ...picks.map((c) => ({ card: c, source: "pick" as const })),
-    ...tonightSaved
-      .filter((c) => !pickKeys.has(keyOf(c)))
-      .map((c) => ({ card: c, source: "saved" as const })),
-  ];
+  // Tonight is the user's own shortlist: what was saved tonight, latest
+  // first. Top picks join it when swiped right.
+  const tonightItems = tonightSaved;
 
   async function choose(c: Card) {
     setChoosing(true);
@@ -235,7 +223,6 @@ export function Finder({
       });
       setIndex(0);
       setHistory([]);
-      setDeclined(new Set());
       setPhase("deck");
     } catch (e) {
       console.error(e);
@@ -288,8 +275,6 @@ export function Finder({
         c,
         ...saved.filter((x) => keyOf(x) !== keyOf(c)),
       ]);
-    } else {
-      setDeclined((d) => new Set(d).add(keyOf(c)));
     }
   }
 
@@ -452,12 +437,6 @@ export function Finder({
     setIndex(last.index);
     if (last.dir === "right") {
       setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== last.key));
-    } else {
-      setDeclined((d) => {
-        const n = new Set(d);
-        n.delete(last.key);
-        return n;
-      });
     }
     const u = await last.undo;
     if (u) await undoSwipe(u).catch((e) => console.error(e));
