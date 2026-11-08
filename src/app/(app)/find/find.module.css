@@ -90,6 +90,7 @@
 }
 .meta { font-size: 15px; opacity: 0.9; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.saved.topTag { background: #fff; color: #1c1a2e; }
 .why {
   font-size: 17px;
   font-weight: 600;
@@ -261,3 +262,37 @@
   .card, .sheet { transition: none; }
   .sheetOpen { animation: none; }
 }
+
+/* Tonight */
+.tonightChip {
+  margin-left: auto;
+  border: 0;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tonightList { list-style: none; display: grid; max-height: 55vh; overflow-y: auto; }
+.tonightRow { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.tonightThumb { position: relative; width: 44px; height: 64px; border-radius: 6px; overflow: hidden; background: var(--line); flex: none; }
+.tonightThumb img { object-fit: cover; }
+.tonightText { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.tonightText strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tonightText span { font-size: 13px; color: var(--mute); }
+.tonightRow button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
+.chosen { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 12px 0 24px; }
+.chosenLead { color: var(--mute); font-size: 15px; }
+.chosenPoster { position: relative; width: 200px; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: #2a2740; }
+.chosenMeta { color: var(--mute); font-size: 15px; }
+.chosen :global(.primary) { margin-top: 8px; text-align: center; min-width: 220px; }
+.chosenActions { display: flex; gap: 16px; }
+.tonightCard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+.tonightCard div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.tonightCard strong { font-size: 15px; }
+.tonightCard span { font-size: 13px; color: var(--mute); }
+.tonightCard button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
+
+.dbar .dchoose { background: var(--ink); color: var(--bg); border-color: var(--ink); }

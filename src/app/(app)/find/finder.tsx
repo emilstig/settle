@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Card } from "@/lib/deck";
 import { setYoungestAge } from "../actions";
 import {
+  chooseTonight,
+  clearTonight,
   loadMore,
   openDetail,
   recordSeen,
@@ -16,9 +18,11 @@ import {
   swipeDown,
   swipeLeft,
   swipeRight,
+  tonight,
   undoSwipe,
   type Undo,
 } from "../find-actions";
+import { ChosenView, TonightSheet, type TonightItem } from "./tonight-sheet";
 import { DetailView } from "./detail-view";
 import { GroupSheet } from "./group-sheet";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
@@ -43,7 +47,12 @@ type Session = {
 };
 
 /** One swipe that can be undone. `undo` settles once the database writes are done. */
-type HistoryEntry = { index: number; undo: Promise<Undo | null> };
+type HistoryEntry = {
+  index: number;
+  undo: Promise<Undo | null>;
+  dir: Dir;
+  key: string;
+};
 
 const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
@@ -83,7 +92,7 @@ export function Finder({
     setPhase("start");
     router.refresh();
   };
-  const [phase, setPhase] = useState<"start" | "deck">("start");
+  const [phase, setPhase] = useState<"start" | "deck" | "chosen">("start");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const [quickPicks, setQuickPicks] = useState<Set<string>>(new Set());
   const [mood, setMood] = useState("");
@@ -109,6 +118,13 @@ export function Finder({
     trailer: string | null;
     loading: boolean;
   } | null>(null);
+  // Tonight belongs to the evening and the group: saved titles and the choice
+  // survive starting over.
+  const [tonightSaved, setTonightSaved] = useState<Card[]>([]);
+  const [tonightChoice, setTonightChoice] = useState<Card | null>(null);
+  const [tonightOpen, setTonightOpen] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+  const [declined, setDeclined] = useState<Set<string>>(new Set());
   const loadingMore = useRef(false);
   const cardRef = useRef<SwipeCardHandle>(null);
   const toastId = useRef(0);
@@ -125,6 +141,71 @@ export function Finder({
     [],
   );
   const closeToast = useCallback(() => setToast(null), []);
+
+  // ---- tonight -------------------------------------------------------------
+
+  useEffect(() => {
+    let alive = true;
+    tonight({ groupId })
+      .then((t) => {
+        if (!alive) return;
+        setTonightSaved(t.saved);
+        setTonightChoice(t.choice);
+      })
+      .catch((e) => console.error(e));
+    return () => {
+      alive = false;
+    };
+  }, [groupId]);
+
+  // The top picks of this session not turned down, then what was saved.
+  // Only the session's own group: switching group on the start view shows
+  // that group's evening.
+  const picks =
+    session && session.groupId === groupId
+      ? session.cards.filter((c) => c.slot !== null && !declined.has(keyOf(c)))
+      : [];
+  const pickKeys = new Set(picks.map(keyOf));
+  const tonightItems: TonightItem[] = [
+    ...picks.map((c) => ({ card: c, source: "pick" as const })),
+    ...tonightSaved
+      .filter((c) => !pickKeys.has(keyOf(c)))
+      .map((c) => ({ card: c, source: "saved" as const })),
+  ];
+
+  async function choose(c: Card) {
+    setChoosing(true);
+    try {
+      await chooseTonight({
+        groupId: session?.groupId ?? groupId,
+        sessionId: session?.id,
+        ref: refOf(c),
+      });
+      setTonightChoice(c);
+      setTonightOpen(false);
+      setDetail(null);
+      setToast(null);
+      setPhase("chosen");
+    } catch (e) {
+      console.error(e);
+      showToast("Det gick inte att spara valet", [], 2200);
+    } finally {
+      setChoosing(false);
+    }
+  }
+
+  async function changeChoice() {
+    setChoosing(true);
+    try {
+      await clearTonight({ groupId: session?.groupId ?? groupId });
+      setTonightChoice(null);
+      setPhase(session ? "deck" : "start");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setChoosing(false);
+    }
+  }
 
   // ---- session ------------------------------------------------------------
 
@@ -154,6 +235,7 @@ export function Finder({
       });
       setIndex(0);
       setHistory([]);
+      setDeclined(new Set());
       setPhase("deck");
     } catch (e) {
       console.error(e);
@@ -199,8 +281,16 @@ export function Finder({
 
   // ---- swipes ---------------------------------------------------------------
 
-  function push(entry: HistoryEntry) {
-    setHistory((h) => [...h.slice(-19), entry]);
+  function push(entry: Omit<HistoryEntry, "dir" | "key">, dir: Dir, c: Card) {
+    setHistory((h) => [...h.slice(-19), { ...entry, dir, key: keyOf(c) }]);
+    if (dir === "right") {
+      setTonightSaved((saved) => [
+        c,
+        ...saved.filter((x) => keyOf(x) !== keyOf(c)),
+      ]);
+    } else {
+      setDeclined((d) => new Set(d).add(keyOf(c)));
+    }
   }
 
   function replaceTop(
@@ -268,7 +358,7 @@ export function Finder({
 
     if (dir === "right") {
       const undo = swipeRight(base).catch(() => null);
-      push({ index: at, undo });
+      push({ index: at, undo }, dir, c);
       showToast(
         group?.kind === "solo"
           ? "Sparad i din lista"
@@ -279,6 +369,7 @@ export function Finder({
             onClick: () =>
               void undo.then(() => setInterest({ ...base, interest: "want" })),
           },
+          { label: "Välj för ikväll", onClick: () => void choose(c) },
           {
             label: "Med annan grupp",
             onClick: () =>
@@ -292,7 +383,7 @@ export function Finder({
       const undo = swipeLeft({ sessionId: session.id, ref: refOf(c) }).catch(
         () => null,
       );
-      push({ index: at, undo });
+      push({ index: at, undo }, dir, c);
       // "Inte nu" is the default. The chip applies in this group only, so the
       // words follow the company. "Sett" is the up swipe, so it has no chip.
       showToast("Inte nu", [
@@ -313,10 +404,10 @@ export function Finder({
       const undo = swipeDown({ sessionId: session.id, ref: refOf(c) }).catch(
         () => null,
       );
-      push({ index: at, undo });
+      push({ index: at, undo }, dir, c);
       showToast("Vet inte · visas igen om en vecka", [], 1400);
     } else {
-      push({ index: at, undo: openSeen(c) });
+      push({ index: at, undo: openSeen(c) }, dir, c);
     }
   }
 
@@ -359,6 +450,15 @@ export function Finder({
       return null;
     });
     setIndex(last.index);
+    if (last.dir === "right") {
+      setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== last.key));
+    } else {
+      setDeclined((d) => {
+        const n = new Set(d);
+        n.delete(last.key);
+        return n;
+      });
+    }
     const u = await last.undo;
     if (u) await undoSwipe(u).catch((e) => console.error(e));
   }
@@ -417,37 +517,64 @@ export function Finder({
 
   // ---- render ---------------------------------------------------------------
 
+  const sheet = tonightOpen && (
+    <TonightSheet
+      items={tonightItems}
+      busy={choosing}
+      onChoose={(c) => void choose(c)}
+      onClose={() => setTonightOpen(false)}
+    />
+  );
+
+  if (phase === "chosen" && tonightChoice) {
+    return (
+      <ChosenView
+        card={tonightChoice}
+        busy={choosing}
+        onChange={() => void changeChoice()}
+        onDone={backToStart}
+      />
+    );
+  }
+
   if (phase === "start" || !session) {
     return (
-      <StartView
-        groups={groups}
-        groupId={groupId}
-        onGroup={setGroupId}
-        onAge={(id, age) => {
-          setGroups((gs) =>
-            gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)),
-          );
-          setYoungestAge({ groupId: id, age }).catch((e) => {
-            console.error(e);
-            setError("Det gick inte att spara åldern. Prova igen.");
-          });
-        }}
-        quickPicks={quickPicks}
-        onToggleQuick={(q) =>
-          setQuickPicks((s) => {
-            const n = new Set(s);
-            if (n.has(q)) n.delete(q);
-            else n.add(q);
-            return n;
-          })
-        }
-        mood={mood}
-        onMood={setMood}
-        onStart={start}
-        loading={starting}
-        error={error}
-        footer={footer}
-      />
+      <>
+        <StartView
+          tonightChoice={tonightChoice}
+          tonightCount={tonightItems.length}
+          onOpenTonight={() => setTonightOpen(true)}
+          onOpenChoice={() => setPhase("chosen")}
+          groups={groups}
+          groupId={groupId}
+          onGroup={setGroupId}
+          onAge={(id, age) => {
+            setGroups((gs) =>
+              gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)),
+            );
+            setYoungestAge({ groupId: id, age }).catch((e) => {
+              console.error(e);
+              setError("Det gick inte att spara åldern. Prova igen.");
+            });
+          }}
+          quickPicks={quickPicks}
+          onToggleQuick={(q) =>
+            setQuickPicks((s) => {
+              const n = new Set(s);
+              if (n.has(q)) n.delete(q);
+              else n.add(q);
+              return n;
+            })
+          }
+          mood={mood}
+          onMood={setMood}
+          onStart={start}
+          loading={starting}
+          error={error}
+          footer={footer}
+        />
+        {sheet}
+      </>
     );
   }
 
@@ -457,6 +584,15 @@ export function Finder({
         <button type="button" className={styles.ctx} onClick={backToStart}>
           {session.label} ✎
         </button>
+        {tonightItems.length > 0 && (
+          <button
+            type="button"
+            className={styles.tonightChip}
+            onClick={() => setTonightOpen(true)}
+          >
+            Ikväll · {tonightItems.length}
+          </button>
+        )}
       </div>
 
       <div className={styles.deck}>
@@ -575,8 +711,11 @@ export function Finder({
             setDetail(null);
             void decide(dir);
           }}
+          onChoose={() => void choose(detail.card)}
         />
       )}
+
+      {sheet}
     </div>
   );
 }

@@ -55,7 +55,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 - [x] Motiveringen visas på kortet och i detaljvyn
 - [x] Se igen: gruppens `rewatch`-titlar och, vid tryggt humör, älskade sedda titlar läggs till som kandidater, med etiketten ”Se igen” på kortet
 - [ ] ”Vet inte”-titlar kommer tillbaka efter kortare tid än 7 dagar, med en motivering som förklarar vad det är
-- [ ] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
+- [x] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
 - [ ] Tillfällig växel: Claude-sortering mot ren TMDB-sortering, för jämförelse
 
 **Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
@@ -63,7 +63,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 ## 6. Lista och check-in
 - [ ] Fliken Lista som rader om dig: Vill se per grupp, Att se om, Fortsätt titta
 - [ ] Fliken Profil med betyg, tjänster och Kalibrera. I betygslistan går det att trycka på en titel och sätta ”Vill du se den igen? Med vem?” i efterhand
-- [ ] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen
+- [x] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen (byggt med Toppval ikväll i steg 5)
 - [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
 
 **Klart när:** check-in fyller på betyg utan att du tänker på det.

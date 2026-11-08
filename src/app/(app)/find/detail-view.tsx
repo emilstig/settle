@@ -16,6 +16,7 @@ export function DetailView({
   fromDeck,
   onClose,
   onDecide,
+  onChoose,
 }: {
   card: Card;
   trailerKey: string | null;
@@ -23,6 +24,8 @@ export function DetailView({
   fromDeck: boolean;
   onClose: () => void;
   onDecide: (dir: "left" | "up" | "right") => void;
+  /** "Välj den här": sets tonight's choice. */
+  onChoose: () => void;
 }) {
   const backRef = useRef<HTMLButtonElement>(null);
   useEffect(() => backRef.current?.focus(), []);
@@ -111,19 +114,24 @@ export function DetailView({
           </div>
         </div>
       </div>
-      {fromDeck && (
-        <div className={styles.dbar}>
-          <button type="button" onClick={() => onDecide("left")}>
-            ✕ Inte nu
-          </button>
-          <button type="button" onClick={() => onDecide("up")}>
-            Sett
-          </button>
-          <button type="button" onClick={() => onDecide("right")}>
-            ♥ Vill se
-          </button>
-        </div>
-      )}
+      <div className={styles.dbar}>
+        {fromDeck && (
+          <>
+            <button type="button" onClick={() => onDecide("left")}>
+              ✕ Inte nu
+            </button>
+            <button type="button" onClick={() => onDecide("up")}>
+              Sett
+            </button>
+            <button type="button" onClick={() => onDecide("right")}>
+              ♥ Vill se
+            </button>
+          </>
+        )}
+        <button type="button" className={styles.dchoose} onClick={onChoose}>
+          Välj den här
+        </button>
+      </div>
     </>
   );
 }

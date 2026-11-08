@@ -11,6 +11,7 @@ import {
 import { getGroups } from "@/lib/groups";
 import { buildProfile } from "@/lib/profile";
 import { withPicks } from "@/lib/suggest";
+import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
@@ -635,6 +636,77 @@ export async function undoSwipe(input: Undo) {
 // ---------------------------------------------------------------------------
 // Detail
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Tonight
+// ---------------------------------------------------------------------------
+
+/** Tonight's choice and saved candidates for a group. */
+export async function tonight(input: { groupId: string }): Promise<Tonight> {
+  const user = await getCurrentUser();
+  const groupId = uuid.parse(input.groupId);
+  return getTonight(user.id, groupId, await getUserProviderIds());
+}
+
+const chooseSchema = z.object({
+  groupId: uuid,
+  ref,
+  /** The current session; without it, tonight's latest session for the group. */
+  sessionId: uuid.optional(),
+});
+
+/**
+ * "Välj": sets tonight's choice on the session. One choice per evening and
+ * group, so any earlier choice tonight is cleared.
+ */
+export async function chooseTonight(input: z.infer<typeof chooseSchema>) {
+  const user = await getCurrentUser();
+  const { groupId, ref: r, sessionId } = chooseSchema.parse(input);
+  const supabase = await createClient();
+  const since = eveningStart();
+  const { data: sessions, error } = await supabase
+    .from("sessions")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("group_id", groupId)
+    .gte("started_at", since)
+    .order("started_at", { ascending: false });
+  if (error) throw error;
+  const target =
+    sessionId && sessions.some((s) => s.id === sessionId)
+      ? sessionId
+      : sessions[0]?.id;
+  if (!target) throw new Error("No session tonight");
+
+  await clearTonightChoice(user.id, groupId);
+  const { error: pickError } = await supabase
+    .from("sessions")
+    .update({
+      picked_tmdb_id: r.tmdb_id,
+      picked_media_type: r.media_type,
+      picked_at: new Date().toISOString(),
+    })
+    .eq("id", target);
+  if (pickError) throw pickError;
+}
+
+async function clearTonightChoice(userId: string, groupId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sessions")
+    .update({ picked_tmdb_id: null, picked_media_type: null, picked_at: null })
+    .eq("user_id", userId)
+    .eq("group_id", groupId)
+    .gte("started_at", eveningStart())
+    .not("picked_tmdb_id", "is", null);
+  if (error) throw error;
+}
+
+/** "Ändra": tonight has no choice again. */
+export async function clearTonight(input: { groupId: string }) {
+  const user = await getCurrentUser();
+  await clearTonightChoice(user.id, uuid.parse(input.groupId));
+}
 
 /** Logs that the card was opened and returns the trailer, fetched on demand. */
 export async function openDetail(input: {

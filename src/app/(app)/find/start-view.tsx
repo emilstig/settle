@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Card } from "@/lib/deck";
 import type { GroupOption } from "./types";
 import styles from "./find.module.css";
 
@@ -40,6 +41,10 @@ export function StartView({
   loading,
   error,
   footer,
+  tonightChoice,
+  tonightCount,
+  onOpenTonight,
+  onOpenChoice,
 }: {
   groups: GroupOption[];
   groupId: string;
@@ -53,6 +58,12 @@ export function StartView({
   loading: boolean;
   error: string | null;
   footer: React.ReactNode;
+  /** Tonight's choice for the selected group, if made. */
+  tonightChoice: Card | null;
+  /** Candidates saved tonight with the selected group. */
+  tonightCount: number;
+  onOpenTonight: () => void;
+  onOpenChoice: () => void;
 }) {
   const [editingAge, setEditingAge] = useState(false);
   const selected = groups.find((g) => g.id === groupId);
@@ -118,6 +129,34 @@ export function StartView({
           );
         })}
       </div>
+
+      {/* Back the same evening: what was found tonight, without a new session. */}
+      {tonightChoice ? (
+        <div className={styles.tonightCard}>
+          <div>
+            <strong>Ikväll blir det {tonightChoice.title}</strong>
+            <span>Ditt val för ikväll</span>
+          </div>
+          <button type="button" onClick={onOpenChoice}>
+            Visa
+          </button>
+        </div>
+      ) : (
+        tonightCount > 0 && (
+          <div className={styles.tonightCard}>
+            <div>
+              <strong>
+                Ikväll · {tonightCount}{" "}
+                {tonightCount === 1 ? "kandidat" : "kandidater"}
+              </strong>
+              <span>Det du har sparat ikväll</span>
+            </div>
+            <button type="button" onClick={onOpenTonight}>
+              Visa
+            </button>
+          </div>
+        )
+      )}
 
       {askAge && family && (
         <div className={styles.age} role="group" aria-labelledby="age-q">

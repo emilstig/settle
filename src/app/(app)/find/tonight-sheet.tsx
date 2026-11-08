@@ -1,0 +1,146 @@
+"use client";
+
+import Image from "next/image";
+import type { Card } from "@/lib/deck";
+import styles from "./find.module.css";
+
+export type TonightItem = { card: Card; source: "pick" | "saved" };
+
+const thumb = (p: string | null) =>
+  p ? `https://image.tmdb.org/t/p/w92${p}` : null;
+const vote = (v: number | null) => (v ? v.toFixed(1).replace(".", ",") : null);
+
+/** Tonight's candidates: the top picks and what was saved, each with "Välj". */
+export function TonightSheet({
+  items,
+  busy,
+  onChoose,
+  onClose,
+}: {
+  items: TonightItem[];
+  busy: boolean;
+  onChoose: (card: Card) => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div className={styles.scrim} onClick={onClose} />
+      <div
+        className={`${styles.sheet} ${styles.sheetOpen}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tonight-title"
+      >
+        <div className={styles.sheetHead}>
+          <h3 id="tonight-title">Ikväll</h3>
+          <button
+            type="button"
+            className={styles.sheetClose}
+            aria-label="Stäng"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
+        <p>Toppvalen och det du har sparat ikväll.</p>
+        <ul className={styles.tonightList}>
+          {items.map(({ card, source }) => {
+            const img = thumb(card.poster_path);
+            const info = [
+              source === "pick" ? "Toppval" : "Du sparade",
+              card.media_type === "movie" ? "Film" : "Serie",
+              vote(card.vote_average) ? `★ ${vote(card.vote_average)}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <li
+                key={`${card.media_type}:${card.tmdb_id}`}
+                className={styles.tonightRow}
+              >
+                <div className={styles.tonightThumb}>
+                  {img && <Image src={img} alt="" fill sizes="44px" />}
+                </div>
+                <div className={styles.tonightText}>
+                  <strong>{card.title}</strong>
+                  <span>{info}</span>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onChoose(card)}
+                >
+                  Välj
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <button type="button" className={styles.sheetSkip} onClick={onClose}>
+          Fortsätt leta
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** After "Välj": what tonight will be, where to watch it, and a way back. */
+export function ChosenView({
+  card,
+  busy,
+  onChange,
+  onDone,
+}: {
+  card: Card;
+  busy: boolean;
+  onChange: () => void;
+  onDone: () => void;
+}) {
+  const img = card.poster_path
+    ? `https://image.tmdb.org/t/p/w500${card.poster_path}`
+    : null;
+  return (
+    <div className={styles.chosen}>
+      <p className={styles.chosenLead}>Ikväll blir det</p>
+      <div className={styles.chosenPoster}>
+        {img && (
+          <Image
+            src={img}
+            alt=""
+            fill
+            sizes="240px"
+            className={styles.cardImg}
+          />
+        )}
+      </div>
+      <h1 className="q">{card.title}</h1>
+      <p className={styles.chosenMeta}>{card.meta}</p>
+      {card.services.length > 0 && (
+        <p className={styles.chosenMeta}>På {card.services.join(", ")}</p>
+      )}
+      {card.providers_link && (
+        <a
+          className="primary"
+          href={card.providers_link}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Se var den finns
+        </a>
+      )}
+      <div className={styles.chosenActions}>
+        <button
+          type="button"
+          className="link"
+          onClick={onChange}
+          disabled={busy}
+        >
+          Ändra
+        </button>
+        <button type="button" className="link" onClick={onDone}>
+          Till startsidan
+        </button>
+      </div>
+    </div>
+  );
+}
