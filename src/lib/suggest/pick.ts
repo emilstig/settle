@@ -123,7 +123,8 @@ function validate(out: PickOutput, count: number): PickOutput | null {
   const ids = out.picks.map((p) => p.id);
   if (ids.length === 0 || ids.length > 3) return null;
   if (new Set(ids).size !== ids.length) return null;
-  if (ids.some((id) => !Number.isInteger(id) || id < 1 || id > count)) return null;
+  if (ids.some((id) => !Number.isInteger(id) || id < 1 || id > count))
+    return null;
   if (ids.length < Math.min(3, count)) return null;
   return out;
 }

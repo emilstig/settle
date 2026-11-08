@@ -10,6 +10,7 @@ import {
   type DeckFilters,
 } from "@/lib/deck";
 import { getGenreNames } from "@/lib/tmdb/genres";
+import { shuffle } from "@/lib/spread";
 import {
   discover,
   getTitles,
@@ -142,25 +143,36 @@ export async function extraCandidates(
     .map((row) => toCard(row, mine, genres));
 }
 
+/** How many of each kind from the user's lists go to prompt 2 per session. */
+const FROM_LIST = { want: 2, maybe: 2, rewatch: 2, loved: 3 };
+const SEEN_PAUSE_MS = 7 * 24 * 3600 * 1000;
+
+type Ref = { tmdb_id: number; media_type: MediaType };
+
 /**
- * Seen titles that may come back, per the domain rules: what the user said
- * "Se igen med" this group about, any night, and, when the mood is safe,
- * loved titles not rated in the last 6 months.
+ * Candidates from the user's own lists, rotated per session so the same few
+ * do not come back every time:
+ * - the group's list, "vill gärna" before "vill se" (prompt 2 weighs it most)
+ * - se igen for the group, any night
+ * - when the mood is safe, loved titles not rated in the last 6 months
+ * Turned down titles are left out, and so are titles answered "Sett" in the
+ * last week, since the user just took a stand on them.
  */
-export async function seenCandidates(
-  ctx: Pick<Context, "userId" | "groupId" | "providerIds" | "filters">,
+export async function listCandidates(
+  ctx: Pick<Context, "userId" | "groupId" | "providerIds" | "filters"> & {
+    seed: string;
+  },
   comfort: boolean,
 ): Promise<Card[]> {
   const supabase = await createClient();
   const sixMonthsAgo = new Date(Date.now() - SIX_MONTHS_MS).toISOString();
-  const [rewatch, loved, declined] = await Promise.all([
+  const weekAgo = new Date(Date.now() - SEEN_PAUSE_MS).toISOString();
+  const [list, loved, recentSeen, declined] = await Promise.all([
     supabase
       .from("watchlist")
-      .select("tmdb_id, media_type")
+      .select("tmdb_id, media_type, interest")
       .eq("user_id", ctx.userId)
-      .eq("group_id", ctx.groupId)
-      .eq("interest", "rewatch")
-      .limit(20),
+      .eq("group_id", ctx.groupId),
     comfort
       ? supabase
           .from("ratings")
@@ -168,21 +180,35 @@ export async function seenCandidates(
           .eq("user_id", ctx.userId)
           .eq("rating", 3)
           .lt("updated_at", sixMonthsAgo)
-          .limit(20)
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type")
+      .eq("user_id", ctx.userId)
+      .eq("action", "seen")
+      .gte("created_at", weekAgo),
     getDeclined(ctx.userId, ctx.groupId),
   ]);
-  if (rewatch.error) throw rewatch.error;
+  if (list.error) throw list.error;
   if (loved.error) throw loved.error;
+  if (recentSeen.error) throw recentSeen.error;
 
-  const refs = [...rewatch.data, ...(loved.data ?? [])] as {
-    tmdb_id: number;
-    media_type: MediaType;
-  }[];
-  // "Inte nu", "vet inte" and "inte vår grej" apply to se igen titles too.
-  const unique = [...new Map(refs.map((r) => [key(r), r])).values()]
-    .filter((r) => !declined.has(key(r)))
-    .slice(0, 5);
+  const paused = new Set(recentSeen.data.map(key));
+  const ok = (r: Ref) => !declined.has(key(r)) && !paused.has(key(r));
+  const pick = (rows: Ref[], n: number, salt: string) =>
+    shuffle(rows.filter(ok), `${ctx.seed}:${salt}`).slice(0, n);
+  const of = (interest: string) =>
+    (list.data as (Ref & { interest: string })[]).filter(
+      (r) => r.interest === interest,
+    );
+
+  const refs = [
+    ...pick(of("want"), FROM_LIST.want, "want"),
+    ...pick(of("maybe"), FROM_LIST.maybe, "maybe"),
+    ...pick(of("rewatch"), FROM_LIST.rewatch, "rewatch"),
+    ...pick((loved.data ?? []) as Ref[], FROM_LIST.loved, "loved"),
+  ];
+  const unique = [...new Map(refs.map((r) => [key(r), r])).values()];
   if (unique.length === 0) return [];
   const [rows, genres] = await Promise.all([
     getTitles(unique),

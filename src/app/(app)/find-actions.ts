@@ -233,7 +233,13 @@ export async function swipeRight(
   const { sessionId, groupId, ref: r } = swipeSchema.parse(input);
   const prev = await currentInterest(user.id, groupId, r);
   const id = await logInteraction(user.id, sessionId, r, "right");
-  await upsertWatchlist(user.id, groupId, r, "maybe");
+  // A title already on the list as "vill gärna" or "se igen" keeps that.
+  await upsertWatchlist(
+    user.id,
+    groupId,
+    r,
+    prev === "want" || prev === "rewatch" ? prev : "maybe",
+  );
   return {
     ref: r,
     sessionId,

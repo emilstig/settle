@@ -2,7 +2,7 @@ import "server-only";
 import { key, type Card, type DeckFilters } from "@/lib/deck";
 import type { Group } from "@/lib/groups";
 import { buildGroupHistory, type TasteProfile } from "@/lib/profile";
-import { extraCandidates, seenCandidates } from "./candidates";
+import { extraCandidates, listCandidates } from "./candidates";
 import { pickThree } from "./pick";
 
 /** About 20 candidates for prompt 2, per the project doc. */
@@ -12,8 +12,9 @@ const MAX_CANDIDATES = 22;
 
 /**
  * Puts Claude's three picks first in a deck page. Candidates are the top of
- * the page, acclaimed and newer titles in the user's genres, and seen titles
- * that may come back. If anything fails, the page is returned unchanged.
+ * the page, acclaimed and newer titles in the user's genres, and titles from
+ * the user's lists (saved, se igen, and loved ones when the mood is safe).
+ * If anything fails, the page is returned unchanged.
  */
 export async function withPicks({
   sessionId,
@@ -56,16 +57,21 @@ export async function withPicks({
       affinity: profile.affinity,
       skip: new Set([...shown, ...deck.map(key)]),
     };
-    const [extras, seen, groupHistory] = await Promise.all([
+    const [extras, fromLists, groupHistory] = await Promise.all([
       extraCandidates(ctx, EXTRAS),
-      seenCandidates(ctx, comfort),
+      // Rotated per session and page.
+      listCandidates({ ...ctx, seed: `${sessionId}:${shown.length}` }, comfort),
       buildGroupHistory(userId, group),
     ]);
 
     const byKey = new Map<string, Card>();
-    // Seen titles only once per session, not on every page.
-    const freshSeen = seen.filter((c) => !shown.includes(key(c)));
-    for (const c of [...freshSeen, ...deck.slice(0, FROM_DECK), ...extras]) {
+    // List titles only once per session, not on every page.
+    const freshFromLists = fromLists.filter((c) => !shown.includes(key(c)));
+    for (const c of [
+      ...freshFromLists,
+      ...deck.slice(0, FROM_DECK),
+      ...extras,
+    ]) {
       if (!byKey.has(key(c)) && byKey.size < MAX_CANDIDATES)
         byKey.set(key(c), c);
     }
