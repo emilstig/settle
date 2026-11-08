@@ -87,7 +87,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - **Watchlist är per grupp.** ”Se igen med Familj” ska väga tungt när gruppen är Familj.
 - **Familj** betyder att alla tittar tillsammans: filtrera på svensk åldersgräns utifrån `youngest_age` (standard 7 år om den saknas) och inget skrämmande. Förslagen ska också fungera för de vuxna.
 - **Gruppens egen historik** (vad som setts och betygsatts med gruppen) väger tyngre än den personliga profilen när gruppen inte är Själv.
-- **Smakprofilen** (`{{PROFILE}}` i prompt 2) byggs på servern vid varje förslag och hålls kort, runt 30 rader: topp 10 älskar, de senaste 10 betygen, ogillade och avbrutna från senaste året, och en genreprofil. Genreprofilen viktar älskar 3, gillar mycket 2, gillar 1, ogillar −2 och avbröt −1, med en halveringstid på ett år.
+- **Smakprofilen** (`{{PROFILE}}` i prompt 2) byggs på servern vid varje förslag och hålls kort, runt 30 rader: topp 10 älskar, de senaste 10 betygen, ogillade och avbrutna från senaste året, och en genreprofil. Profilen bygger på användarens egna betyg (kalibreringen och Själv); betyg med andra grupper är gruppens historik. Genreprofilen viktar älskar 3, gillar mycket 2, gillar 1, ogillar −2 och avbröt −1, med en halveringstid på ett år, och rangordnar genrer efter snitt per titel (med en spärr så att få titlar inte toppar) i stället för summa. Seriegenrer räknas som motsvarande filmgenrer, till exempel Sci-Fi & Fantasy som Science Fiction och Fantasy.
 - **Motiveringar** handlar om användaren, inte bara om filmen. De grundas i första hand i profilen, i andra hand i humör, tid eller grupp, och beskriver bara filmens känsla om inget av det finns. Se `docs/prompts.md`.
 
 ## UX-regler

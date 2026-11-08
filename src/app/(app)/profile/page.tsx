@@ -35,7 +35,11 @@ async function Profile() {
   return (
     <>
       <p className={styles.lead}>
-        Så här beskrivs din smak när Settle väljer förslag. Den bygger på {profile.ratingCount} betyg.
+        Så här beskrivs din smak när Settle väljer förslag. Den bygger på{" "}
+        {profile.ratingCount} egna betyg, från kalibreringen och när du tittar
+        själv.
+        {profile.groupRatingCount > 0 &&
+          ` ${profile.groupRatingCount} betyg med andra grupper räknas som gruppernas historik.`}
       </p>
       <pre className={styles.profile}>{profile.text}</pre>
     </>

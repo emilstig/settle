@@ -7,6 +7,9 @@ import { getGenreNames } from "@/lib/tmdb/genres";
  * The taste profile that becomes {{PROFILE}} in prompt 2, per the domain rules:
  * top 10 loved, the 10 latest ratings, disliked and dropped from the last
  * year, and a genre profile. Kept short, around 30 lines.
+ *
+ * It is the user's own taste: ratings from calibration and from Själv. Ratings
+ * made with another group belong to that group's history ({{GROUP_HISTORY}}).
  */
 
 const YEAR_MS = 365 * 24 * 3600 * 1000;
@@ -21,13 +24,36 @@ const RATING_LABEL: Record<number, string> = {
 };
 const TOP_GENRES = 6;
 const LOW_GENRES = 3;
+/**
+ * Genres are ranked by average weight, not by sum, so a common genre like
+ * Drama does not win just by being on everything. The prior pulls genres with
+ * few titles towards zero, so one loved film cannot top the list.
+ */
+const GENRE_PRIOR = 3;
+const MIN_GENRE_TITLES = 2;
+/**
+ * TMDB has separate genres for series. Each is counted as the film genres it
+ * covers, so sci-fi is one genre whether it is a film or a series.
+ */
+const TV_GENRE_AS: Record<number, number[]> = {
+  10765: [878, 14], // Sci-Fi & Fantasy → Science Fiction, Fantasy
+  10759: [28, 12], // Action & Adventure → Action, Äventyr
+  10768: [10752], // War & Politics → Krig
+  10762: [10751], // Kids → Familj
+};
+const genresOf = (ids: number[]) => [
+  ...new Set(ids.flatMap((g) => TV_GENRE_AS[g] ?? [g])),
+];
 
 type Ref = { tmdb_id: number; media_type: "movie" | "tv" };
 type TitleInfo = { title: string; year: number | null; genre_ids: number[] };
 
 export type TasteProfile = {
   text: string;
+  /** Ratings the profile is built from. */
   ratingCount: number;
+  /** Ratings made with other groups, left out of the profile. */
+  groupRatingCount: number;
 };
 
 export async function countRatings(userId: string): Promise<number> {
@@ -64,15 +90,23 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   ]);
   if (ratingsRes.error) throw ratingsRes.error;
   if (droppedRes.error) throw droppedRes.error;
-  const ratings = ratingsRes.data as (Ref & {
+  const allRatings = ratingsRes.data as (Ref & {
     rating: number;
     group_id: string | null;
     updated_at: string;
   })[];
   const dropped = droppedRes.data as (Ref & { updated_at: string })[];
+  // Personal: calibration (no group) and Själv.
+  const solo = new Set(
+    groups.filter((g) => g.kind === "solo").map((g) => g.id),
+  );
+  const ratings = allRatings.filter(
+    (r) => r.group_id === null || solo.has(r.group_id),
+  );
+  const groupRatingCount = allRatings.length - ratings.length;
 
   if (ratings.length === 0 && dropped.length === 0) {
-    return { text: "Inga betyg än.", ratingCount: 0 };
+    return { text: "Inga egna betyg än.", ratingCount: 0, groupRatingCount };
   }
 
   // Titles are cached in `titles` when they are shown, so every rated title is there.
@@ -86,15 +120,11 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
     rows.map((t) => [keyOf(t as Ref), t as TitleInfo]),
   );
 
-  const groupName = new Map(
-    groups.filter((g) => g.kind !== "solo").map((g) => [g.id, g.name]),
-  );
-  const name = (r: Ref & { group_id?: string | null }) => {
+  const name = (r: Ref) => {
     const t = titles.get(keyOf(r));
     if (!t) return null;
     const kind = r.media_type === "movie" ? "film" : "serie";
-    const group = r.group_id ? groupName.get(r.group_id) : undefined;
-    return `${t.title} (${[kind, t.year].filter(Boolean).join(", ")})${group ? `, med ${group}` : ""}`;
+    return `${t.title} (${[kind, t.year].filter(Boolean).join(", ")})`;
   };
 
   const now = Date.now();
@@ -135,18 +165,26 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
       }),
   ]);
 
-  // Genre profile: weighted ratings and drops, halved every year.
-  const score = new Map<number, number>();
+  // Genre profile: weighted ratings and drops, halved every year, averaged
+  // per genre with a prior so a few titles cannot dominate.
+  const sum = new Map<number, number>();
+  const count = new Map<number, number>();
   const add = (r: Ref, weight: number, at: string) => {
-    for (const g of titles.get(keyOf(r))?.genre_ids ?? []) {
-      score.set(g, (score.get(g) ?? 0) + weight * decay(at, now));
+    for (const g of genresOf(titles.get(keyOf(r))?.genre_ids ?? [])) {
+      sum.set(g, (sum.get(g) ?? 0) + weight * decay(at, now));
+      count.set(g, (count.get(g) ?? 0) + 1);
     }
   };
   for (const r of ratings) add(r, WEIGHT[r.rating] ?? 0, r.updated_at);
   for (const d of dropped) add(d, DROPPED_WEIGHT, d.updated_at);
 
-  const ranked = [...score.entries()]
-    .filter(([g, s]) => genreNames[g] && Math.abs(s) >= 0.5)
+  const ranked: [number, number][] = [...sum.entries()]
+    .filter(([g]) => genreNames[g] && (count.get(g) ?? 0) >= MIN_GENRE_TITLES)
+    .map(([g, total]): [number, number] => [
+      g,
+      total / ((count.get(g) ?? 0) + GENRE_PRIOR),
+    ])
+    .filter(([, avg]) => Math.abs(avg) >= 0.1)
     .sort((a, b) => b[1] - a[1]);
   const liked = ranked.filter(([, s]) => s > 0).slice(0, TOP_GENRES);
   const avoided = ranked
@@ -158,5 +196,9 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   if (liked.length) lines.push(`Genrer som väger mest: ${genreLine(liked)}`);
   if (avoided.length) lines.push(`Genrer som undviks: ${genreLine(avoided)}`);
 
-  return { text: lines.join("\n"), ratingCount: ratings.length };
+  return {
+    text: lines.join("\n"),
+    ratingCount: ratings.length,
+    groupRatingCount,
+  };
 }
