@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { DEFAULT_YOUNGEST_AGE, getGroups } from "@/lib/groups";
+import { getUserProviderIds } from "@/lib/providers";
 import { finishOnboarding } from "./actions";
 import styles from "./onboarding.module.css";
 
@@ -29,6 +30,7 @@ export default function OnboardingPage() {
 async function AgeForm() {
   const user = await getCurrentUser();
   if (user.onboarded) redirect("/");
+  if ((await getUserProviderIds()).length === 0) redirect("/onboarding/services");
 
   const family = (await getGroups()).find((g) => g.kind === "family");
   const current = family?.youngest_age ?? DEFAULT_YOUNGEST_AGE;

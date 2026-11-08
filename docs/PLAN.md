@@ -15,10 +15,10 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 **Klart när:** du kan logga in på telefonen och appen ligger på hemskärmen.
 
 ## 2. Data från TMDB
-- [ ] Onboarding: välj tjänster bland providers för SE, spara i `user_providers`
-- [ ] Serverfunktion för discover (film och tv) med användarens tjänster
-- [ ] Cache i `titles` med uppdatering av providers ungefär en gång i veckan
-- [ ] Källangivelse för TMDB och JustWatch i appen
+- [x] Onboarding: välj tjänster bland providers för SE, spara i `user_providers`
+- [x] Serverfunktion för discover (film och tv) med användarens tjänster
+- [x] Cache i `titles` med uppdatering av providers ungefär en gång i veckan
+- [x] Källangivelse för TMDB och JustWatch i appen
 
 **Klart när:** du ser en lista med riktiga titlar som finns på dina tjänster.
 
