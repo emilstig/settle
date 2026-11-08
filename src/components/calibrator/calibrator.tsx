@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { Card } from "@/lib/deck";
 import { CardFace, SwipeCard, type Dir, type Stamps, type SwipeCardHandle } from "@/app/(app)/find/swipe-card";
 import find from "@/app/(app)/find/find.module.css";
-import { finishCalibration, rateCalibration, undoCalibration } from "./actions";
+import { finishCalibration, markNotSeen, rateCalibration, undoCalibration, type CalibrationUndo } from "./actions";
 import styles from "./calibrator.module.css";
 
 const STAMPS: Stamps = {
@@ -16,7 +16,8 @@ const STAMPS: Stamps = {
 const RATING: Partial<Record<Dir, -1 | 1 | 3>> = { left: -1, right: 1, up: 3 };
 const KEYS: Record<string, Dir> = { ArrowRight: "right", ArrowLeft: "left", ArrowUp: "up", ArrowDown: "down" };
 
-type Step = { index: number; write: Promise<boolean> | null };
+/** One swipe. `write` settles with what to undo once the database write is done. */
+type Step = { index: number; rated: boolean; write: Promise<CalibrationUndo | null> };
 
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
 
@@ -35,17 +36,17 @@ export function Calibrator({ cards, mode }: { cards: Card[]; mode: "onboarding" 
   function handleSwipe(dir: Dir) {
     if (!card) return;
     const rating = RATING[dir];
-    const write = rating
-      ? rateCalibration({ ref: refOf(card), rating }).then(
-          () => true,
-          (e) => {
-            console.error(e);
-            return false;
-          },
-        )
-      : null;
+    const ref = refOf(card);
+    const write: Promise<CalibrationUndo | null> = (
+      rating
+        ? rateCalibration({ ref, rating }).then((): CalibrationUndo => ({ kind: "rating", ref }))
+        : markNotSeen(ref).then((interactionId): CalibrationUndo => ({ kind: "not_seen", interactionId }))
+    ).catch((e) => {
+      console.error(e);
+      return null;
+    });
     if (rating) setRated((n) => n + 1);
-    setHistory((h) => [...h.slice(-19), { index, write }]);
+    setHistory((h) => [...h.slice(-19), { index, rated: Boolean(rating), write }]);
     setIndex((i) => i + 1);
   }
 
@@ -60,9 +61,9 @@ export function Calibrator({ cards, mode }: { cards: Card[]; mode: "onboarding" 
     if (!last) return;
     setHistory((h) => h.slice(0, -1));
     setIndex(last.index);
-    if (!last.write) return;
-    setRated((n) => n - 1);
-    if (await last.write) await undoCalibration(refOf(cards[last.index])).catch((e) => console.error(e));
+    if (last.rated) setRated((n) => n - 1);
+    const undo = await last.write;
+    if (undo) await undoCalibration(undo).catch((e) => console.error(e));
   }
 
   function finish() {

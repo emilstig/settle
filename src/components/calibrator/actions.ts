@@ -32,16 +32,46 @@ export async function rateCalibration(input: z.input<typeof rateSchema>) {
   if (w.error) throw w.error;
 }
 
-/**
- * Undoes a calibration rating. Calibration only shows titles with no rating
- * and no watch log, so removing both restores the state before the swipe.
- */
-export async function undoCalibration(input: z.input<typeof refSchema>) {
+/** "Inte sett": remembered so the next calibration shows other titles. */
+export async function markNotSeen(input: z.input<typeof refSchema>): Promise<number> {
   const ref = refSchema.parse(input);
   const user = await getCurrentUser();
   const supabase = await createClient();
-  const match = { user_id: user.id, ...ref };
+  const { data, error } = await supabase
+    .from("interactions")
+    .insert({ user_id: user.id, ...ref, action: "not_seen" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as number;
+}
 
+const undoSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("rating"), ref: refSchema }),
+  z.object({ kind: z.literal("not_seen"), interactionId: z.number().int().positive() }),
+]);
+export type CalibrationUndo = z.infer<typeof undoSchema>;
+
+/**
+ * Undoes one calibration swipe. Calibration only shows titles with no rating
+ * and no watch log, so removing both restores the state before a rating.
+ */
+export async function undoCalibration(input: CalibrationUndo) {
+  const undo = undoSchema.parse(input);
+  const user = await getCurrentUser();
+  const supabase = await createClient();
+
+  if (undo.kind === "not_seen") {
+    const { error } = await supabase
+      .from("interactions")
+      .delete()
+      .eq("id", undo.interactionId)
+      .eq("user_id", user.id);
+    if (error) throw error;
+    return;
+  }
+
+  const match = { user_id: user.id, ...undo.ref };
   const [r, w] = await Promise.all([
     supabase.from("ratings").delete().match(match),
     supabase.from("watch_log").delete().match(match),
