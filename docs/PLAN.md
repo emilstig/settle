@@ -57,7 +57,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 
 ## 6. Lista och check-in
 - [ ] Fliken Lista som rader om dig: Vill se per grupp, Att se om, Fortsätt titta
-- [ ] Fliken Profil med betyg, tjänster och Kalibrera
+- [ ] Fliken Profil med betyg, tjänster och Kalibrera. I betygslistan går det att trycka på en titel och sätta ”Vill du se den igen? Med vem?” i efterhand
 - [ ] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen
 - [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
 
