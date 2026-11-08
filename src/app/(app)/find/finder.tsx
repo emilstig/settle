@@ -148,8 +148,8 @@ export function Finder({ groups, footer }: { groups: GroupOption[]; footer: Reac
       push({ index: at, undo });
       const reason = (r: "not_for_me" | "seen") =>
         undo.then((u) => u && setLeftReason({ interactionId: u.interactionIds[0], reason: r }));
-      showToast("Varför inte?", [
-        { label: "Inte nu", onClick: () => {} },
+      // "Inte nu" is the default; the chips can change it within two seconds.
+      showToast("Inte nu", [
         { label: "Inte min grej", onClick: () => void reason("not_for_me") },
         {
           label: "Sett den",
@@ -284,14 +284,14 @@ export function Finder({ groups, footer }: { groups: GroupOption[]; footer: Reac
         )}
       </div>
 
-      <p className={styles.hint}>Tryck: läs mer · Höger: vill se · Vänster: nej · Upp: sett</p>
+      <p className={styles.hint}>Tryck: läs mer · Höger: vill se · Vänster: inte nu · Upp: sett</p>
       <div className={styles.actions}>
         {history.length > 0 && (
           <button type="button" className={styles.undo} aria-label="Ångra" onClick={undo}>
             ↶
           </button>
         )}
-        <button type="button" aria-label="Nej" onClick={() => decide("left")} disabled={!card}>
+        <button type="button" aria-label="Inte nu" onClick={() => decide("left")} disabled={!card}>
           ✕
         </button>
         <button type="button" aria-label="Sett den" onClick={() => decide("up")} disabled={!card}>

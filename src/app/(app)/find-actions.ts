@@ -190,12 +190,13 @@ const seenSchema = z.object({
   groupId: uuid,
   ref,
   rating: z.union([z.literal(-1), z.literal(1), z.literal(2), z.literal(3)]).nullable(),
-  timesSeen: z.enum(["once", "few", "many"]).nullable(),
-  lastSeen: z.enum(["recent", "this_year", "long_ago"]).nullable(),
   rewatchGroupIds: z.array(uuid).max(10),
 });
 
-/** Up, or "Sett den": writes the rating, watch log and any "se igen med" rows. */
+/**
+ * Up, or "Sett den": marks it seen in the watch log, writes the rating and any
+ * "se igen med" rows. How many times and when are not asked in the MVP.
+ */
 export async function recordSeen(input: z.infer<typeof seenSchema>): Promise<Undo> {
   const user = await getCurrentUser();
   const s = seenSchema.parse(input);
@@ -218,14 +219,9 @@ export async function recordSeen(input: z.infer<typeof seenSchema>): Promise<Und
     watchLog: { prev: prevLog.data ?? null },
   };
 
-  const { error: logError } = await supabase.from("watch_log").upsert(
-    {
-      ...match,
-      times_seen: s.timesSeen ?? prevLog.data?.times_seen ?? null,
-      last_seen_approx: s.lastSeen ?? prevLog.data?.last_seen_approx ?? null,
-    },
-    { onConflict: "user_id,tmdb_id,media_type" },
-  );
+  const { error: logError } = await supabase
+    .from("watch_log")
+    .upsert(match, { onConflict: "user_id,tmdb_id,media_type", ignoreDuplicates: true });
   if (logError) throw logError;
 
   if (s.rating !== null) {

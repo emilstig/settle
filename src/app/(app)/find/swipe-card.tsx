@@ -10,7 +10,7 @@ export type SwipeCardHandle = { fly: (dir: Dir) => Promise<void> };
 
 const STAMPS: Record<Dir, [string, string]> = {
   right: ["Vill se", "var(--yes)"],
-  left: ["Nej", "var(--no)"],
+  left: ["Inte nu", "var(--no)"],
   up: ["Sett", "var(--seen)"],
 };
 const THRESHOLD = 90;

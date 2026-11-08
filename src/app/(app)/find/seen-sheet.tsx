@@ -6,8 +6,6 @@ import styles from "./find.module.css";
 
 export type SeenAnswers = {
   rating: -1 | 1 | 2 | 3 | null;
-  timesSeen: "once" | "few" | "many" | null;
-  lastSeen: "recent" | "this_year" | "long_ago" | null;
   rewatchGroupIds: string[];
 };
 
@@ -22,27 +20,13 @@ const STEPS = [
       ["Älskar", 3],
     ],
   },
-  {
-    q: "Hur många gånger?",
-    key: "timesSeen",
-    options: [
-      ["En gång", "once"],
-      ["Några", "few"],
-      ["Många", "many"],
-    ],
-  },
-  {
-    q: "När senast?",
-    key: "lastSeen",
-    options: [
-      ["Nyligen", "recent"],
-      ["I år", "this_year"],
-      ["Länge sen", "long_ago"],
-    ],
-  },
 ] as const;
+const TOTAL_STEPS = STEPS.length + 1;
 
-/** Four short steps after "Sett": rating, how many times, when, and see again with whom. */
+/**
+ * Two steps after "Sett" in the MVP: rating, then see again with whom.
+ * "Hur många gånger?" and "När senast?" are out of MVP (project doc).
+ */
 export function SeenSheet({
   title,
   groups,
@@ -55,12 +39,7 @@ export function SeenSheet({
   onDone: (answers: SeenAnswers) => void;
 }) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<SeenAnswers>({
-    rating: null,
-    timesSeen: null,
-    lastSeen: null,
-    rewatchGroupIds: [],
-  });
+  const [answers, setAnswers] = useState<SeenAnswers>({ rating: null, rewatchGroupIds: [] });
   const [again, setAgain] = useState<Set<string>>(() => new Set([currentGroupId]));
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -77,10 +56,12 @@ export function SeenSheet({
       <div className={`${styles.sheet} ${styles.sheetOpen}`} role="dialog" aria-modal="true" aria-labelledby="seen-title">
         <div className={styles.sheetHead}>
           <div className={styles.dots}>
-            {[0, 1, 2, 3].map((i) => (
+            {Array.from({ length: TOTAL_STEPS }, (_, i) => (
               <span key={i} className={i <= step ? styles.dotOn : undefined} />
             ))}
-            <small>Steg {step + 1} av 4</small>
+            <small>
+              Steg {step + 1} av {TOTAL_STEPS}
+            </small>
           </div>
           <button type="button" className={styles.sheetClose} aria-label="Stäng" onClick={() => finish([])}>
             ✕

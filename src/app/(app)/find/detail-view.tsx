@@ -85,7 +85,7 @@ export function DetailView({
       {fromDeck && (
         <div className={styles.dbar}>
           <button type="button" onClick={() => onDecide("left")}>
-            ✕ Nej
+            ✕ Inte nu
           </button>
           <button type="button" onClick={() => onDecide("up")}>
             Sett

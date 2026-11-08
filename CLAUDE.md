@@ -94,7 +94,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 
 - Följ flödena i `docs/prototype.html`: startvy, swipe, detaljvy, sett-sheet, Lista, Profil, Efter tittning. Tre flikar (Hitta, Lista, Profil) och en klocka i headern för Efter tittning.
 - Startvy: ”Vem tittar ikväll?” med grupperna, ”Vad är du sugen på?” med fritext och snabbvalen Lätt, Spännande, Kort, Något tryggt och Överraska mig, sedan ”Visa förslag” eller ”Bara swipea”. Valet visas som en etikett överst i kortleken och går att trycka på för att ändra.
-- Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp, ”Vill gärna” i toasten ger `want`), vänster betyder nej (orsaks-chips i 2 sekunder: ”Inte nu” som standard, ”Inte min grej”, ”Sett den”), upp betyder sett och öppnar sett-sheet. Tryck öppnar detaljvyn och loggas som `open_detail`.
+- Swipe i Hitta: höger betyder vill se (watchlist `maybe` för aktuell grupp, ”Vill gärna” i toasten ger `want`), vänster betyder inte nu (sparas som `not_now`; toasten ”Inte nu” visar i 2 sekunder chipsen ”Inte min grej” och ”Sett den”), upp betyder sett och öppnar sett-sheet. Tryck öppnar detaljvyn och loggas som `open_detail`.
 - Kortet visar titel, år, typ, längd, genrer och motiveringen från prompt 2.
 - Sett-sheet: bakgrunden dimmas, stegindikator och kryss, krysset sparar det som hunnit besvaras. I MVP: ”Hur var den?” och ”Vill du se den igen? Med vem?” med aktuell grupp förvald. Länken heter ”Hoppa över steget”, på sista steget ”Nej, inte igen”.
 - Detaljvy: helsida med motivering, handling, betyg, fakta och trailer, och en fast knapprad för beslut. ”Välj den här” sätter valet på sessionen.
