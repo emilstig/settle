@@ -52,6 +52,9 @@ Alla nycklar används bara på servern (route handlers eller server actions), al
 
 **Anthropic**
 - Prompt 1 (humör till filter): `claude-haiku-5-5`, utan tänkande. Körs bara när fritext eller snabbval finns. Tolkningen läggs ovanpå gruppens regler (Familjs åldersgräns ligger kvar), och ger filtren färre än 10 titlar lättas de i två steg: lägre betygskrav, sedan inga genrer. Språket behålls.
+- Prompt 1 översätter till TMDB:s egna fält (genrer och krävda genrer, personer, bolag, nyckelord, land, språk, era, längd, betyg, sortering, serietyp). Namn slås upp i TMDB på servern. Inga egna regler per önskemål.
+- Titlar i stilen: `claude-sonnet-5-5`, bara med fritext och parallellt med prompt 1. Nämner verkliga titlar för stil och känsla; de får samma gränser som leken (tjänster, typ, längd, år, betyg, krävda genrer, åldersgräns, det som döljs) och går först när minst fem finns kvar. Källa `mood`.
+- Ändra promptarna med testet i `scripts/eval`: kör `node --env-file=.env.local scripts/eval/eval-mood.mjs` före och efter, och för in nya fraser och bedömningar i `scripts/eval/phrases.json`.
 - Prompt 2 (välj tre): `claude-sonnet-5-5`
 - Begär strikt JSON och validera svaret med zod. Vid ogiltigt svar: försök en gång till, annars fall tillbaka på kandidaterna sorterade efter TMDB-betyg.
 
@@ -75,9 +78,9 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - `ratings`: user_id, tmdb_id, media_type, rating (−1 ogillade, 1 gillar, 2 gillar mycket, 3 älskar), group_id, updated_at
 - `watch_log`: user_id, tmdb_id, media_type, times_seen (`once`/`few`/`many`), last_seen (date, null tillåtet), last_seen_approx (`recent`/`this_year`/`long_ago`, null tillåtet), status (`watching`/`finished`/`dropped`, för serier)
 - `watchlist`: user_id, tmdb_id, media_type, group_id, interest (`maybe`/`want`/`rewatch`), added_at. En rad per grupp.
-- `interactions`: user_id, tmdb_id, media_type, action (`right`/`left`/`seen`/`open_detail`/`undo`/`not_seen`/`unsure`, där `not_seen` är ”Inte sett” i kalibreringen och `unsure` är ”Vet inte” i Hitta), reason (`not_now`/`not_for_me`/`seen`, null tillåtet), source (`popular`/`similar`/`pick`: populärlistan, spåret ”Liknar det ni gillat” eller Toppval, null tillåtet), session_id, created_at
+- `interactions`: user_id, tmdb_id, media_type, action (`right`/`left`/`seen`/`open_detail`/`undo`/`not_seen`/`unsure`, där `not_seen` är ”Inte sett” i kalibreringen och `unsure` är ”Vet inte” i Hitta), reason (`not_now`/`not_for_me`/`seen`, null tillåtet), source (`popular`/`similar`/`pick`/`mood`: populärlistan, spåret ”Liknar det ni gillat”, Toppval eller Titlar i stilen, null tillåtet), session_id, created_at
 - `sessions`: id, user_id, group_id, mood_text, quick_picks (text[]), filters (jsonb), started_at, picked_tmdb_id, picked_at
-- `suggest_runs`: id, session_id, prompt (`parse`/`pick`), input (jsonb), output (jsonb), model, latency_ms, created_at
+- `suggest_runs`: id, session_id, prompt (`parse`/`pick`/`style`), input (jsonb), output (jsonb), model, latency_ms, created_at
 
 **Grupper i stället för fasta kategorier.** Allt som beror på sällskap pekar på `group_id`. I MVP:n visar UI:t bara de fyra förvalda grupperna. Medlemmar (kopplade konton och profiler utan konto), inbjudningar och egna grupper kommer senare, men datamodellen ska klara dem utan migrering av befintliga rader. Appen ska vara fullt användbar även om bara en person i gruppen använder den.
 

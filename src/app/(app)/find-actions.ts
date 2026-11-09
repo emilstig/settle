@@ -6,6 +6,7 @@ import {
   buildFilters,
   deckFiltersSchema,
   getDeckContext,
+  getExcluded,
   key,
   loadDeckPage,
   withoutGroupGenres,
@@ -18,6 +19,7 @@ import { getSimilar } from "@/lib/similar";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
+import { askStyleTitles, styleCards, withStyle } from "@/lib/suggest/style";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
 import { getImdbId } from "@/lib/tmdb/external";
@@ -34,7 +36,7 @@ const ref = z.object({
 type Ref = z.infer<typeof ref>;
 const uuid = z.uuid();
 /** Where the swiped card came from in the deck (see Card.source). */
-const source = z.enum(["popular", "similar", "pick"]).nullish();
+const source = z.enum(["popular", "similar", "pick", "mood"]).nullish();
 
 const interest = z.enum(["maybe", "want", "rewatch"]);
 const ratingRow = z.object({
@@ -101,6 +103,18 @@ export async function startSession(
   // Prompt 1 turns the mood into filters. Without a mood it is skipped, and
   // if it fails the rule-based filters stay.
   const hasMood = moodText.trim() !== "" || quickPicks.length > 0;
+  // Titles in the style: only for free text, and next to prompt 1 so the
+  // start button does not wait for both in turn.
+  const askingStyle =
+    moodText.trim() !== ""
+      ? askStyleTitles({
+          sessionId: data.id,
+          userId: user.id,
+          group,
+          moodText,
+          quickPicks,
+        })
+      : Promise.resolve([]);
   const [providerIds, profile, groupTaste, parsed] = await Promise.all([
     getUserProviderIds(),
     buildProfile(user.id),
@@ -174,6 +188,17 @@ export async function startSession(
       .eq("id", data.id);
     if (relaxError) throw relaxError;
   }
+
+  // Titles in the style lead when there are enough of them, within the same
+  // limits as the deck (the filters as finally used).
+  const [styleTitles, excluded] = await Promise.all([
+    askingStyle,
+    getExcluded(user.id, groupId),
+  ]);
+  const style = styleTitles.length
+    ? await styleCards({ titles: styleTitles, filters, providerIds, excluded })
+    : [];
+  cards = withStyle(style, cards);
 
   // Claude's three picks first, with a reason each.
   const deck = await withPicks({

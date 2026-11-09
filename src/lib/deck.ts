@@ -75,7 +75,8 @@ export type Card = {
    */
   source: CardSource | null;
 };
-export type CardSource = "popular" | "similar" | "pick";
+/** "mood": named by Claude for the free text (see suggest/style.ts). */
+export type CardSource = "popular" | "similar" | "pick" | "mood";
 
 const G = {
   comedy: 35,

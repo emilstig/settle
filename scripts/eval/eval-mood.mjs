@@ -7,9 +7,12 @@
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 
-const { PARSE_PROMPT } = await import(
+// "I dag" is prompt 1 before v3, kept here as the baseline; v3 and the
+// style call are the app's own prompts, so the eval tests what runs.
+const { PARSE_PROMPT: APP_PARSE, STYLE_PROMPT: APP_STYLE } = await import(
   new URL("../../src/lib/suggest/prompts.ts", import.meta.url)
 );
+const PARSE_PROMPT = readFileSync(new URL("./baseline-prompt1.txt", import.meta.url), "utf8");
 
 /** The services from the user's screenshot: Netflix, Disney+, SVT Play, TV4 Play, HBO Max. */
 const PROVIDERS = [8, 337, 493, 1944, 1899];
@@ -17,7 +20,7 @@ const MONETIZATION = "flatrate|free|ads";
 const MODEL = "claude-haiku-5-5";
 /** Model for the style titles: --style-model=claude-sonnet-5-5 to compare. */
 const STYLE_MODEL =
-  process.argv.find((a) => a.startsWith("--style-model="))?.split("=")[1] ?? MODEL;
+  process.argv.find((a) => a.startsWith("--style-model="))?.split("=")[1] ?? "claude-sonnet-5-5";
 const SHOW = 10;
 
 const phrases = JSON.parse(
@@ -151,70 +154,11 @@ const V1_SCHEMA = {
 
 // ---- Draft v3 of prompt 1: TMDB's own fields, no rules per wish. ----
 
-const V2_PROMPT = `Du översätter användarens humör till sökfilter för TMDB.
-Svara ENDAST med giltig JSON, ingen annan text.
-
-Genrer (id: namn):
-{{GENRES}}
-
-Grupp: {{GROUP}}  (kind och, för familj, youngest_age)
-Snabbval: {{QUICK_PICKS}}
-Fritext: {{MOOD_TEXT}}
-
-Regler:
-- Använd bara genre-id:n från listan ovan.
-- with_genres: någon av genrerna. required_genres: genrer som titeln måste ha
-  ("dokumentär", "barnfilm", "familj" när det är själva kravet).
-- Sätt bara det som fritexten eller snabbvalen faktiskt säger. Allt annat null eller tom lista.
-- media_type: står "film" eller "filmer" i fritexten → "movie"; "serie" eller
-  "serier" → "tv". Bara när inget av dem står där → "any".
-- "spännande" → thriller, kriminal och mysterium; "lätt", "rolig" → komedi.
-- "trött", "något tryggt", "hjärndöd" → comfort: true
-- "något nytt", "överraska mig", "inte sett" → novelty: "high" och comfort: false
-- Tolka tid generöst: "en film före läggdags" ≈ max 110 min.
-- "höga betyg", "bra betyg" → min_vote 7.5; "betyg över 8" → 8.
-- Ord om tid blir era: "80-tal" → 1980–1989, "nostalgisk" → till cirka 2005,
-  "modern tid", "nyare" → från cirka 2010, "gamla klassiker" → till cirka 1990.
-- Land eller region → origin_countries med ISO 3166-1-koder
-  ("skandinaviskt" → ["SE", "DK", "NO"], "koreansk" → ["KR"]).
-  languages bara när språket självt efterfrågas ("på svenska").
-- Personer som nämns (skådespelare, regissörer) → people med fullständigt namn.
-- Bolag eller nätverk som nämns ("A24", "HBO") → companies med namnet. Gissa inga bolag.
-- Ämnen som inte är genrer ("tidsresor", "heist", "zombies") → keywords på engelska,
-  som TMDB:s nyckelord. Det man vill slippa → without_keywords.
-- Ordning: "klassiker", "största", "mest kända" → sort "votes"; "högst betyg",
-  "bästa" → "rating"; "nytt", "senaste" → "newest". Annars "popularity".
-- Serier: "avslutad" → tv_ended: true; "miniserie" → tv_miniseries: true.
-- vibe: 3–8 ord som fångar stämningen, används i nästa steg.
-
-{
-  "media_type": "movie" | "tv" | "any",
-  "with_genres": [id], "required_genres": [id], "without_genres": [id],
-  "origin_countries": [string], "languages": [string],
-  "people": [string], "companies": [string],
-  "keywords": [string], "without_keywords": [string],
-  "max_runtime": number | null, "min_vote": number | null,
-  "era": { "from": number | null, "to": number | null },
-  "sort": "popularity" | "votes" | "rating" | "newest",
-  "tv_ended": boolean, "tv_miniseries": boolean,
-  "comfort": boolean, "novelty": "low" | "medium" | "high",
-  "vibe": string
-}`;
+const V2_PROMPT = APP_PARSE;
 
 // ---- The style call: Claude names titles, run next to prompt 1. ----
 
-const STYLE_PROMPT = `Användaren letar efter något att titta på och skrev:
-"{{MOOD_TEXT}}"
-
-Nämn 20 verkliga titlar (filmer eller serier, som fritexten säger) som passar det
-användaren menar: stilen, tonen, nivån och tiden, inte bara genren. Ber hen om
-något smalare, smartare eller mindre känt, välj så. Ber hen om de största eller
-mest kända, välj så. Bara titlar du är säker på finns, med rätt år.
-Om fritexten bara gäller sådant som filter klarar (längd, betyg, land, en person,
-ett bolag) och inget om stil eller känsla: svara med tom lista.
-
-Svara ENDAST med JSON:
-{ "titles": [{ "title": string, "year": number, "media_type": "movie" | "tv" }] }`;
+const STYLE_PROMPT = APP_STYLE;
 
 const strArr = { type: "array", items: { type: "string" } };
 const numArr = { type: "array", items: { type: "number" } };
@@ -344,7 +288,7 @@ async function applyV2(p, level = 0) {
     }
     if (required.length && level < 2) {
       // Comma means and in TMDB: every required genre, then any of the rest.
-      f.with_genres = [required.join(","), f.with_genres].filter(Boolean).join(",");
+      f.with_genres = required.join(","); // as in the app: required genres replace "any of"
     }
     if (without.length) f.without_keywords = without.join(",");
     if (p.sort === "newest") out.sortBy = type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
@@ -433,7 +377,7 @@ for (const [i, phrase] of run) {
   const [v1, v2, styleCall] = await Promise.all([
     askJson(fill(PARSE_PROMPT, base(mood)), V1_SCHEMA),
     askJson(fill(V2_PROMPT, base(mood)), V2_SCHEMA),
-    askJson(fill(STYLE_PROMPT, { MOOD_TEXT: mood }), STYLE_SCHEMA, STYLE_MODEL),
+    askJson(fill(STYLE_PROMPT, base(mood)), STYLE_SCHEMA, STYLE_MODEL),
   ]);
 
   const today = await deck(applyV1(v1.json));

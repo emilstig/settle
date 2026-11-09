@@ -72,3 +72,40 @@ export async function findAll(
   );
   return [...new Set(ids.filter((id): id is number => id !== null))];
 }
+
+const titleHits = z.object({
+  results: z.array(
+    z.object({
+      id: z.number(),
+      release_date: z.string().optional(),
+      first_air_date: z.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * A film or series named by Claude, found by title and year. The year may be
+ * off by one (festival against cinema release); further off, it is likely
+ * another title with the same name, and it falls away.
+ */
+export async function findTitle(
+  title: string,
+  year: number,
+  mediaType: "movie" | "tv",
+): Promise<number | null> {
+  "use cache";
+  cacheLife("weeks");
+  const { results } = await tmdbGet(
+    `/search/${mediaType}`,
+    {
+      query: title,
+      [mediaType === "movie" ? "year" : "first_air_date_year"]: year,
+    },
+    titleHits,
+  );
+  const hit = results.find((r) => {
+    const y = Number((r.release_date ?? r.first_air_date ?? "").slice(0, 4));
+    return Math.abs(y - year) <= 1;
+  });
+  return hit?.id ?? null;
+}
