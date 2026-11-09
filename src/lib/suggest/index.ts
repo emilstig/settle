@@ -114,7 +114,9 @@ export async function withPicks({
 
     const picked = picks.flatMap((p) => {
       const card = byKey.get(p.key);
-      return card ? [{ ...card, reason: p.reason, slot: p.slot }] : [];
+      return card
+        ? [{ ...card, reason: p.reason, slot: p.slot, source: "pick" as const }]
+        : [];
     });
     const pickedKeys = new Set(picked.map(key));
     return [...picked, ...deck.filter((c) => !pickedKeys.has(key(c)))];

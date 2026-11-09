@@ -24,9 +24,10 @@ export default function OnboardingPage() {
 async function Calibration() {
   const user = await getCurrentUser();
   if (user.onboarded) redirect("/");
-  const providerIds = await getUserProviderIds();
-  if (providerIds.length === 0) redirect("/onboarding/services");
+  // Services come first: the deck in Hitta needs them, even though
+  // calibration itself shows titles from every service.
+  if ((await getUserProviderIds()).length === 0) redirect("/onboarding/services");
 
-  const cards = await getCalibrationCards(user.id, providerIds);
+  const cards = await getCalibrationCards(user.id);
   return <Calibrator cards={cards} mode="onboarding" />;
 }

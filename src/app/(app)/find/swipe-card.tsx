@@ -86,8 +86,7 @@ export function CardFace({
         <h2>{card.title}</h2>
         <div className={styles.meta}>{card.meta}</div>
         <div className={styles.meta}>
-          {card.services.join(", ")}
-          {extra ? ` · ${extra}` : ""}
+          {[card.services.join(", "), extra].filter(Boolean).join(" · ")}
         </div>
         {card.reason && <p className={styles.why}>{card.reason}</p>}
         {note && <div className={styles.flipnote}>{note}</div>}

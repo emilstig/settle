@@ -46,6 +46,8 @@ type Session = {
   page: number;
   hasMore: boolean;
   label: string;
+  /** Set when loading more failed: the index it failed at. */
+  loadFailedAt: number | null;
 };
 
 /** One swipe that can be undone. `undo` settles once the database writes are done. */
@@ -186,23 +188,32 @@ export function Finder({
     setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== k));
     if (tonightChoice && keyOf(tonightChoice) === k) setTonightChoice(null);
     try {
-      const removal = await removeFromTonight({ groupId: group, ref: refOf(c) });
+      const removal = await removeFromTonight({
+        groupId: group,
+        ref: refOf(c),
+      });
       if (!removal) return;
       // Gone until tomorrow with the group, so a slip needs a way back.
-      showToast("Borttagen från ikväll", [
-        {
-          label: "Ångra",
-          onClick: () => {
-            restoreLocal();
-            restoreToTonight({ groupId: group, ref: refOf(c), ...removal }).catch(
-              (e) => {
+      showToast(
+        "Borttagen från ikväll",
+        [
+          {
+            label: "Ångra",
+            onClick: () => {
+              restoreLocal();
+              restoreToTonight({
+                groupId: group,
+                ref: refOf(c),
+                ...removal,
+              }).catch((e) => {
                 console.error(e);
                 setTonightVersion((v) => v + 1);
-              },
-            );
+              });
+            },
           },
-        },
-      ], 4000);
+        ],
+        4000,
+      );
     } catch (e) {
       console.error(e);
       restoreLocal();
@@ -266,6 +277,7 @@ export function Finder({
         cards: res.cards,
         page: res.page,
         hasMore: res.hasMore,
+        loadFailedAt: null,
         label: [group?.name, ...picks.map((p) => p.toLowerCase())]
           .filter(Boolean)
           .join(" · "),
@@ -281,11 +293,15 @@ export function Finder({
     }
   }
 
-  // Fetch the next page when the deck runs low.
+  // Fetch the next page when the deck runs low. A failure (often TMDB having
+  // a bad minute) does not end the deck: it is tried again after the next
+  // swipe, or with the button when the deck is empty.
   useEffect(() => {
     if (!session || loadingMore.current || !session.hasMore) return;
     if (session.cards.length - index > 5) return;
+    if (session.loadFailedAt !== null && index <= session.loadFailedAt) return;
     loadingMore.current = true;
+    const at = index;
     loadMore({
       sessionId: session.id,
       page: session.page + 1,
@@ -298,19 +314,25 @@ export function Finder({
                 ...s,
                 cards: [...s.cards, ...res.cards],
                 page: res.page,
-                hasMore: res.hasMore && res.cards.length >= 0,
+                hasMore: res.hasMore,
+                loadFailedAt: null,
               }
             : s,
         ),
       )
       .catch((e) => {
         console.error(e);
-        setSession((s) => (s ? { ...s, hasMore: false } : s));
+        setSession((s) =>
+          s && s.id === session.id ? { ...s, loadFailedAt: at } : s,
+        );
       })
       .finally(() => {
         loadingMore.current = false;
       });
   }, [session, index]);
+
+  const retryLoad = () =>
+    setSession((s) => (s ? { ...s, loadFailedAt: null } : s));
 
   const card = session?.cards[index];
   const next = session?.cards[index + 1];
@@ -361,9 +383,7 @@ export function Finder({
       // Ikväll is this group's evening: a title moved to other groups only
       // leaves it.
       if (!groupIds.includes(session.groupId)) {
-        setTonightSaved((saved) =>
-          saved.filter((x) => keyOf(x) !== keyOf(c)),
-        );
+        setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== keyOf(c)));
       }
       const names = groups
         .filter((g) => groupIds.includes(g.id))
@@ -394,6 +414,7 @@ export function Finder({
       sessionId: session.id,
       groupId: session.groupId,
       ref: refOf(c),
+      source: c.source,
     };
     const group = groups.find((g) => g.id === session.groupId);
 
@@ -421,9 +442,11 @@ export function Finder({
         ],
       );
     } else if (dir === "left") {
-      const undo = swipeLeft({ sessionId: session.id, ref: refOf(c) }).catch(
-        () => null,
-      );
+      const undo = swipeLeft({
+        sessionId: session.id,
+        ref: refOf(c),
+        source: c.source,
+      }).catch(() => null);
       push({ index: at, undo }, dir, c);
       // "Inte nu" is the default. The chip applies in this group only, so the
       // words follow the company. "Sett" is the up swipe, so it has no chip.
@@ -442,9 +465,11 @@ export function Finder({
         },
       ]);
     } else if (dir === "down") {
-      const undo = swipeDown({ sessionId: session.id, ref: refOf(c) }).catch(
-        () => null,
-      );
+      const undo = swipeDown({
+        sessionId: session.id,
+        ref: refOf(c),
+        source: c.source,
+      }).catch(() => null);
       push({ index: at, undo }, dir, c);
       showToast("Vet inte · visas igen om en vecka", [], 1400);
     } else {
@@ -462,6 +487,7 @@ export function Finder({
           sessionId: session.id,
           groupId: session.groupId,
           ref: refOf(c),
+          source: c.source,
           ...answers,
         }),
       );
@@ -536,8 +562,14 @@ export function Finder({
 
   function showDetail(c: Card) {
     if (!session) return;
-    setDetail({ card: c, fromDeck: true, trailer: null, imdbId: null, loading: true });
-    openDetail({ sessionId: session.id, ref: refOf(c) })
+    setDetail({
+      card: c,
+      fromDeck: true,
+      trailer: null,
+      imdbId: null,
+      loading: true,
+    });
+    openDetail({ sessionId: session.id, ref: refOf(c), source: c.source })
       .then((r) =>
         setDetail((d) =>
           d && d.card === c
@@ -554,8 +586,7 @@ export function Finder({
 
   // Själv says "du"; any other group watches together and says "ni".
   const together =
-    groups.find((g) => g.id === (session?.groupId ?? groupId))?.kind !==
-    "solo";
+    groups.find((g) => g.id === (session?.groupId ?? groupId))?.kind !== "solo";
   const sheet = tonightOpen && (
     <TonightSheet
       items={tonightItems}
@@ -660,7 +691,14 @@ export function Finder({
           </>
         ) : (
           <div className={styles.empty}>
-            {session.hasMore ? (
+            {session.hasMore && session.loadFailedAt !== null ? (
+              <>
+                <p>Det gick inte att hämta fler förslag.</p>
+                <button type="button" className="primary" onClick={retryLoad}>
+                  Försök igen
+                </button>
+              </>
+            ) : session.hasMore ? (
               <p>
                 <LoadingLabel together={together} />
               </p>

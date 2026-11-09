@@ -5,7 +5,6 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { getCalibrationCards } from "@/lib/calibration";
 import type { Card } from "@/lib/deck";
-import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
 
 const refSchema = z.object({
@@ -121,5 +120,5 @@ export async function moreCalibrationCards(
 ): Promise<Card[]> {
   const keys = skippedSchema.parse(skipped);
   const user = await getCurrentUser();
-  return getCalibrationCards(user.id, await getUserProviderIds(), keys);
+  return getCalibrationCards(user.id, keys);
 }
