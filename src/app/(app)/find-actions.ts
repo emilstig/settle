@@ -11,6 +11,7 @@ import {
 } from "@/lib/deck";
 import { getGroups } from "@/lib/groups";
 import { blendAffinity, buildGroupTaste, buildProfile } from "@/lib/profile";
+import { getSimilar } from "@/lib/similar";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
@@ -120,6 +121,13 @@ export async function startSession(
     if (updateError) throw updateError;
   }
   const affinity = blendAffinity(profile.affinity, groupTaste, group.kind);
+  // "Liknar det ni gillat": recommendations for what the group already liked.
+  const similar = await getSimilar({
+    userId: user.id,
+    group,
+    seed: data.id,
+    avoid: groupTaste.avoid,
+  });
   // Keep loading until there is something to show, so the start button
   // waits instead of opening an empty deck.
   let { cards, page, hasMore } = await loadEnough(
@@ -130,6 +138,7 @@ export async function startSession(
       filters,
       seed: data.id,
       affinity,
+      similar,
     },
     1,
     [],
@@ -148,6 +157,7 @@ export async function startSession(
         filters,
         seed: data.id,
         affinity,
+        similar,
       },
       1,
       [],
@@ -266,6 +276,12 @@ export async function loadMore(
   if (!group) throw new Error("Unknown group");
   const groupTaste = await buildGroupTaste(user.id, group);
   const affinity = blendAffinity(profile.affinity, groupTaste, group.kind);
+  const similar = await getSimilar({
+    userId: user.id,
+    group,
+    seed: sessionId,
+    avoid: groupTaste.avoid,
+  });
   const loaded = await loadEnough(
     {
       userId: user.id,
@@ -274,6 +290,7 @@ export async function loadMore(
       filters,
       seed: sessionId,
       affinity,
+      similar,
     },
     page,
     skip,

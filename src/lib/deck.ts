@@ -15,6 +15,7 @@ import { getGenreIds, getGenreNames } from "@/lib/tmdb/genres";
 import { seededRandom, spread } from "@/lib/spread";
 import { genresOf } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { laneFits, matchesFilters, type SimilarHit } from "@/lib/similar";
 
 export const QUICK_PICKS = [
   "Lätt",
@@ -331,6 +332,23 @@ export function toCard(
   };
 }
 
+/**
+ * Titles from the lane "Liknar det ni gillat" per page, and how many of its
+ * best to look up, since some are not on the user's services.
+ */
+const LANE_PER_PAGE = 15;
+const LANE_LOOKUP = 60;
+
+/** Alternates two lists, starting with the first: a, b, a, b … */
+function interleave<T>(a: T[], b: T[]): T[] {
+  const out: T[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (i < a.length) out.push(a[i]);
+    if (i < b.length) out.push(b[i]);
+  }
+  return out;
+}
+
 /** How long a reaction in another group pushes a title back in this one. */
 const OTHER_GROUP_DAYS = 30;
 
@@ -419,6 +437,7 @@ export async function loadDeckPage({
   skip = [],
   seed,
   affinity = {},
+  similar = [],
 }: {
   userId: string;
   groupId: string;
@@ -430,6 +449,8 @@ export async function loadDeckPage({
   seed: string;
   /** Genre weights from the taste profile; liked genres come first. */
   affinity?: Record<number, number>;
+  /** The lane "Liknar det ni gillat" for the session (see getSimilar). */
+  similar?: SimilarHit[];
 }): Promise<{ cards: Card[]; hasMore: boolean }> {
   const tmdbPage = filters.firstPage + page - 1;
   const results = await Promise.all(
@@ -458,6 +479,37 @@ export async function loadDeckPage({
   const skipSet = new Set(skip);
   const mine = new Set(providerIds);
 
+  // The lane: the best recommendations not yet shown, checked like discover.
+  const hitKeys = new Set(hits.map(key));
+  const laneTypes = new Set(
+    filters.mediaTypes.filter((t) => laneFits(filters[t])),
+  );
+  const laneHits = similar
+    .filter(
+      (h) =>
+        laneTypes.has(h.media_type) &&
+        !hitKeys.has(key(h)) &&
+        !excluded.has(key(h)) &&
+        !skipSet.has(key(h)),
+    )
+    .slice(0, LANE_LOOKUP);
+  const laneRowsByKey = laneHits.length
+    ? await getTitles(laneHits)
+    : new Map<string, Title>();
+  const laneRows = laneHits
+    .map((h) => laneRowsByKey.get(key(h)))
+    .filter((row): row is Title => {
+      if (!row) return false;
+      if (!(row.providers_se?.flatrate ?? []).some((p) => mine.has(p.id)))
+        return false;
+      if (filters.maxCert !== null) {
+        const cert = certNumber(row.certification_se);
+        if (cert !== null && cert > filters.maxCert) return false;
+      }
+      return matchesFilters(row, filters[row.media_type]);
+    })
+    .slice(0, LANE_PER_PAGE);
+
   const kept = hits.flatMap((h) => {
     const k = key(h);
     const row = rows.get(k);
@@ -485,7 +537,10 @@ export async function loadDeckPage({
     .map((row, i) => ({ row, i, s: score(row) }))
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .map((x) => x.row);
-  const spreadRows = spread(sorted, await collectionsOf(skip));
+  // The lane keeps its own order (most seeds first) and takes turns with
+  // the popular titles, so the page is not only what is popular right now.
+  const mixed = interleave(laneRows, sorted);
+  const spreadRows = spread(mixed, await collectionsOf(skip));
   const fresh = spreadRows.filter((r) => !other.reacted.has(key(r)));
   const known = spreadRows.filter((r) => other.reacted.has(key(r)));
   const cards = [...jitter(fresh, `${seed}:${page}`), ...known].map((row) =>
