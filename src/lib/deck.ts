@@ -419,8 +419,13 @@ export async function loadDeckPage({
   // earlier in the session stay out of this page.
   // Titles already handled in another group come after the new ones.
   // Sorted by the taste profile, then spread so genres still take turns.
-  const score = (row: Title) =>
-    genresOf(row.genre_ids).reduce((sum, g) => sum + (affinity[g] ?? 0), 0);
+  // Average, not sum: a title with five genres (often a children's film:
+  // animation, family, comedy, adventure, fantasy) must not win on count.
+  const score = (row: Title) => {
+    const gs = genresOf(row.genre_ids);
+    if (gs.length === 0) return 0;
+    return gs.reduce((sum, g) => sum + (affinity[g] ?? 0), 0) / gs.length;
+  };
   const sorted = kept
     .map((row, i) => ({ row, i, s: score(row) }))
     .sort((a, b) => b.s - a.s || a.i - b.i)
