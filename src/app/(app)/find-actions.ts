@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   buildFilters,
   deckFiltersSchema,
+  getDeckContext,
+  key,
   loadDeckPage,
   withoutGroupGenres,
   type Card,
@@ -189,43 +191,83 @@ export async function startSession(
 
 const moreSchema = z.object({
   sessionId: uuid,
-  page: z.number().int().min(2).max(50),
-  skip: z.array(z.string().max(20)).max(500),
+  // TMDB's discover stops at page 500.
+  page: z.number().int().min(2).max(500),
+  skip: z.array(z.string().max(20)).max(2000),
 });
 
 /** Cards to have before showing the deck, and before a refill counts. */
 const MIN_START_CARDS = 10;
 const MIN_MORE_CARDS = 6;
-/** TMDB pages to try in one go before giving up on filling the deck. */
-const MAX_PAGES_AT_ONCE = 4;
+/**
+ * TMDB pages to look through in one go. Every session starts on page 1, and
+ * everything answered is left out, so after a hundred or so swipes the first
+ * pages come back nearly empty and the deck has to look further down.
+ */
+const MAX_PAGES_AT_ONCE = 16;
+/** Pages fetched side by side once a page came back short. */
+const PAGES_PER_BATCH = 3;
 
 /**
- * Loads deck pages from `firstPage` until there are enough cards. Pages can
- * come back nearly empty once most titles are answered, which used to open
- * an empty deck that then waited on the next page.
+ * Loads deck pages from `firstPage` until there are enough cards. The first
+ * page is loaded alone; if it is short, the next ones come in parallel
+ * batches. The lane "Liknar det ni gillat" goes with the first page of each
+ * batch only, so parallel pages do not get the same lane titles. A page
+ * that fails ends the scan: what was loaded before it is returned, and the
+ * next call starts on that page again. Only a failure with nothing to show
+ * is thrown.
  */
 async function loadEnough(
-  base: Omit<Parameters<typeof loadDeckPage>[0], "page" | "skip">,
+  base: Omit<Parameters<typeof loadDeckPage>[0], "page" | "skip" | "context">,
   firstPage: number,
   skip: string[],
   min: number,
 ): Promise<{ cards: Card[]; page: number; hasMore: boolean }> {
+  const context = await getDeckContext(base.userId, base.groupId);
   const cards: Card[] = [];
-  const seen = [...skip];
-  let page = firstPage;
+  const seen = new Set(skip);
+  let last = firstPage - 1;
   let hasMore = true;
-  for (let i = 0; i < MAX_PAGES_AT_ONCE; i++, page++) {
-    const res = await loadDeckPage({ ...base, page, skip: seen });
-    cards.push(...res.cards);
-    seen.push(...res.cards.map((c) => `${c.media_type}:${c.tmdb_id}`));
-    hasMore = res.hasMore;
-    if (cards.length >= min || !hasMore) break;
+  while (
+    hasMore &&
+    cards.length < min &&
+    last - firstPage + 1 < MAX_PAGES_AT_ONCE
+  ) {
+    const size = Math.min(
+      last < firstPage ? 1 : PAGES_PER_BATCH,
+      firstPage + MAX_PAGES_AT_ONCE - 1 - last,
+    );
+    const pages = Array.from({ length: size }, (_, i) => last + 1 + i);
+    const skipNow = [...seen];
+    const results = await Promise.allSettled(
+      pages.map((page, i) =>
+        loadDeckPage({
+          ...base,
+          similar: i === 0 ? base.similar : [],
+          page,
+          skip: skipNow,
+          context,
+        }),
+      ),
+    );
+    for (const [i, r] of results.entries()) {
+      if (r.status === "rejected") {
+        if (cards.length === 0) throw r.reason;
+        console.warn(`Deck page ${pages[i]} failed`, r.reason);
+        return { cards, page: last, hasMore: true };
+      }
+      for (const c of r.value.cards) {
+        const k = key(c);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        cards.push(c);
+      }
+      last = pages[i];
+      hasMore = r.value.hasMore;
+      if (!hasMore) break;
+    }
   }
-  return {
-    cards,
-    page: Math.min(page, firstPage + MAX_PAGES_AT_ONCE - 1),
-    hasMore,
-  };
+  return { cards, page: last, hasMore };
 }
 
 /** Swipes needed before a new page gets Claude's picks again. */
@@ -769,7 +811,8 @@ export async function removeFromTonight(
     "undo",
   );
   const chosen = sessions.find(
-    (s) => s.picked_tmdb_id === r.tmdb_id && s.picked_media_type === r.media_type,
+    (s) =>
+      s.picked_tmdb_id === r.tmdb_id && s.picked_media_type === r.media_type,
   );
   if (chosen) await clearTonightChoice(user.id, groupId);
   return { interactionId, choiceSessionId: chosen?.id ?? null };
@@ -785,8 +828,12 @@ const restoreSchema = z.object({
 /** "Ångra" after "Ta bort": back in Ikväll, and back as the choice if it was. */
 export async function restoreToTonight(input: z.infer<typeof restoreSchema>) {
   const user = await getCurrentUser();
-  const { groupId, ref: r, interactionId, choiceSessionId } =
-    restoreSchema.parse(input);
+  const {
+    groupId,
+    ref: r,
+    interactionId,
+    choiceSessionId,
+  } = restoreSchema.parse(input);
   const supabase = await createClient();
   const { error } = await supabase
     .from("interactions")

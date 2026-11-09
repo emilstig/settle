@@ -427,6 +427,23 @@ async function collectionsOf(keys: string[]): Promise<Set<number>> {
   return new Set(data.map((r) => r.collection_id as number));
 }
 
+/** What the rules need about the user, read once for several pages. */
+export type DeckContext = {
+  excluded: Set<string>;
+  other: Awaited<ReturnType<typeof getOtherGroups>>;
+};
+
+export async function getDeckContext(
+  userId: string,
+  groupId: string,
+): Promise<DeckContext> {
+  const [excluded, other] = await Promise.all([
+    getExcluded(userId, groupId),
+    getOtherGroups(userId, groupId),
+  ]);
+  return { excluded, other };
+}
+
 /** One page of cards for a session: discover, refresh the cache, apply the rules. */
 export async function loadDeckPage({
   userId,
@@ -438,6 +455,7 @@ export async function loadDeckPage({
   seed,
   affinity = {},
   similar = [],
+  context,
 }: {
   userId: string;
   groupId: string;
@@ -451,6 +469,8 @@ export async function loadDeckPage({
   affinity?: Record<number, number>;
   /** The lane "Liknar det ni gillat" for the session (see getSimilar). */
   similar?: SimilarHit[];
+  /** Read once by the caller when it loads several pages (see getDeckContext). */
+  context?: DeckContext;
 }): Promise<{ cards: Card[]; hasMore: boolean }> {
   const tmdbPage = filters.firstPage + page - 1;
   const results = await Promise.all(
@@ -470,9 +490,8 @@ export async function loadDeckPage({
     .flat()
     .filter((h) => h !== undefined);
 
-  const [excluded, other, rows, genres] = await Promise.all([
-    getExcluded(userId, groupId),
-    getOtherGroups(userId, groupId),
+  const [{ excluded, other }, rows, genres] = await Promise.all([
+    context ?? getDeckContext(userId, groupId),
     getTitles(hits),
     getGenreNames(),
   ]);
