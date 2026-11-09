@@ -704,39 +704,71 @@ async function clearTonightChoice(userId: string, groupId: string) {
 
 const removeSchema = z.object({ groupId: uuid, ref });
 
+/** What "Ångra" after "Ta bort" in Ikväll needs to put back. */
+export type TonightRemoval = {
+  interactionId: number;
+  /** Set when the title was tonight's choice; the choice is put back too. */
+  choiceSessionId: string | null;
+};
+
 /**
  * "Ta bort" in Ikväll: the title leaves tonight's shortlist but stays on the
  * group's list. Logged as an undo in tonight's latest session, which outranks
- * the earlier right swipe; a new right swipe brings it back. If it was
+ * the earlier right swipe. It does not come back with the group until the
+ * next evening (see getDeclined), so "Ångra" is the way back. If it was
  * tonight's choice, the choice goes too.
  */
-export async function removeFromTonight(input: z.infer<typeof removeSchema>) {
+export async function removeFromTonight(
+  input: z.infer<typeof removeSchema>,
+): Promise<TonightRemoval | null> {
   const user = await getCurrentUser();
   const { groupId, ref: r } = removeSchema.parse(input);
   const supabase = await createClient();
-  const { data: session, error } = await supabase
+  const since = eveningStart();
+  const { data: sessions, error } = await supabase
     .from("sessions")
-    .select("id")
+    .select("id, picked_tmdb_id, picked_media_type")
     .eq("user_id", user.id)
     .eq("group_id", groupId)
-    .gte("started_at", eveningStart())
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .gte("started_at", since)
+    .order("started_at", { ascending: false });
   if (error) throw error;
-  if (!session) return;
-  await logInteraction(user.id, session.id, r, "undo");
+  if (sessions.length === 0) return null;
+  const interactionId = await logInteraction(
+    user.id,
+    sessions[0].id,
+    r,
+    "undo",
+  );
+  const chosen = sessions.find(
+    (s) => s.picked_tmdb_id === r.tmdb_id && s.picked_media_type === r.media_type,
+  );
+  if (chosen) await clearTonightChoice(user.id, groupId);
+  return { interactionId, choiceSessionId: chosen?.id ?? null };
+}
 
-  const { data: picked, error: pickedError } = await supabase
-    .from("sessions")
-    .select("id")
+const restoreSchema = z.object({
+  groupId: uuid,
+  ref,
+  interactionId: z.number().int(),
+  choiceSessionId: uuid.nullable(),
+});
+
+/** "Ångra" after "Ta bort": back in Ikväll, and back as the choice if it was. */
+export async function restoreToTonight(input: z.infer<typeof restoreSchema>) {
+  const user = await getCurrentUser();
+  const { groupId, ref: r, interactionId, choiceSessionId } =
+    restoreSchema.parse(input);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("interactions")
+    .delete()
+    .eq("id", interactionId)
     .eq("user_id", user.id)
-    .eq("group_id", groupId)
-    .gte("started_at", eveningStart())
-    .eq("picked_tmdb_id", r.tmdb_id)
-    .eq("picked_media_type", r.media_type);
-  if (pickedError) throw pickedError;
-  if (picked.length) await clearTonightChoice(user.id, groupId);
+    .eq("action", "undo");
+  if (error) throw error;
+  if (choiceSessionId)
+    await chooseTonight({ groupId, ref: r, sessionId: choiceSessionId });
 }
 
 /** "Ändra": tonight has no choice again. */

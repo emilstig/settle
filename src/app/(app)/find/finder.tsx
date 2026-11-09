@@ -8,6 +8,7 @@ import {
   chooseTonight,
   clearTonight,
   removeFromTonight,
+  restoreToTonight,
   loadMore,
   openDetail,
   recordSeen,
@@ -174,17 +175,34 @@ export function Finder({
   async function removeTonight(c: Card) {
     const k = keyOf(c);
     const was = { saved: tonightSaved, choice: tonightChoice };
+    const group = session?.groupId ?? groupId;
+    const restoreLocal = () => {
+      setTonightSaved(was.saved);
+      setTonightChoice(was.choice);
+    };
     setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== k));
     if (tonightChoice && keyOf(tonightChoice) === k) setTonightChoice(null);
     try {
-      await removeFromTonight({
-        groupId: session?.groupId ?? groupId,
-        ref: refOf(c),
-      });
+      const removal = await removeFromTonight({ groupId: group, ref: refOf(c) });
+      if (!removal) return;
+      // Gone until tomorrow with the group, so a slip needs a way back.
+      showToast("Borttagen från ikväll", [
+        {
+          label: "Ångra",
+          onClick: () => {
+            restoreLocal();
+            restoreToTonight({ groupId: group, ref: refOf(c), ...removal }).catch(
+              (e) => {
+                console.error(e);
+                setTonightVersion((v) => v + 1);
+              },
+            );
+          },
+        },
+      ], 4000);
     } catch (e) {
       console.error(e);
-      setTonightSaved(was.saved);
-      setTonightChoice(was.choice);
+      restoreLocal();
       showToast("Det gick inte att ta bort", [], 2200);
     }
   }
@@ -590,6 +608,7 @@ export function Finder({
           footer={footer}
         />
         {sheet}
+        <Toast key={toast?.id} toast={toast} onClose={closeToast} />
       </>
     );
   }
