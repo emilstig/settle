@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, requireExistingUser } from "@/lib/auth";
 import { getUserProviderIds } from "@/lib/providers";
 import styles from "./app.module.css";
 
@@ -18,7 +18,10 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
 async function Gate({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   const providers = await getUserProviderIds();
-  if (providers.length === 0) redirect("/onboarding/services");
+  if (providers.length === 0) {
+    await requireExistingUser();
+    redirect("/onboarding/services");
+  }
   if (!user.onboarded) redirect("/onboarding");
   return <>{children}</>;
 }

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Attribution } from "@/components/attribution";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, requireExistingUser } from "@/lib/auth";
 import { getUserProviderIds } from "@/lib/providers";
 import { getSwedishProviders } from "@/lib/tmdb/providers";
+import { signOut } from "../../(app)/actions";
 import { ServicesForm } from "./services-form";
 import styles from "../onboarding.module.css";
 
@@ -20,6 +21,10 @@ export default function ServicesPage() {
       <Suspense fallback={<div className={styles.placeholder} />}>
         <Services />
       </Suspense>
+      {/* The start page has "Logga ut", but a new account does not get there. */}
+      <form action={signOut}>
+        <button className="link">Logga ut</button>
+      </form>
       <Attribution />
     </main>
   );
@@ -27,6 +32,7 @@ export default function ServicesPage() {
 
 async function Services() {
   await getCurrentUser();
+  await requireExistingUser();
   const [all, selected] = await Promise.all([getSwedishProviders(), getUserProviderIds()]);
   const chosen = new Set(selected);
   const top = all.filter((p, i) => i < VISIBLE || chosen.has(p.id));
