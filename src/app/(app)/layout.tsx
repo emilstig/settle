@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser, requireExistingUser } from "@/lib/auth";
+import { TabBar } from "@/components/tab-bar/tab-bar";
 import { getUserProviderIds } from "@/lib/providers";
 import styles from "./app.module.css";
 
@@ -11,6 +12,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       <Suspense fallback={<div className={styles.loading} aria-busy="true" />}>
         <Gate>{children}</Gate>
       </Suspense>
+      <TabBar />
     </div>
   );
 }

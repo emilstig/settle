@@ -60,8 +60,8 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 
 **Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
 
-## 6. Lista och check-in
-- [ ] Fliken Lista som rader om dig: Vill se per grupp, Att se om, Fortsätt titta
+## 6. Att se och check-in
+- [x] Fliken Att se: gruppen överst (delad med Hitta), hyllor (Vill gärna, Att se om, Vill se, Inte på dina tjänster) och Visa alla med chips och sortering; detaljvyn med Välj den här, Ta bort och Vill gärna. Fortsätt titta kommer med Efter tittning
 - [ ] Fliken Profil med betyg, tjänster och Kalibrera. I betygslistan går det att trycka på en titel och sätta ”Vill du se den igen? Med vem?” i efterhand
 - [x] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen (byggt med Toppval ikväll i steg 5)
 - [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
@@ -79,4 +79,4 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 
 Byggs inte utan ett beslut som först förts in i Beslutsloggen i projektdokumentet.
 
-Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, redigering av historik, rader i Lista som Claude sätter ihop, inställningar per grupp (till exempel inga barnfilmer med Själv eller Vänner), native app.
+Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, redigering av historik, rader i Att se som Claude sätter ihop, inställningar per grupp (till exempel inga barnfilmer med Själv eller Vänner), native app.

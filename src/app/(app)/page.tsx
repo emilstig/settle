@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Attribution } from "@/components/attribution";
 import { getCurrentUser } from "@/lib/auth";
+import { getChosenGroupId } from "@/lib/group-choice";
 import { countSavedByGroup, getGroups } from "@/lib/groups";
 import { countRatings } from "@/lib/profile";
 import { signOut } from "./actions";
@@ -31,9 +32,11 @@ async function Find() {
     countRatings(user.id),
     countSavedByGroup(user.id),
   ]);
+  const groupId = await getChosenGroupId(groups);
 
   return (
     <Finder
+      initialGroupId={groupId}
       groups={groups.map(({ id, name, kind, youngest_age }) => ({
         id,
         name,
@@ -51,9 +54,6 @@ async function Find() {
       footer={
         <>
           <div className={styles.links}>
-            <Link href="/profile" className="link">
-              Din smakprofil
-            </Link>
             <Link href="/onboarding/services" className="link">
               Ändra tjänster
             </Link>

@@ -809,11 +809,22 @@ export async function chooseTonight(input: z.infer<typeof chooseSchema>) {
     .gte("started_at", since)
     .order("started_at", { ascending: false });
   if (error) throw error;
-  const target =
+  let target =
     sessionId && sessions.some((s) => s.id === sessionId)
       ? sessionId
       : sessions[0]?.id;
-  if (!target) throw new Error("No session tonight");
+  // Chosen from Att se without a session tonight: the choice still needs a
+  // session to live on. Marked by its origin, so it is not counted as a
+  // session started without a mood.
+  if (!target) {
+    const { data: created, error: createError } = await supabase
+      .from("sessions")
+      .insert({ user_id: user.id, group_id: groupId, filters: { origin: "list" } })
+      .select("id")
+      .single();
+    if (createError) throw createError;
+    target = created.id as string;
+  }
 
   await clearTonightChoice(user.id, groupId);
   const { error: pickError } = await supabase

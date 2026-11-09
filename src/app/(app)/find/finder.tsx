@@ -37,6 +37,7 @@ import {
 } from "./swipe-card";
 import { Toast } from "./toast";
 import { useBackClose } from "./use-back-close";
+import { rememberGroup } from "@/lib/group-cookie";
 import type { GroupOption, ToastButton, ToastState } from "./types";
 import styles from "./find.module.css";
 
@@ -80,10 +81,13 @@ const merge = (a: Undo | null, b: Undo | null): Undo | null => {
 
 export function Finder({
   groups: initialGroups,
+  initialGroupId,
   footer,
   belowStart,
 }: {
   groups: GroupOption[];
+  /** The group chosen last, in Hitta or Att se. */
+  initialGroupId?: string;
   footer: React.ReactNode;
   belowStart?: React.ReactNode;
 }) {
@@ -101,7 +105,14 @@ export function Finder({
     router.refresh();
   };
   const [phase, setPhase] = useState<"start" | "deck" | "chosen">("start");
-  const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
+  const [groupId, setGroupIdState] = useState(
+    initialGroupId ?? groups[0]?.id ?? "",
+  );
+  // The group is shared with Att se, so it is remembered for that tab too.
+  const setGroupId = (id: string) => {
+    setGroupIdState(id);
+    rememberGroup(id);
+  };
   const [quickPicks, setQuickPicks] = useState<Set<string>>(new Set());
   const [mood, setMood] = useState("");
   const [starting, setStarting] = useState(false);

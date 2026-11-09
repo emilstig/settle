@@ -304,6 +304,13 @@ function isStale(row: Title | undefined, now: number) {
  */
 export async function getTitles(
   refs: { tmdb_id: number; media_type: MediaType }[],
+  /**
+   * At most this many stale rows are fetched again, the first in `refs`
+   * first; the rest are shown as cached. For long lists (Att se), so one
+   * page load does not wait on a hundred TMDB calls. Missing rows are always
+   * fetched.
+   */
+  { maxRefresh = Infinity }: { maxRefresh?: number } = {},
 ): Promise<Map<string, Title>> {
   const admin = createAdminClient();
   const rows = new Map<string, Title>();
@@ -321,7 +328,11 @@ export async function getTitles(
   }
 
   const now = Date.now();
-  const stale = refs.filter((r) => isStale(rows.get(key(r)), now));
+  const missing = refs.filter((r) => !rows.has(key(r)));
+  const old = refs
+    .filter((r) => rows.has(key(r)) && isStale(rows.get(key(r)), now))
+    .slice(0, maxRefresh);
+  const stale = [...missing, ...old];
   if (stale.length > 0) {
     const fetched = await mapLimit(stale, DETAIL_CONCURRENCY, (r) => fetchDetails(r.media_type, r.tmdb_id));
     const stamp = new Date(now).toISOString();
