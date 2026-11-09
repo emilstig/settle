@@ -34,11 +34,13 @@ const SOURCES = [
  * Well-known titles on the user's services, for rating with swipes. Sorted by
  * vote count so they are likely to have been seen. Skips anything already
  * rated, marked as seen, or answered "Inte sett", so calibrating again shows
- * new titles.
+ * new titles. `skipped` holds titles passed over with "Hoppa över" this time,
+ * which are not saved and so only stay away until the calibration is left.
  */
 export async function getCalibrationCards(
   userId: string,
   providerIds: number[],
+  skipped: Iterable<string> = [],
 ): Promise<Card[]> {
   const supabase = await createClient();
   const [ratings, seen, notSeen, genres] = await Promise.all([
@@ -61,9 +63,10 @@ export async function getCalibrationCards(
   if (seen.error) throw seen.error;
   if (notSeen.error) throw notSeen.error;
 
-  const done = new Set(
+  const answered = new Set(
     [...ratings.data, ...seen.data, ...notSeen.data].map(key),
   );
+  const done = new Set([...answered, ...skipped]);
   const picked = new Set<string>();
   const hits: DiscoverHit[] = [];
   // Fetch extra so spreading over genres and film series still leaves enough.
@@ -72,7 +75,7 @@ export async function getCalibrationCards(
   // Fetch pages in batches until there are enough unanswered titles. The
   // more someone has answered, the further down they start: each page of the
   // four lists holds up to 80 titles, and the first pages get used up.
-  const startPage = Math.max(1, Math.floor(done.size / TITLES_PER_PAGE));
+  const startPage = Math.max(1, Math.floor(answered.size / TITLES_PER_PAGE));
   for (
     let first = startPage;
     first < startPage + MAX_PAGES && hits.length < target;

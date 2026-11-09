@@ -41,6 +41,7 @@ export function StartView({
   loading,
   error,
   footer,
+  belowStart,
   tonightChoice,
   tonightCount,
   onOpenTonight,
@@ -58,6 +59,8 @@ export function StartView({
   loading: boolean;
   error: string | null;
   footer: React.ReactNode;
+  /** Shown right under the start button, such as ”Fortsätt kalibrera”. */
+  belowStart?: React.ReactNode;
   /** Tonight's choice for the selected group, if made. */
   tonightChoice: Card | null;
   /** Candidates saved tonight with the selected group. */
@@ -241,6 +244,7 @@ export function StartView({
           `Föreslå utifrån ${together ? "vår" : "min"} smak`
         )}
       </button>
+      {belowStart}
 
       <div className={styles.startFooter}>{footer}</div>
     </div>

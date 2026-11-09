@@ -108,8 +108,18 @@ export async function finishCalibration(mode: "onboarding" | "app") {
   redirect("/");
 }
 
-/** "Fortsätt kalibrera": the next titles, skipping everything already answered. */
-export async function moreCalibrationCards(): Promise<Card[]> {
+const skippedSchema = z
+  .array(z.string().regex(/^(movie|tv):\d+$/))
+  .max(1000);
+
+/**
+ * "Fortsätt kalibrera": the next titles, skipping everything already answered
+ * and what was passed over with "Hoppa över" in this calibration.
+ */
+export async function moreCalibrationCards(
+  skipped: string[] = [],
+): Promise<Card[]> {
+  const keys = skippedSchema.parse(skipped);
   const user = await getCurrentUser();
-  return getCalibrationCards(user.id, await getUserProviderIds());
+  return getCalibrationCards(user.id, await getUserProviderIds(), keys);
 }
