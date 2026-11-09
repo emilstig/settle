@@ -38,7 +38,9 @@ organisationen, så testare behöver egen SMTP för att få inloggningsmejlet.
 
 För att testa lokalt utan mejl: `node --env-file=.env.local scripts/dev-login.mjs http://localhost:3000`
 skapar ett separat testkonto (första gången) och skriver ut en engångslänk till `/auth/confirm`. Skriptet
-vägrar andra adresser än localhost.
+vägrar andra adresser än localhost. Lägg till `--fresh` för att radera testkontot och dess data först och börja om
+som ny användare (onboarding, tjänster och kalibrering). `--fresh` fungerar bara för adresser på
+`@example.com`, så ett riktigt konto kan inte raderas av misstag.
 
 ## Ikoner
 
