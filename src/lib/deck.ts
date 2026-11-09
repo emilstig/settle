@@ -7,6 +7,7 @@ import { DEFAULT_YOUNGEST_AGE, getGroups, type Group } from "@/lib/groups";
 import {
   discover,
   getTitles,
+  streamingProviders,
   type DiscoverHit,
   type MediaType,
   type Title,
@@ -325,10 +326,10 @@ export function toCard(
     poster_path: t.poster_path,
     vote_average: t.vote_average,
     certification: formatCertSE(t.certification_se),
-    services: (t.providers_se?.flatrate ?? [])
+    services: streamingProviders(t.providers_se)
       .filter((p) => mine.has(p.id))
       .map((p) => p.name),
-    service_logos: (t.providers_se?.flatrate ?? [])
+    service_logos: streamingProviders(t.providers_se)
       .filter((p) => mine.has(p.id))
       .flatMap((p) => (p.logo_path ? [p.logo_path] : [])),
     providers_link: t.providers_se?.link ?? null,
@@ -527,7 +528,7 @@ export async function loadDeckPage({
     .map((h) => laneRowsByKey.get(key(h)))
     .filter((row): row is Title => {
       if (!row) return false;
-      if (!(row.providers_se?.flatrate ?? []).some((p) => mine.has(p.id)))
+      if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
         return false;
       if (filters.maxCert !== null) {
         const cert = certNumber(row.certification_se);
@@ -541,7 +542,7 @@ export async function loadDeckPage({
     const k = key(h);
     const row = rows.get(k);
     if (!row || excluded.has(k) || skipSet.has(k)) return [];
-    if (!(row.providers_se?.flatrate ?? []).some((p) => mine.has(p.id)))
+    if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
       return [];
     if (filters.maxCert !== null) {
       const cert = certNumber(row.certification_se);

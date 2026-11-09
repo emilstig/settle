@@ -14,6 +14,7 @@ import { shuffle } from "@/lib/spread";
 import {
   discover,
   getTitles,
+  streamingProviders,
   type DiscoverHit,
   type MediaType,
   type Title,
@@ -48,7 +49,7 @@ function usable(
   maxCert: number | null,
 ): row is Title {
   if (!row) return false;
-  if (!(row.providers_se?.flatrate ?? []).some((p) => mine.has(p.id)))
+  if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
     return false;
   if (maxCert !== null) {
     const cert = certNumber(row.certification_se);

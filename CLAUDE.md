@@ -45,7 +45,7 @@ Alla nycklar används bara på servern (route handlers eller server actions), al
 
 **TMDB (v3, bearer token)**
 - Tjänster i Sverige: `GET /watch/providers/movie?watch_region=SE` (och `/tv`)
-- Kandidater: `GET /discover/movie` och `/discover/tv` med `watch_region=SE`, `with_watch_providers=8|1899|...` (pipe betyder ELLER), `with_watch_monetization_types=flatrate`, `language=sv-SE`
+- Kandidater: `GET /discover/movie` och `/discover/tv` med `watch_region=SE`, `with_watch_providers=8|1899|...` (pipe betyder ELLER), `with_watch_monetization_types=flatrate|free|ads` (en tjänst räknas oavsett om TMDB klassar titeln som prenumeration, gratis eller reklam, eftersom SVT Play mest är gratis), `language=sv-SE`
 - Detaljer: `GET /movie/{id}?append_to_response=watch/providers,videos` (och `/tv/{id}`)
 - Streamingdatan kommer från JustWatch. **JustWatch och TMDB ska anges som källor i appen**, annars kan API-åtkomsten dras in.
 - Cacha i `titles` i högst 6 månader. Uppdatera `providers_se` oftare (cirka en gång i veckan), eftersom katalogerna byts.
