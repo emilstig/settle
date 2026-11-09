@@ -34,16 +34,24 @@ const KEYS: Record<string, Dir> = {
   ArrowDown: "down",
 };
 
-/** One swipe. `write` settles with what to undo once the database write is done. */
+/**
+ * One answer. `write` settles with what to undo once the database write is
+ * done; a skip writes nothing and carries the key it added to `skipped`.
+ */
 type Step = {
   index: number;
   rated: boolean;
   write: Promise<CalibrationUndo | null>;
+  skippedKey?: string;
 };
 
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
+const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
 
-/** Rate well-known titles with swipes: right likes, up loves, left disliked, down not seen. */
+/**
+ * Rate well-known titles with swipes: right likes, up loves, left disliked,
+ * down not seen. "Hoppa över" passes a title without saving anything.
+ */
 export function Calibrator({
   cards: initialCards,
   mode,
@@ -57,6 +65,8 @@ export function Calibrator({
   const [index, setIndex] = useState(0);
   const [history, setHistory] = useState<Step[]>([]);
   const [rated, setRated] = useState(0);
+  /** Passed over this time; not saved, only kept out of "Fortsätt kalibrera". */
+  const [skipped, setSkipped] = useState<string[]>([]);
   const [finishing, startFinish] = useTransition();
   const cardRef = useRef<SwipeCardHandle>(null);
 
@@ -96,12 +106,26 @@ export function Calibrator({
     handleSwipe(dir);
   }
 
+  /** Passes over the title without an answer, for when none of them fits. */
+  function skip() {
+    if (!card) return;
+    const k = keyOf(card);
+    setSkipped((s) => [...s, k]);
+    setHistory((h) => [
+      ...h.slice(-19),
+      { index, rated: false, write: Promise.resolve(null), skippedKey: k },
+    ]);
+    setIndex((i) => i + 1);
+  }
+
   async function undo() {
     const last = history[history.length - 1];
     if (!last) return;
     setHistory((h) => h.slice(0, -1));
     setIndex(last.index);
     if (last.rated) setRated((n) => n - 1);
+    if (last.skippedKey)
+      setSkipped((s) => s.filter((k) => k !== last.skippedKey));
     const undo = await last.write;
     if (undo) await undoCalibration(undo).catch((e) => console.error(e));
   }
@@ -111,7 +135,8 @@ export function Calibrator({
     try {
       // Let pending answers land so the next round skips them.
       await Promise.all(history.map((h) => h.write));
-      const next = await moreCalibrationCards();
+      // Skipped titles stay away for the rest of this calibration.
+      const next = await moreCalibrationCards(skipped);
       if (next.length === 0) {
         setNoMore(true);
         return;
@@ -168,7 +193,7 @@ export function Calibrator({
           onClick={finish}
           disabled={finishing}
         >
-          {rated === 0 ? "Hoppa över" : "Klar"}
+          Klar
         </button>
       </div>
 
@@ -265,6 +290,14 @@ export function Calibrator({
           ♥
         </button>
       </div>
+      <button
+        type="button"
+        className={`link ${styles.pass}`}
+        onClick={skip}
+        disabled={!card}
+      >
+        Hoppa över
+      </button>
     </div>
   );
 }

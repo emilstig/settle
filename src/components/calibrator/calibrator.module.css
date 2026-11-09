@@ -5,3 +5,5 @@
 .ctx { border-color: var(--cal); color: var(--cal); }
 .skip { margin-left: auto; }
 .deck { outline: 2px dashed var(--cal); outline-offset: 6px; border-radius: 24px; margin: 6px; }
+.pass { align-self: center; }
+.pass:disabled { visibility: hidden; }

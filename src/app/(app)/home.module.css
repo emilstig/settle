@@ -3,9 +3,5 @@
 .header :global(.logo) { flex: 1; }
 .links { display: flex; gap: 8px; align-items: center; margin-left: -6px; }
 .links { flex-wrap: wrap; }
-.calCard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 6px; }
-.calCard h2 { font-size: 18px; }
-.calCard p { color: var(--mute); font-size: 15px; line-height: 1.4; }
-.calButton { text-align: center; margin-top: 6px; }
 .loading { flex: 1; }
 .wait { color: var(--mute); font-size: 15px; }

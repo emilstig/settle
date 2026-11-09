@@ -78,9 +78,11 @@ const merge = (a: Undo | null, b: Undo | null): Undo | null => {
 export function Finder({
   groups: initialGroups,
   footer,
+  belowStart,
 }: {
   groups: GroupOption[];
   footer: React.ReactNode;
+  belowStart?: React.ReactNode;
 }) {
   const [groups, setGroups] = useState(initialGroups);
   const router = useRouter();
@@ -612,6 +614,7 @@ export function Finder({
           loading={starting}
           error={error}
           footer={footer}
+          belowStart={belowStart}
         />
         {sheet}
         <Toast key={toast?.id} toast={toast} onClose={closeToast} />

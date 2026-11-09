@@ -8,7 +8,7 @@ import { signOut } from "./actions";
 import { Finder } from "./find/finder";
 import styles from "./home.module.css";
 
-/** Below this many ratings the profile is thin, so Hitta offers calibration. */
+/** Below this many ratings the profile is thin, so the start view offers calibration. */
 const THIN_PROFILE = 10;
 
 export default function FindPage() {
@@ -41,20 +41,15 @@ async function Find() {
         youngest_age,
         savedCount: saved.get(id) ?? 0,
       }))}
+      belowStart={
+        ratings < THIN_PROFILE && (
+          <Link href="/calibrate" className="secondary">
+            Fortsätt kalibrera
+          </Link>
+        )
+      }
       footer={
         <>
-          {ratings < THIN_PROFILE && (
-            <div className={styles.calCard}>
-              <h2>Hjälp appen lära känna dig</h2>
-              <p>
-                Betygsätt kända titlar du kanske har sett. Det tar ett par
-                minuter.
-              </p>
-              <Link href="/calibrate" className={`primary ${styles.calButton}`}>
-                Kalibrera
-              </Link>
-            </div>
-          )}
           <div className={styles.links}>
             <Link href="/profile" className="link">
               Din smakprofil
