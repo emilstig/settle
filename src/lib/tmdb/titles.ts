@@ -6,7 +6,29 @@ import { LANGUAGE, REGION, tmdbGet } from "./client";
 export type MediaType = "movie" | "tv";
 
 export type StreamProvider = { id: number; name: string; logo_path: string | null };
-export type ProvidersSE = { link: string | null; flatrate: StreamProvider[] };
+/**
+ * Services in Sweden per TMDB's monetization type. Subscription (flatrate),
+ * free and ad-funded all count as having the service: SVT Play is mostly
+ * "free", so flatrate alone missed most of it. Rows cached before free and
+ * ads were stored have only flatrate until their providers are refreshed.
+ */
+export type ProvidersSE = {
+  link: string | null;
+  flatrate: StreamProvider[];
+  free?: StreamProvider[];
+  ads?: StreamProvider[];
+};
+
+/** Every service the title can be streamed on in Sweden, without duplicates. */
+export function streamingProviders(p: ProvidersSE | null | undefined): StreamProvider[] {
+  const seen = new Set<number>();
+  return [...(p?.flatrate ?? []), ...(p?.free ?? []), ...(p?.ads ?? [])].filter(
+    (s) => !seen.has(s.id) && seen.add(s.id),
+  );
+}
+
+/** The monetization types asked for in discover (pipe means or). */
+const MONETIZATION = "flatrate|free|ads";
 
 /** A row in the shared `titles` cache. */
 export type Title = {
@@ -56,20 +78,29 @@ const watchProviders = z
   .object({
     results: z.record(
       z.string(),
-      z.object({ link: z.string().optional(), flatrate: z.array(providerEntry).optional() }),
+      z.object({
+        link: z.string().optional(),
+        flatrate: z.array(providerEntry).optional(),
+        free: z.array(providerEntry).optional(),
+        ads: z.array(providerEntry).optional(),
+      }),
     ),
   })
   .optional();
 
 const toProvidersSE = (wp: z.infer<typeof watchProviders>): ProvidersSE => {
   const se = wp?.results?.[REGION];
-  return {
-    link: se?.link ?? null,
-    flatrate: (se?.flatrate ?? []).map((p) => ({
+  const list = (entries: z.infer<typeof providerEntry>[] | undefined) =>
+    (entries ?? []).map((p) => ({
       id: p.provider_id,
       name: p.provider_name,
       logo_path: p.logo_path ?? null,
-    })),
+    }));
+  return {
+    link: se?.link ?? null,
+    flatrate: list(se?.flatrate),
+    free: list(se?.free),
+    ads: list(se?.ads),
   };
 };
 
@@ -101,7 +132,7 @@ const discoverPage = z.object({
 export type DiscoverHit = { tmdb_id: number; media_type: MediaType; popularity: number };
 
 export type DiscoverParams = {
-  /** The services to search, or "all" for anything on flatrate in Sweden. */
+  /** The services to search, or "all" for anything streaming in Sweden. */
   providerIds: number[] | "all";
   page?: number;
   sortBy?: string;
@@ -109,7 +140,7 @@ export type DiscoverParams = {
   filters?: Record<string, string | number | undefined>;
 };
 
-/** One page of TMDB discover, restricted to the given services (or any) on flatrate in Sweden. */
+/** One page of TMDB discover, restricted to the given services (or any) in Sweden. */
 export async function discover(
   mediaType: MediaType,
   { providerIds, page = 1, sortBy = "popularity.desc", filters = {} }: DiscoverParams,
@@ -121,7 +152,7 @@ export async function discover(
     {
       watch_region: REGION,
       with_watch_providers: providerIds === "all" ? undefined : providerIds.join("|"),
-      with_watch_monetization_types: "flatrate",
+      with_watch_monetization_types: MONETIZATION,
       language: LANGUAGE,
       sort_by: sortBy,
       include_adult: "false",
