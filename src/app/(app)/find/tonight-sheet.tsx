@@ -30,6 +30,7 @@ export function TonightSheet({
   busy,
   onChoose,
   onRemove,
+  onOpen,
   onClose,
   together = false,
 }: {
@@ -40,6 +41,8 @@ export function TonightSheet({
   onChoose: (card: Card) => void;
   /** Takes it off tonight; it stays on the group's list. */
   onRemove: (card: Card) => void;
+  /** Opens the detail view on top, to see what the title was about. */
+  onOpen: (card: Card) => void;
   onClose: () => void;
   /** The group is not Själv, so the text says "ni". */
   together?: boolean;
@@ -77,8 +80,8 @@ export function TonightSheet({
           </button>
         </div>
         <p>
-          Det {together ? "ni" : "du"} har sparat ikväll. Det du tar bort
-          ligger kvar i Lista.
+          Det {together ? "ni" : "du"} har sparat ikväll. Det du tar bort ligger
+          kvar i Lista.
         </p>
         {items.length === 0 && (
           <p className={styles.tonightEmpty}>Inget sparat ikväll.</p>
@@ -109,13 +112,20 @@ export function TonightSheet({
             const isChosen = keyOf(card) === chosenKey;
             return (
               <li key={keyOf(card)} className={styles.tonightRow}>
-                <div className={styles.tonightThumb}>
-                  {img && <Image src={img} alt="" fill sizes="44px" />}
-                </div>
-                <div className={styles.tonightText}>
-                  <strong>{card.title}</strong>
-                  <span>{info}</span>
-                </div>
+                <button
+                  type="button"
+                  className={styles.tonightOpen}
+                  aria-label={`Visa ${card.title}`}
+                  onClick={() => onOpen(card)}
+                >
+                  <span className={styles.tonightThumb}>
+                    {img && <Image src={img} alt="" fill sizes="44px" />}
+                  </span>
+                  <span className={styles.tonightText}>
+                    <strong>{card.title}</strong>
+                    <span>{info}</span>
+                  </span>
+                </button>
                 <button
                   type="button"
                   disabled={busy || isChosen}
@@ -150,11 +160,14 @@ export function ChosenView({
   busy,
   onChange,
   onDone,
+  onOpen,
 }: {
   card: Card;
   busy: boolean;
   onChange: () => void;
   onDone: () => void;
+  /** Opens the detail view, without decisions: the choice is made. */
+  onOpen: () => void;
 }) {
   const img = card.poster_path
     ? `https://image.tmdb.org/t/p/w500${card.poster_path}`
@@ -162,7 +175,12 @@ export function ChosenView({
   return (
     <div className={styles.chosen}>
       <p className={styles.chosenLead}>Ikväll blir det</p>
-      <div className={styles.chosenPoster}>
+      <button
+        type="button"
+        className={styles.chosenPoster}
+        aria-label={`Visa ${card.title}`}
+        onClick={onOpen}
+      >
         {img && (
           <Image
             src={img}
@@ -172,7 +190,7 @@ export function ChosenView({
             className={styles.cardImg}
           />
         )}
-      </div>
+      </button>
       <h1 className="q">{card.title}</h1>
       <p className={styles.chosenMeta}>{card.meta}</p>
       {card.services.length > 0 && (
