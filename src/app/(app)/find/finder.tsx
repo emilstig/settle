@@ -7,6 +7,7 @@ import { setYoungestAge } from "../actions";
 import {
   chooseTonight,
   clearTonight,
+  removeFromTonight,
   loadMore,
   openDetail,
   recordSeen,
@@ -90,6 +91,7 @@ export function Finder({
   }
   const backToStart = () => {
     setPhase("start");
+    setTonightVersion((v) => v + 1);
     router.refresh();
   };
   const [phase, setPhase] = useState<"start" | "deck" | "chosen">("start");
@@ -123,6 +125,8 @@ export function Finder({
   const [tonightSaved, setTonightSaved] = useState<Card[]>([]);
   const [tonightChoice, setTonightChoice] = useState<Card | null>(null);
   const [tonightOpen, setTonightOpen] = useState(false);
+  // Bumped to read tonight from the server again, e.g. when starting over.
+  const [tonightVersion, setTonightVersion] = useState(0);
   const [choosing, setChoosing] = useState(false);
   const loadingMore = useRef(false);
   const cardRef = useRef<SwipeCardHandle>(null);
@@ -155,11 +159,35 @@ export function Finder({
     return () => {
       alive = false;
     };
-  }, [groupId]);
+  }, [groupId, tonightVersion]);
 
   // Tonight is the user's own shortlist: what was saved tonight, latest
-  // first. Top picks join it when swiped right.
-  const tonightItems = tonightSaved;
+  // first. Top picks join it when swiped right. A choice made from the
+  // detail view without a right swipe is on it too, so it can be found
+  // again after starting over.
+  const tonightItems =
+    tonightChoice &&
+    !tonightSaved.some((x) => keyOf(x) === keyOf(tonightChoice))
+      ? [tonightChoice, ...tonightSaved]
+      : tonightSaved;
+
+  async function removeTonight(c: Card) {
+    const k = keyOf(c);
+    const was = { saved: tonightSaved, choice: tonightChoice };
+    setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== k));
+    if (tonightChoice && keyOf(tonightChoice) === k) setTonightChoice(null);
+    try {
+      await removeFromTonight({
+        groupId: session?.groupId ?? groupId,
+        ref: refOf(c),
+      });
+    } catch (e) {
+      console.error(e);
+      setTonightSaved(was.saved);
+      setTonightChoice(was.choice);
+      showToast("Det gick inte att ta bort", [], 2200);
+    }
+  }
 
   async function choose(c: Card) {
     setChoosing(true);
@@ -309,6 +337,13 @@ export function Finder({
           groupIds,
         }),
       );
+      // Ikväll is this group's evening: a title moved to other groups only
+      // leaves it.
+      if (!groupIds.includes(session.groupId)) {
+        setTonightSaved((saved) =>
+          saved.filter((x) => keyOf(x) !== keyOf(c)),
+        );
+      }
       const names = groups
         .filter((g) => groupIds.includes(g.id))
         .map((g) => g.name);
@@ -499,8 +534,10 @@ export function Finder({
   const sheet = tonightOpen && (
     <TonightSheet
       items={tonightItems}
+      chosen={tonightChoice}
       busy={choosing}
       onChoose={(c) => void choose(c)}
+      onRemove={(c) => void removeTonight(c)}
       onClose={() => setTonightOpen(false)}
     />
   );

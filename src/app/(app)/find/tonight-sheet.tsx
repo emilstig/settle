@@ -26,15 +26,23 @@ const length = (c: Card) =>
 /** Tonight's shortlist: what was saved tonight, latest first, each with "Välj". */
 export function TonightSheet({
   items,
+  chosen,
   busy,
   onChoose,
+  onRemove,
   onClose,
 }: {
   items: Card[];
+  /** Tonight's choice, if made. */
+  chosen: Card | null;
   busy: boolean;
   onChoose: (card: Card) => void;
+  /** Takes it off tonight; it stays on the group's list. */
+  onRemove: (card: Card) => void;
   onClose: () => void;
 }) {
+  const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
+  const chosenKey = chosen ? keyOf(chosen) : null;
   const [sort, setSort] = useState<Sort>("latest");
   const sorted =
     sort === "latest"
@@ -65,7 +73,10 @@ export function TonightSheet({
             ✕
           </button>
         </div>
-        <p>Det du har sparat ikväll.</p>
+        <p>Det du har sparat ikväll. Det du tar bort ligger kvar i Lista.</p>
+        {items.length === 0 && (
+          <p className={styles.tonightEmpty}>Inget sparat ikväll.</p>
+        )}
         <div className="chips" role="group" aria-label="Sortera">
           {SORTS.map(([value, label]) => (
             <button
@@ -89,11 +100,9 @@ export function TonightSheet({
             ]
               .filter(Boolean)
               .join(" · ");
+            const isChosen = keyOf(card) === chosenKey;
             return (
-              <li
-                key={`${card.media_type}:${card.tmdb_id}`}
-                className={styles.tonightRow}
-              >
+              <li key={keyOf(card)} className={styles.tonightRow}>
                 <div className={styles.tonightThumb}>
                   {img && <Image src={img} alt="" fill sizes="44px" />}
                 </div>
@@ -103,10 +112,19 @@ export function TonightSheet({
                 </div>
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || isChosen}
                   onClick={() => onChoose(card)}
                 >
-                  Välj
+                  {isChosen ? "Vald" : "Välj"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.tonightRemove}
+                  aria-label={`Ta bort ${card.title} från ikväll`}
+                  disabled={busy}
+                  onClick={() => onRemove(card)}
+                >
+                  ✕
                 </button>
               </li>
             );

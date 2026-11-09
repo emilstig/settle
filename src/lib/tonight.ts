@@ -92,9 +92,9 @@ export async function getTonight(
   const [rights, list] = await Promise.all([
     supabase
       .from("interactions")
-      .select("tmdb_id, media_type, created_at")
+      .select("tmdb_id, media_type, action, created_at")
       .eq("user_id", userId)
-      .eq("action", "right")
+      .in("action", ["right", "undo"])
       .in(
         "session_id",
         sessions.map((s) => s.id),
@@ -109,15 +109,16 @@ export async function getTonight(
   if (rights.error) throw rights.error;
   if (list.error) throw list.error;
 
-  // Still saved for the group: a moved or undone title is not a candidate.
+  // Still saved for the group: a moved or undone title is not a candidate,
+  // and neither is one taken off tonight ("undo" after the last right swipe).
+  // Rows are latest first, so the first row per title decides.
   const onList = new Set(list.data.map(key));
-  const savedRefs = [
-    ...new Map(
-      (rights.data as Ref[])
-        .filter((r) => onList.has(key(r)))
-        .map((r) => [key(r), r]),
-    ).values(),
-  ];
+  const latest = new Map<string, Ref & { action: string }>();
+  for (const r of rights.data as (Ref & { action: string })[])
+    if (!latest.has(key(r))) latest.set(key(r), r);
+  const savedRefs = [...latest.values()]
+    .filter((r) => r.action === "right" && onList.has(key(r)))
+    .map(({ tmdb_id, media_type }) => ({ tmdb_id, media_type }));
   const refs = [...savedRefs, ...(choiceRef ? [choiceRef] : [])];
   if (refs.length === 0) return { choice: null, saved: [] };
 

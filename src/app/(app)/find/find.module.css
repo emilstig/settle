@@ -283,6 +283,8 @@
 .tonightText strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tonightText span { font-size: 13px; color: var(--mute); }
 .tonightRow button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
+.tonightRow .tonightRemove { border: 0; background: none; padding: 8px; color: var(--mute); font-weight: 400; }
+.tonightEmpty { color: var(--mute); font-size: 14px; margin-top: 10px; }
 .chosen { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 12px 0 24px; }
 .chosenLead { color: var(--mute); font-size: 15px; }
 .chosenPoster { position: relative; width: 200px; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: #2a2740; }

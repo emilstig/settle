@@ -702,6 +702,43 @@ async function clearTonightChoice(userId: string, groupId: string) {
   if (error) throw error;
 }
 
+const removeSchema = z.object({ groupId: uuid, ref });
+
+/**
+ * "Ta bort" in Ikväll: the title leaves tonight's shortlist but stays on the
+ * group's list. Logged as an undo in tonight's latest session, which outranks
+ * the earlier right swipe; a new right swipe brings it back. If it was
+ * tonight's choice, the choice goes too.
+ */
+export async function removeFromTonight(input: z.infer<typeof removeSchema>) {
+  const user = await getCurrentUser();
+  const { groupId, ref: r } = removeSchema.parse(input);
+  const supabase = await createClient();
+  const { data: session, error } = await supabase
+    .from("sessions")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("group_id", groupId)
+    .gte("started_at", eveningStart())
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!session) return;
+  await logInteraction(user.id, session.id, r, "undo");
+
+  const { data: picked, error: pickedError } = await supabase
+    .from("sessions")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("group_id", groupId)
+    .gte("started_at", eveningStart())
+    .eq("picked_tmdb_id", r.tmdb_id)
+    .eq("picked_media_type", r.media_type);
+  if (pickedError) throw pickedError;
+  if (picked.length) await clearTonightChoice(user.id, groupId);
+}
+
 /** "Ändra": tonight has no choice again. */
 export async function clearTonight(input: { groupId: string }) {
   const user = await getCurrentUser();
