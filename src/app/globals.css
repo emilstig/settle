@@ -1,5 +1,7 @@
 /* Design tokens from docs/prototype.html. Light by default, dark follows the system. */
 :root {
+  /* The tab bar at the bottom (see components/tab-bar). */
+  --tabs-height: 56px;
   --bg: #ecebf3;
   --ink: #1c1a2e;
   --mute: #6b6880;

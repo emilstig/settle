@@ -81,7 +81,7 @@ export function TonightSheet({
         </div>
         <p>
           Det {together ? "ni" : "du"} har sparat ikväll. Det du tar bort ligger
-          kvar i Lista.
+          kvar i Att se.
         </p>
         {items.length === 0 && (
           <p className={styles.tonightEmpty}>Inget sparat ikväll.</p>

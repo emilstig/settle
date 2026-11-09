@@ -20,6 +20,7 @@ export function DetailView({
   onClose,
   onDecide,
   onChoose,
+  list,
 }: {
   card: Card;
   trailerKey: string | null;
@@ -28,15 +29,18 @@ export function DetailView({
   trailerLoading: boolean;
   /**
    * The decisions that fit where it was opened: the deck has them all,
-   * Ikväll only "Välj den här" (it is saved already), the end view none.
+   * Ikväll only "Välj den här" (it is saved already), Att se its list
+   * actions (see `list`), the end view none.
    */
-  actions: "deck" | "choose" | "none";
+  actions: "deck" | "choose" | "list" | "none";
   /** It is tonight's choice already. */
   chosen?: boolean;
   onClose: () => void;
   onDecide: (dir: "left" | "up" | "right") => void;
   /** "Välj den här": sets tonight's choice. */
   onChoose: () => void;
+  /** From Att se: take it off the list, or toggle "Vill gärna". */
+  list?: { wanted: boolean; onRemove: () => void; onWant?: () => void };
 }) {
   const backRef = useRef<HTMLButtonElement>(null);
   useEffect(() => backRef.current?.focus(), []);
@@ -171,6 +175,22 @@ export function DetailView({
               <button type="button" onClick={() => onDecide("right")}>
                 ♥ Vill se
               </button>
+            </>
+          )}
+          {actions === "list" && list && (
+            <>
+              <button type="button" onClick={list.onRemove}>
+                Ta bort
+              </button>
+              {list.onWant && (
+                <button
+                  type="button"
+                  aria-pressed={list.wanted}
+                  onClick={list.onWant}
+                >
+                  {list.wanted ? "✓ Vill gärna" : "Vill gärna"}
+                </button>
+              )}
             </>
           )}
           <button

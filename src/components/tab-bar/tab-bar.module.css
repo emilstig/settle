@@ -1,0 +1,28 @@
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 16px calc(6px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.tab {
+  flex: 1;
+  max-width: 180px;
+  text-align: center;
+  padding: 10px 8px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mute);
+  text-decoration: none;
+}
+.tab[aria-current="page"] {
+  color: var(--ink);
+  background: var(--panel);
+}
