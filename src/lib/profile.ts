@@ -16,6 +16,8 @@ const YEAR_MS = 365 * 24 * 3600 * 1000;
 /** Genre weights from the domain rules. */
 const WEIGHT: Record<number, number> = { 3: 3, 2: 2, 1: 1, [-1]: -2 };
 const DROPPED_WEIGHT = -1;
+/** "Inte min grej" in Själv: a mild dislike, as heavy as a drop. */
+const NOT_FOR_ME_WEIGHT = -1;
 const RATING_LABEL: Record<number, string> = {
   3: "älskar",
   2: "gillar mycket",
@@ -76,7 +78,8 @@ const fmt = (n: number) => n.toFixed(1).replace(".", ",").replace("-", "−");
 
 export async function buildProfile(userId: string): Promise<TasteProfile> {
   const supabase = await createClient();
-  const [ratingsRes, droppedRes, groups, genreNames] = await Promise.all([
+  const [ratingsRes, droppedRes, notForMeRes, groups, genreNames] =
+    await Promise.all([
     supabase
       .from("ratings")
       .select("tmdb_id, media_type, rating, group_id, updated_at")
@@ -87,11 +90,21 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
       .select("tmdb_id, media_type, updated_at")
       .eq("user_id", userId)
       .eq("status", "dropped"),
+    // "Inte min grej" with Själv. Said with other groups it is "inte vår
+    // grej" and belongs to that group's history.
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type, created_at, sessions!inner(groups!inner(kind))")
+      .eq("user_id", userId)
+      .eq("action", "left")
+      .eq("reason", "not_for_me")
+      .eq("sessions.groups.kind", "solo"),
     getGroups(),
     getGenreNames(),
   ]);
   if (ratingsRes.error) throw ratingsRes.error;
   if (droppedRes.error) throw droppedRes.error;
+  if (notForMeRes.error) throw notForMeRes.error;
   const allRatings = ratingsRes.data as (Ref & {
     rating: number;
     group_id: string | null;
@@ -106,8 +119,13 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
     (r) => r.group_id === null || solo.has(r.group_id),
   );
   const groupRatingCount = allRatings.length - ratings.length;
+  // A later rating of the same title says more than the swipe.
+  const rated = new Set(ratings.map(keyOf));
+  const notForMe = (
+    notForMeRes.data as unknown as (Ref & { created_at: string })[]
+  ).filter((r) => !rated.has(keyOf(r)));
 
-  if (ratings.length === 0 && dropped.length === 0) {
+  if (ratings.length === 0 && dropped.length === 0 && notForMe.length === 0) {
     return {
       text: "Inga egna betyg än.",
       ratingCount: 0,
@@ -117,7 +135,9 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   }
 
   // Titles are cached in `titles` when they are shown, so every rated title is there.
-  const ids = [...new Set([...ratings, ...dropped].map((r) => r.tmdb_id))];
+  const ids = [
+    ...new Set([...ratings, ...dropped, ...notForMe].map((r) => r.tmdb_id)),
+  ];
   const { data: rows, error } = await supabase
     .from("titles")
     .select("tmdb_id, media_type, title, year, genre_ids")
@@ -172,7 +192,7 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
       }),
   ]);
 
-  // Genre profile: weighted ratings and drops, halved every year, averaged
+  // Genre profile: weighted ratings, drops and "inte min grej", halved every year, averaged
   // per genre with a prior so a few titles cannot dominate.
   const sum = new Map<number, number>();
   const count = new Map<number, number>();
@@ -184,6 +204,7 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   };
   for (const r of ratings) add(r, WEIGHT[r.rating] ?? 0, r.updated_at);
   for (const d of dropped) add(d, DROPPED_WEIGHT, d.updated_at);
+  for (const n of notForMe) add(n, NOT_FOR_ME_WEIGHT, n.created_at);
 
   const ranked: [number, number][] = [...sum.entries()]
     .filter(([g]) => genreNames[g] && (count.get(g) ?? 0) >= MIN_GENRE_TITLES)
