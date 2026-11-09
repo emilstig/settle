@@ -168,7 +168,7 @@
   justify-content: center;
   width: max-content;
   max-width: 92vw;
-  z-index: 10;
+  z-index: 13; /* above the detail view, which can show a toast */
   font-size: 14px;
 }
 .toast button {
@@ -218,7 +218,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 6;
+  z-index: 11; /* above the Ikväll sheet (8–9), which it can open from */
   background: var(--bg);
   overflow-y: auto;
   padding-top: env(safe-area-inset-top);
@@ -257,7 +257,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 7;
+  z-index: 12;
   display: flex;
   justify-content: center;
   gap: 12px;
@@ -286,17 +286,19 @@
 }
 .tonightList { list-style: none; display: grid; max-height: 55vh; overflow-y: auto; margin-top: 10px; }
 .tonightRow { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
-.tonightThumb { position: relative; width: 44px; height: 64px; border-radius: 6px; overflow: hidden; background: var(--line); flex: none; }
+.tonightThumb { display: block; position: relative; width: 44px; height: 64px; border-radius: 6px; overflow: hidden; background: var(--line); flex: none; }
 .tonightThumb img { object-fit: cover; }
 .tonightText { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .tonightText strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tonightText span { font-size: 13px; color: var(--mute); }
 .tonightRow button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
 .tonightRow .tonightRemove { border: 0; background: none; padding: 8px; color: var(--mute); font-weight: 400; }
+/* The thumbnail and title open the detail view, and look like the rest of the row. */
+.tonightRow .tonightOpen { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; border-radius: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .tonightEmpty { color: var(--mute); font-size: 14px; margin-top: 10px; }
 .chosen { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 12px 0 24px; }
 .chosenLead { color: var(--mute); font-size: 15px; }
-.chosenPoster { position: relative; width: 200px; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: #2a2740; }
+.chosenPoster { display: block; border: 0; padding: 0; cursor: pointer; position: relative; width: 200px; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: #2a2740; }
 .chosenMeta { color: var(--mute); font-size: 15px; }
 .chosen :global(.primary) { margin-top: 8px; text-align: center; min-width: 220px; }
 .chosenActions { display: flex; gap: 16px; }
@@ -307,3 +309,6 @@
 .tonightCard button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
 
 .dbar .dchoose { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+/* Alone (from Ikväll), the choice gets the width of a main button. */
+.dbar .dchoose:only-child { flex: 1; max-width: 388px; }
+.dbar .dchoose:disabled { opacity: 0.6; }

@@ -15,7 +15,8 @@ export function DetailView({
   trailerKey,
   imdbId,
   trailerLoading,
-  fromDeck,
+  actions,
+  chosen = false,
   onClose,
   onDecide,
   onChoose,
@@ -25,7 +26,13 @@ export function DetailView({
   /** IMDb id (tt…) for a plain link out, no IMDb data is shown in the app. */
   imdbId: string | null;
   trailerLoading: boolean;
-  fromDeck: boolean;
+  /**
+   * The decisions that fit where it was opened: the deck has them all,
+   * Ikväll only "Välj den här" (it is saved already), the end view none.
+   */
+  actions: "deck" | "choose" | "none";
+  /** It is tonight's choice already. */
+  chosen?: boolean;
   onClose: () => void;
   onDecide: (dir: "left" | "up" | "right") => void;
   /** "Välj den här": sets tonight's choice. */
@@ -107,7 +114,9 @@ export function DetailView({
                       ))}
                     </span>
                   ) : (
-                    <span className={styles.dicon} aria-hidden="true">⌂</span>
+                    <span className={styles.dicon} aria-hidden="true">
+                      ⌂
+                    </span>
                   )
                 }
                 label={
@@ -121,7 +130,11 @@ export function DetailView({
             {trailerKey ? (
               <LinkRow
                 href={`https://www.youtube.com/watch?v=${trailerKey}`}
-                icon={<span className={styles.dicon} aria-hidden="true">▶</span>}
+                icon={
+                  <span className={styles.dicon} aria-hidden="true">
+                    ▶
+                  </span>
+                }
                 label="Se trailer"
                 source="YouTube"
               />
@@ -133,7 +146,11 @@ export function DetailView({
             {imdbId && (
               <LinkRow
                 href={`https://www.imdb.com/title/${imdbId}/`}
-                icon={<span className={styles.dicon} aria-hidden="true">★</span>}
+                icon={
+                  <span className={styles.dicon} aria-hidden="true">
+                    ★
+                  </span>
+                }
                 label="Betyg och rollista"
                 source="IMDb"
               />
@@ -141,24 +158,31 @@ export function DetailView({
           </ul>
         </div>
       </div>
-      <div className={styles.dbar}>
-        {fromDeck && (
-          <>
-            <button type="button" onClick={() => onDecide("left")}>
-              ✕ Inte nu
-            </button>
-            <button type="button" onClick={() => onDecide("up")}>
-              Sett
-            </button>
-            <button type="button" onClick={() => onDecide("right")}>
-              ♥ Vill se
-            </button>
-          </>
-        )}
-        <button type="button" className={styles.dchoose} onClick={onChoose}>
-          Välj den här
-        </button>
-      </div>
+      {actions !== "none" && (
+        <div className={styles.dbar}>
+          {actions === "deck" && (
+            <>
+              <button type="button" onClick={() => onDecide("left")}>
+                ✕ Inte nu
+              </button>
+              <button type="button" onClick={() => onDecide("up")}>
+                Sett
+              </button>
+              <button type="button" onClick={() => onDecide("right")}>
+                ♥ Vill se
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            className={styles.dchoose}
+            onClick={onChoose}
+            disabled={chosen}
+          >
+            {chosen ? "Vald för ikväll" : "Välj den här"}
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -176,13 +200,20 @@ function LinkRow({
 }) {
   return (
     <li>
-      <a className={styles.drow} href={href} target="_blank" rel="noopener noreferrer">
+      <a
+        className={styles.drow}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         {icon}
         <span className={styles.drowText}>
           <span>{label}</span>
           <small>{source}</small>
         </span>
-        <span className={styles.drowOut} aria-hidden="true">↗</span>
+        <span className={styles.drowOut} aria-hidden="true">
+          ↗
+        </span>
       </a>
     </li>
   );

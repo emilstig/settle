@@ -371,7 +371,7 @@ export async function loadMore(
 
 async function logInteraction(
   userId: string,
-  sessionId: string,
+  sessionId: string | null,
   r: Ref,
   action: "right" | "left" | "seen" | "open_detail" | "undo" | "unsure",
   reason: "not_now" | "not_for_me" | "seen" | null = null,
@@ -894,14 +894,17 @@ export async function clearTonight(input: { groupId: string }) {
   await clearTonightChoice(user.id, uuid.parse(input.groupId));
 }
 
-/** Logs that the card was opened and returns the trailer and IMDb id, fetched on demand. */
+/**
+ * Logs that the card was opened and returns the trailer and IMDb id, fetched
+ * on demand. From Ikväll on the start view there may be no session yet.
+ */
 export async function openDetail(input: {
-  sessionId: string;
+  sessionId: string | null;
   ref: Ref;
   source?: CardSource | null;
 }): Promise<{ trailerKey: string | null; imdbId: string | null }> {
   const user = await getCurrentUser();
-  const sessionId = uuid.parse(input.sessionId);
+  const sessionId = uuid.nullable().parse(input.sessionId);
   const r = ref.parse(input.ref);
   const from = source.parse(input.source) ?? null;
   const [trailerKey, imdbId] = await Promise.all([

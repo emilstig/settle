@@ -36,6 +36,7 @@ import {
   type SwipeCardHandle,
 } from "./swipe-card";
 import { Toast } from "./toast";
+import { useBackClose } from "./use-back-close";
 import type { GroupOption, ToastButton, ToastState } from "./types";
 import styles from "./find.module.css";
 
@@ -121,7 +122,8 @@ export function Finder({
   } | null>(null);
   const [detail, setDetail] = useState<{
     card: Card;
-    fromDeck: boolean;
+    /** Where it was opened, which decides the button bar. */
+    from: "deck" | "tonight" | "chosen";
     trailer: string | null;
     imdbId: string | null;
     loading: boolean;
@@ -560,16 +562,25 @@ export function Finder({
 
   // ---- detail ---------------------------------------------------------------
 
-  function showDetail(c: Card) {
-    if (!session) return;
+  function showDetail(c: Card, from: "deck" | "tonight" | "chosen" = "deck") {
+    if (from === "deck" && !session) return;
     setDetail({
       card: c,
-      fromDeck: true,
+      from,
       trailer: null,
       imdbId: null,
       loading: true,
     });
-    openDetail({ sessionId: session.id, ref: refOf(c), source: c.source })
+    // Only cards in the deck have a source; opening it from Ikväll is not
+    // a reaction to where the card came from. The session is the current
+    // one for the group, if any.
+    const sessionId =
+      session && session.groupId === groupId ? session.id : null;
+    openDetail({
+      sessionId,
+      ref: refOf(c),
+      source: from === "deck" ? c.source : null,
+    })
       .then((r) =>
         setDetail((d) =>
           d && d.card === c
@@ -587,6 +598,37 @@ export function Finder({
   // Själv says "du"; any other group watches together and says "ni".
   const together =
     groups.find((g) => g.id === (session?.groupId ?? groupId))?.kind !== "solo";
+  // The phone's back gesture closes the top layer, not the page.
+  useBackClose(tonightOpen, () => setTonightOpen(false));
+  useBackClose(detail !== null, () => setDetail(null));
+
+  const detailView = detail && (
+    <DetailView
+      card={detail.card}
+      trailerKey={detail.trailer}
+      imdbId={detail.imdbId}
+      trailerLoading={detail.loading}
+      actions={
+        detail.from === "deck"
+          ? detail.card === card
+            ? "deck"
+            : "choose"
+          : detail.from === "tonight"
+            ? "choose"
+            : "none"
+      }
+      chosen={
+        tonightChoice !== null && keyOf(tonightChoice) === keyOf(detail.card)
+      }
+      onClose={() => setDetail(null)}
+      onDecide={(dir) => {
+        setDetail(null);
+        void decide(dir);
+      }}
+      onChoose={() => void choose(detail.card)}
+    />
+  );
+
   const sheet = tonightOpen && (
     <TonightSheet
       items={tonightItems}
@@ -594,6 +636,7 @@ export function Finder({
       busy={choosing}
       onChoose={(c) => void choose(c)}
       onRemove={(c) => void removeTonight(c)}
+      onOpen={(c) => showDetail(c, "tonight")}
       onClose={() => setTonightOpen(false)}
       together={together}
     />
@@ -601,12 +644,16 @@ export function Finder({
 
   if (phase === "chosen" && tonightChoice) {
     return (
-      <ChosenView
-        card={tonightChoice}
-        busy={choosing}
-        onChange={() => void changeChoice()}
-        onDone={backToStart}
-      />
+      <>
+        <ChosenView
+          card={tonightChoice}
+          busy={choosing}
+          onChange={() => void changeChoice()}
+          onDone={backToStart}
+          onOpen={() => showDetail(tonightChoice, "chosen")}
+        />
+        {detailView}
+      </>
     );
   }
 
@@ -648,6 +695,7 @@ export function Finder({
           belowStart={belowStart}
         />
         {sheet}
+        {detailView}
         <Toast key={toast?.id} toast={toast} onClose={closeToast} />
       </>
     );
@@ -782,23 +830,8 @@ export function Finder({
         />
       )}
 
-      {detail && (
-        <DetailView
-          card={detail.card}
-          trailerKey={detail.trailer}
-          imdbId={detail.imdbId}
-          trailerLoading={detail.loading}
-          fromDeck={detail.fromDeck && detail.card === card}
-          onClose={() => setDetail(null)}
-          onDecide={(dir) => {
-            setDetail(null);
-            void decide(dir);
-          }}
-          onChoose={() => void choose(detail.card)}
-        />
-      )}
-
       {sheet}
+      {detailView}
     </div>
   );
 }
