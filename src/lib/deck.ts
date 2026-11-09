@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { eveningStart } from "@/lib/evening";
 import { formatCertSE, formatRuntime } from "@/lib/format";
 import { DEFAULT_YOUNGEST_AGE, getGroups, type Group } from "@/lib/groups";
 import {
@@ -147,8 +148,8 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  */
 /**
  * Titles the user turned down for now: "inte nu" and "vet inte" anywhere in
- * the last 7 days, and "inte min grej" in this group. Applies to every
- * candidate, se igen titles included.
+ * the last 7 days, "inte min grej" in this group, and what was swiped right
+ * with this group tonight. Applies to every candidate, se igen titles included.
  */
 export async function getDeclined(
   userId: string,
@@ -156,7 +157,7 @@ export async function getDeclined(
 ): Promise<Set<string>> {
   const supabase = await createClient();
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const [notNow, notForUs] = await Promise.all([
+  const [notNow, notForUs, savedTonight] = await Promise.all([
     supabase
       .from("interactions")
       .select("tmdb_id, media_type")
@@ -172,10 +173,23 @@ export async function getDeclined(
       .eq("action", "left")
       .eq("reason", "not_for_me")
       .eq("sessions.group_id", groupId),
+    // Swiped right tonight with the group: it is in Ikväll already, so it
+    // does not come back (not even as a top pick) until the next evening,
+    // also if it was moved to another group or taken off Ikväll.
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type, sessions!inner(group_id)")
+      .eq("user_id", userId)
+      .eq("action", "right")
+      .eq("sessions.group_id", groupId)
+      .gte("created_at", eveningStart()),
   ]);
   if (notNow.error) throw notNow.error;
   if (notForUs.error) throw notForUs.error;
-  return new Set([...notNow.data, ...notForUs.data].map(key));
+  if (savedTonight.error) throw savedTonight.error;
+  return new Set(
+    [...notNow.data, ...notForUs.data, ...savedTonight.data].map(key),
+  );
 }
 
 /**
