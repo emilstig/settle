@@ -13,6 +13,7 @@ https://claude.ai/artifact/43p5krNWS45a34e51DJs99
   (nyast först) och uppdatera rätt sektion i dokumentet.
 - Promptarna ändras bara i dokumentet. docs/prompts.md är en kopia.
 - Skapa inga egna dokumentationssidor.
+- Läs inte hela Beslutsloggen, den är lång och växer. Läs dokumentets disposition och sök sedan i stället: en ny rad läggs efter rubrikraden, vars id fås genom att söka på ”I repot”, och rader som inte förts in i repot hittas genom att söka på ”Nej”. Synka per delsteg, inte per commit.
 
 ## Produkten
 
