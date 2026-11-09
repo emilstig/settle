@@ -1,12 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Card } from "@/lib/deck";
 import styles from "./find.module.css";
 
 const poster = (p: string | null) =>
   p ? `https://image.tmdb.org/t/p/w500${p}` : null;
+const listSv = new Intl.ListFormat("sv", { type: "conjunction" });
 const vote = (v: number | null) => (v ? v.toFixed(1).replace(".", ",") : null);
 
 export function DetailView({
@@ -42,7 +43,6 @@ export function DetailView({
   const facts = [
     vote(card.vote_average) ? `★ ${vote(card.vote_average)} på TMDB` : null,
     card.certification,
-    card.services.length ? `På ${card.services.join(", ")}` : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -89,42 +89,56 @@ export function DetailView({
               ))}
             </div>
           )}
-          <div className={styles.dlinks}>
+          <ul className={styles.dlist}>
+            {card.providers_link && (
+              <LinkRow
+                href={card.providers_link}
+                icon={
+                  card.service_logos.length > 0 ? (
+                    <span className={styles.dlogos}>
+                      {card.service_logos.slice(0, 3).map((l) => (
+                        <Image
+                          key={l}
+                          src={`https://image.tmdb.org/t/p/w92${l}`}
+                          alt=""
+                          width={32}
+                          height={32}
+                        />
+                      ))}
+                    </span>
+                  ) : (
+                    <span className={styles.dicon} aria-hidden="true">⌂</span>
+                  )
+                }
+                label={
+                  card.services.length
+                    ? `Finns på ${listSv.format(card.services)}`
+                    : "Var den finns"
+                }
+                source="via JustWatch"
+              />
+            )}
             {trailerKey ? (
-              <a
-                className={styles.dtrailer}
+              <LinkRow
                 href={`https://www.youtube.com/watch?v=${trailerKey}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                ▶ Se trailer
-              </a>
+                icon={<span className={styles.dicon} aria-hidden="true">▶</span>}
+                label="Se trailer"
+                source="YouTube"
+              />
             ) : (
-              !trailerLoading && (
-                <span className={styles.dmuted}>Ingen trailer hittades</span>
+              trailerLoading && (
+                <li className={styles.dmuted}>Letar efter trailer …</li>
               )
             )}
-            {card.providers_link && (
-              <a
-                className="link"
-                href={card.providers_link}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Var den finns (JustWatch)
-              </a>
-            )}
             {imdbId && (
-              <a
-                className="link"
+              <LinkRow
                 href={`https://www.imdb.com/title/${imdbId}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Se på IMDb
-              </a>
+                icon={<span className={styles.dicon} aria-hidden="true">★</span>}
+                label="Betyg och rollista"
+                source="IMDb"
+              />
             )}
-          </div>
+          </ul>
         </div>
       </div>
       <div className={styles.dbar}>
@@ -146,5 +160,30 @@ export function DetailView({
         </button>
       </div>
     </>
+  );
+}
+
+function LinkRow({
+  href,
+  icon,
+  label,
+  source,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  source: string;
+}) {
+  return (
+    <li>
+      <a className={styles.drow} href={href} target="_blank" rel="noopener noreferrer">
+        {icon}
+        <span className={styles.drowText}>
+          <span>{label}</span>
+          <small>{source}</small>
+        </span>
+        <span className={styles.drowOut} aria-hidden="true">↗</span>
+      </a>
+    </li>
   );
 }

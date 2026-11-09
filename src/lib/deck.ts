@@ -55,6 +55,8 @@ export type Card = {
   vote_average: number | null;
   certification: string | null;
   services: string[];
+  /** TMDB logo paths for `services`, in the same order (missing logos left out). */
+  service_logos: string[];
   providers_link: string | null;
   /** Other groups whose list the title is already on, such as ["Själv"]. */
   savedFor: string[];
@@ -268,6 +270,9 @@ export function toCard(
     services: (t.providers_se?.flatrate ?? [])
       .filter((p) => mine.has(p.id))
       .map((p) => p.name),
+    service_logos: (t.providers_se?.flatrate ?? [])
+      .filter((p) => mine.has(p.id))
+      .flatMap((p) => (p.logo_path ? [p.logo_path] : [])),
     providers_link: t.providers_se?.link ?? null,
     savedFor,
     runtime: t.runtime && t.runtime >= 5 ? t.runtime : null,
