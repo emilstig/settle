@@ -16,6 +16,7 @@ import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
+import { getImdbId } from "@/lib/tmdb/external";
 import { getTrailerKey } from "@/lib/tmdb/videos";
 
 // ---------------------------------------------------------------------------
@@ -787,17 +788,18 @@ export async function clearTonight(input: { groupId: string }) {
   await clearTonightChoice(user.id, uuid.parse(input.groupId));
 }
 
-/** Logs that the card was opened and returns the trailer, fetched on demand. */
+/** Logs that the card was opened and returns the trailer and IMDb id, fetched on demand. */
 export async function openDetail(input: {
   sessionId: string;
   ref: Ref;
-}): Promise<{ trailerKey: string | null }> {
+}): Promise<{ trailerKey: string | null; imdbId: string | null }> {
   const user = await getCurrentUser();
   const sessionId = uuid.parse(input.sessionId);
   const r = ref.parse(input.ref);
-  const [trailerKey] = await Promise.all([
+  const [trailerKey, imdbId] = await Promise.all([
     getTrailerKey(r.media_type, r.tmdb_id).catch(() => null),
+    getImdbId(r.media_type, r.tmdb_id).catch(() => null),
     logInteraction(user.id, sessionId, r, "open_detail"),
   ]);
-  return { trailerKey };
+  return { trailerKey, imdbId };
 }

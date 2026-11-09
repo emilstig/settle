@@ -119,6 +119,7 @@ export function Finder({
     card: Card;
     fromDeck: boolean;
     trailer: string | null;
+    imdbId: string | null;
     loading: boolean;
   } | null>(null);
   // Tonight belongs to the evening and the group: saved titles and the choice
@@ -533,12 +534,12 @@ export function Finder({
 
   function showDetail(c: Card) {
     if (!session) return;
-    setDetail({ card: c, fromDeck: true, trailer: null, loading: true });
+    setDetail({ card: c, fromDeck: true, trailer: null, imdbId: null, loading: true });
     openDetail({ sessionId: session.id, ref: refOf(c) })
       .then((r) =>
         setDetail((d) =>
           d && d.card === c
-            ? { ...d, trailer: r.trailerKey, loading: false }
+            ? { ...d, trailer: r.trailerKey, imdbId: r.imdbId, loading: false }
             : d,
         ),
       )
@@ -549,6 +550,10 @@ export function Finder({
 
   // ---- render ---------------------------------------------------------------
 
+  // Själv says "du"; any other group watches together and says "ni".
+  const together =
+    groups.find((g) => g.id === (session?.groupId ?? groupId))?.kind !==
+    "solo";
   const sheet = tonightOpen && (
     <TonightSheet
       items={tonightItems}
@@ -557,6 +562,7 @@ export function Finder({
       onChoose={(c) => void choose(c)}
       onRemove={(c) => void removeTonight(c)}
       onClose={() => setTonightOpen(false)}
+      together={together}
     />
   );
 
@@ -653,7 +659,7 @@ export function Finder({
           <div className={styles.empty}>
             {session.hasMore ? (
               <p>
-                <LoadingLabel />
+                <LoadingLabel together={together} />
               </p>
             ) : (
               <>
@@ -739,6 +745,7 @@ export function Finder({
         <DetailView
           card={detail.card}
           trailerKey={detail.trailer}
+          imdbId={detail.imdbId}
           trailerLoading={detail.loading}
           fromDeck={detail.fromDeck && detail.card === card}
           onClose={() => setDetail(null)}

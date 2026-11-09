@@ -36,6 +36,10 @@ redan finns kan logga in. Lägg till en testare under *Authentication → Users 
 *Auto confirm*), så kan hen sedan logga in med länk. Supabases inbyggda mejl går bara till medlemmar i
 organisationen, så testare behöver egen SMTP för att få inloggningsmejlet.
 
+För att testa lokalt utan mejl: `node --env-file=.env.local scripts/dev-login.mjs http://localhost:3000`
+skapar ett separat testkonto (första gången) och skriver ut en engångslänk till `/auth/confirm`. Skriptet
+vägrar andra adresser än localhost.
+
 ## Ikoner
 
 `node scripts/generate-icons.mjs` ritar om ikonerna i `public/icons`.

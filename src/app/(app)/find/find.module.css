@@ -240,8 +240,17 @@
 .dplot { font-size: 17px; line-height: 1.5; }
 .dfacts { display: flex; gap: 6px; flex-wrap: wrap; }
 .dfacts span { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; color: var(--mute); }
-.dlinks { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.dtrailer { color: var(--ink); border: 2px solid var(--ink); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 15px; }
+.dlist { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); overflow: hidden; }
+.dlist > li + li { border-top: 1px solid var(--line); }
+.dlist > .dmuted { padding: 14px 16px; }
+.drow { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 16px; color: var(--ink); text-decoration: none; }
+.drowText { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 16px; font-weight: 600; }
+.drowText small { font-size: 13px; font-weight: 400; color: var(--mute); }
+.drowOut { color: var(--mute); font-size: 16px; }
+.dicon { width: 32px; height: 32px; border-radius: 8px; background: var(--line); display: grid; place-items: center; font-size: 15px; flex: none; }
+.dlogos { display: flex; flex: none; }
+.dlogos img { width: 32px; height: 32px; border-radius: 8px; border: 2px solid var(--panel); }
+.dlogos img + img { margin-left: -10px; }
 .dmuted { color: var(--mute); font-size: 14px; }
 .dbar {
   position: fixed;

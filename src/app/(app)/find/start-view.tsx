@@ -68,6 +68,9 @@ export function StartView({
   const [editingAge, setEditingAge] = useState(false);
   const selected = groups.find((g) => g.id === groupId);
   const family = selected?.kind === "family" ? selected : null;
+  // Själv is "du" and "min"; any other group watches together: "ni" and "vår".
+  const together = selected !== undefined && selected.kind !== "solo";
+  const sugen = together ? "Vad är ni sugna på" : "Vad är du sugen på";
   const askAge =
     family !== null && (family.youngest_age === null || editingAge);
 
@@ -135,7 +138,7 @@ export function StartView({
         <div className={styles.tonightCard}>
           <div>
             <strong>Ikväll blir det {tonightChoice.title}</strong>
-            <span>Ditt val för ikväll</span>
+            <span>{together ? "Ert" : "Ditt"} val för ikväll</span>
           </div>
           <button type="button" onClick={onOpenChoice}>
             Visa
@@ -149,7 +152,7 @@ export function StartView({
                 Ikväll · {tonightCount}{" "}
                 {tonightCount === 1 ? "kandidat" : "kandidater"}
               </strong>
-              <span>Det du har sparat ikväll</span>
+              <span>Det {together ? "ni" : "du"} har sparat ikväll</span>
             </div>
             <button type="button" onClick={onOpenTonight}>
               Visa
@@ -191,7 +194,7 @@ export function StartView({
         </div>
       )}
 
-      <h1 className="q">Vad är du sugen på?</h1>
+      <h1 className="q">{sugen}?</h1>
       <input
         className="field"
         value={mood}
@@ -199,7 +202,7 @@ export function StartView({
         placeholder="Valfritt, t.ex. något lätt, max en och en halv timme"
         autoComplete="off"
         maxLength={300}
-        aria-label="Vad är du sugen på"
+        aria-label={sugen}
         onKeyDown={(e) => e.key === "Enter" && onStart()}
       />
       <div className="chips" role="group" aria-label="Snabbval">
@@ -230,12 +233,12 @@ export function StartView({
         disabled={loading}
       >
         {loading ? (
-          <LoadingLabel />
+          <LoadingLabel together={together} />
         ) : // The button says what happens: taste only, or what was asked for.
         mood.trim() || quickPicks.size > 0 ? (
           "Visa förslag"
         ) : (
-          "Föreslå utifrån min smak"
+          `Föreslå utifrån ${together ? "vår" : "min"} smak`
         )}
       </button>
 
@@ -245,19 +248,31 @@ export function StartView({
 }
 
 /** What the wait is spent on, shown in turn so it feels like something happens. */
-const LOADING_PHRASES = [
-  "Läser din smak …",
-  "Letar på dina tjänster …",
-  "Jämför med det du älskar …",
-  "Väljer tre åt dig …",
-  "Skriver varför …",
-];
+const LOADING_PHRASES = {
+  solo: [
+    "Läser din smak …",
+    "Letar på dina tjänster …",
+    "Jämför med det du älskar …",
+    "Väljer tre åt dig …",
+    "Skriver varför …",
+  ],
+  // With a group the taste is the group's, and the services still the user's.
+  together: [
+    "Läser er smak …",
+    "Letar på dina tjänster …",
+    "Jämför med det ni har gillat …",
+    "Väljer tre åt er …",
+    "Skriver varför …",
+  ],
+};
 const PHRASE_MS = 1600;
 
-export function LoadingLabel() {
+/** `together` when the group is not Själv: the phrases say "ni" and "er". */
+export function LoadingLabel({ together = false }: { together?: boolean }) {
+  const phrases = LOADING_PHRASES[together ? "together" : "solo"];
   // Start at a random phrase, then go round in order.
   const [start] = useState(() =>
-    Math.floor(Math.random() * LOADING_PHRASES.length),
+    Math.floor(Math.random() * phrases.length),
   );
   const [step, setStep] = useState(0);
   useEffect(() => {
@@ -267,7 +282,7 @@ export function LoadingLabel() {
   return (
     <span className={styles.loadingLabel} role="status">
       <span className={styles.spinner} aria-hidden="true" />
-      {LOADING_PHRASES[(start + step) % LOADING_PHRASES.length]}
+      {phrases[(start + step) % phrases.length]}
     </span>
   );
 }
