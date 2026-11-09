@@ -31,6 +31,7 @@ export function TonightSheet({
   onChoose,
   onRemove,
   onClose,
+  together = false,
 }: {
   items: Card[];
   /** Tonight's choice, if made. */
@@ -40,6 +41,8 @@ export function TonightSheet({
   /** Takes it off tonight; it stays on the group's list. */
   onRemove: (card: Card) => void;
   onClose: () => void;
+  /** The group is not Själv, so the text says "ni". */
+  together?: boolean;
 }) {
   const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
   const chosenKey = chosen ? keyOf(chosen) : null;
@@ -73,7 +76,10 @@ export function TonightSheet({
             ✕
           </button>
         </div>
-        <p>Det du har sparat ikväll. Det du tar bort ligger kvar i Lista.</p>
+        <p>
+          Det {together ? "ni" : "du"} har sparat ikväll. Det du tar bort
+          ligger kvar i Lista.
+        </p>
         {items.length === 0 && (
           <p className={styles.tonightEmpty}>Inget sparat ikväll.</p>
         )}

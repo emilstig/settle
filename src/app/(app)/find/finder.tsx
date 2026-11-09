@@ -550,6 +550,10 @@ export function Finder({
 
   // ---- render ---------------------------------------------------------------
 
+  // Själv says "du"; any other group watches together and says "ni".
+  const together =
+    groups.find((g) => g.id === (session?.groupId ?? groupId))?.kind !==
+    "solo";
   const sheet = tonightOpen && (
     <TonightSheet
       items={tonightItems}
@@ -558,6 +562,7 @@ export function Finder({
       onChoose={(c) => void choose(c)}
       onRemove={(c) => void removeTonight(c)}
       onClose={() => setTonightOpen(false)}
+      together={together}
     />
   );
 
@@ -654,7 +659,7 @@ export function Finder({
           <div className={styles.empty}>
             {session.hasMore ? (
               <p>
-                <LoadingLabel />
+                <LoadingLabel together={together} />
               </p>
             ) : (
               <>
