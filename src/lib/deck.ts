@@ -67,7 +67,14 @@ export type Card = {
   reason: string | null;
   /** Which slot prompt 2 chose it for; "rewatch" shows the label "Se igen". */
   slot: "safe" | "watchlist" | "wildcard" | "rewatch" | null;
+  /**
+   * Where the card came from in the deck: the popular list, the lane "Liknar
+   * det ni gillat", or Claude's top picks. Saved with each swipe, so the
+   * right-swipe rate can be compared per source.
+   */
+  source: CardSource | null;
 };
+export type CardSource = "popular" | "similar" | "pick";
 
 const G = {
   comedy: 35,
@@ -329,6 +336,7 @@ export function toCard(
     runtime: t.runtime && t.runtime >= 5 ? t.runtime : null,
     reason: null,
     slot: null,
+    source: null,
   };
 }
 
@@ -562,8 +570,12 @@ export async function loadDeckPage({
   const spreadRows = spread(mixed, await collectionsOf(skip));
   const fresh = spreadRows.filter((r) => !other.reacted.has(key(r)));
   const known = spreadRows.filter((r) => other.reacted.has(key(r)));
-  const cards = [...jitter(fresh, `${seed}:${page}`), ...known].map((row) =>
-    toCard(row, mine, genres, other.savedFor.get(key(row)) ?? []),
+  const fromLane = new Set(laneRows.map(key));
+  const cards = [...jitter(fresh, `${seed}:${page}`), ...known].map(
+    (row): Card => ({
+      ...toCard(row, mine, genres, other.savedFor.get(key(row)) ?? []),
+      source: fromLane.has(key(row)) ? "similar" : "popular",
+    }),
   );
 
   return { cards, hasMore: results.some((r) => tmdbPage < r.totalPages) };

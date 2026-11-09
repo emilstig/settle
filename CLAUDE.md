@@ -75,7 +75,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - `ratings`: user_id, tmdb_id, media_type, rating (−1 ogillade, 1 gillar, 2 gillar mycket, 3 älskar), group_id, updated_at
 - `watch_log`: user_id, tmdb_id, media_type, times_seen (`once`/`few`/`many`), last_seen (date, null tillåtet), last_seen_approx (`recent`/`this_year`/`long_ago`, null tillåtet), status (`watching`/`finished`/`dropped`, för serier)
 - `watchlist`: user_id, tmdb_id, media_type, group_id, interest (`maybe`/`want`/`rewatch`), added_at. En rad per grupp.
-- `interactions`: user_id, tmdb_id, media_type, action (`right`/`left`/`seen`/`open_detail`/`undo`/`not_seen`/`unsure`, där `not_seen` är ”Inte sett” i kalibreringen och `unsure` är ”Vet inte” i Hitta), reason (`not_now`/`not_for_me`/`seen`, null tillåtet), session_id, created_at
+- `interactions`: user_id, tmdb_id, media_type, action (`right`/`left`/`seen`/`open_detail`/`undo`/`not_seen`/`unsure`, där `not_seen` är ”Inte sett” i kalibreringen och `unsure` är ”Vet inte” i Hitta), reason (`not_now`/`not_for_me`/`seen`, null tillåtet), source (`popular`/`similar`/`pick`: populärlistan, spåret ”Liknar det ni gillat” eller Toppval, null tillåtet), session_id, created_at
 - `sessions`: id, user_id, group_id, mood_text, quick_picks (text[]), filters (jsonb), started_at, picked_tmdb_id, picked_at
 - `suggest_runs`: id, session_id, prompt (`parse`/`pick`), input (jsonb), output (jsonb), model, latency_ms, created_at
 

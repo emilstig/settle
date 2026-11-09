@@ -414,6 +414,7 @@ export function Finder({
       sessionId: session.id,
       groupId: session.groupId,
       ref: refOf(c),
+      source: c.source,
     };
     const group = groups.find((g) => g.id === session.groupId);
 
@@ -441,9 +442,11 @@ export function Finder({
         ],
       );
     } else if (dir === "left") {
-      const undo = swipeLeft({ sessionId: session.id, ref: refOf(c) }).catch(
-        () => null,
-      );
+      const undo = swipeLeft({
+        sessionId: session.id,
+        ref: refOf(c),
+        source: c.source,
+      }).catch(() => null);
       push({ index: at, undo }, dir, c);
       // "Inte nu" is the default. The chip applies in this group only, so the
       // words follow the company. "Sett" is the up swipe, so it has no chip.
@@ -462,9 +465,11 @@ export function Finder({
         },
       ]);
     } else if (dir === "down") {
-      const undo = swipeDown({ sessionId: session.id, ref: refOf(c) }).catch(
-        () => null,
-      );
+      const undo = swipeDown({
+        sessionId: session.id,
+        ref: refOf(c),
+        source: c.source,
+      }).catch(() => null);
       push({ index: at, undo }, dir, c);
       showToast("Vet inte · visas igen om en vecka", [], 1400);
     } else {
@@ -482,6 +487,7 @@ export function Finder({
           sessionId: session.id,
           groupId: session.groupId,
           ref: refOf(c),
+          source: c.source,
           ...answers,
         }),
       );
@@ -563,7 +569,7 @@ export function Finder({
       imdbId: null,
       loading: true,
     });
-    openDetail({ sessionId: session.id, ref: refOf(c) })
+    openDetail({ sessionId: session.id, ref: refOf(c), source: c.source })
       .then((r) =>
         setDetail((d) =>
           d && d.card === c

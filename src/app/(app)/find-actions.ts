@@ -10,6 +10,7 @@ import {
   loadDeckPage,
   withoutGroupGenres,
   type Card,
+  type CardSource,
 } from "@/lib/deck";
 import { getGroups } from "@/lib/groups";
 import { blendAffinity, buildGroupTaste, buildProfile } from "@/lib/profile";
@@ -32,6 +33,8 @@ const ref = z.object({
 });
 type Ref = z.infer<typeof ref>;
 const uuid = z.uuid();
+/** Where the swiped card came from in the deck (see Card.source). */
+const source = z.enum(["popular", "similar", "pick"]).nullish();
 
 const interest = z.enum(["maybe", "want", "rewatch"]);
 const ratingRow = z.object({
@@ -372,11 +375,19 @@ async function logInteraction(
   r: Ref,
   action: "right" | "left" | "seen" | "open_detail" | "undo" | "unsure",
   reason: "not_now" | "not_for_me" | "seen" | null = null,
+  from: CardSource | null = null,
 ): Promise<number> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("interactions")
-    .insert({ user_id: userId, session_id: sessionId, ...r, action, reason })
+    .insert({
+      user_id: userId,
+      session_id: sessionId,
+      ...r,
+      action,
+      reason,
+      source: from,
+    })
     .select("id")
     .single();
   if (error) throw error;
@@ -413,16 +424,23 @@ async function upsertWatchlist(
   if (error) throw error;
 }
 
-const swipeSchema = z.object({ sessionId: uuid, groupId: uuid, ref });
+const swipeSchema = z.object({ sessionId: uuid, groupId: uuid, ref, source });
 
 /** Right: wants to see it. Lands on the group's list as "maybe". */
 export async function swipeRight(
   input: z.infer<typeof swipeSchema>,
 ): Promise<Undo> {
   const user = await getCurrentUser();
-  const { sessionId, groupId, ref: r } = swipeSchema.parse(input);
+  const { sessionId, groupId, ref: r, source: from } = swipeSchema.parse(input);
   const prev = await currentInterest(user.id, groupId, r);
-  const id = await logInteraction(user.id, sessionId, r, "right");
+  const id = await logInteraction(
+    user.id,
+    sessionId,
+    r,
+    "right",
+    null,
+    from ?? null,
+  );
   // A title already on the list as "vill gärna" or "se igen" keeps that.
   await upsertWatchlist(
     user.id,
@@ -451,11 +469,19 @@ export async function setInterest(
 export async function swipeLeft(input: {
   sessionId: string;
   ref: Ref;
+  source?: CardSource | null;
 }): Promise<Undo> {
   const user = await getCurrentUser();
   const sessionId = uuid.parse(input.sessionId);
   const r = ref.parse(input.ref);
-  const id = await logInteraction(user.id, sessionId, r, "left", "not_now");
+  const id = await logInteraction(
+    user.id,
+    sessionId,
+    r,
+    "left",
+    "not_now",
+    source.parse(input.source) ?? null,
+  );
   return { ref: r, sessionId, interactionIds: [id], watchlist: [] };
 }
 
@@ -463,11 +489,19 @@ export async function swipeLeft(input: {
 export async function swipeDown(input: {
   sessionId: string;
   ref: Ref;
+  source?: CardSource | null;
 }): Promise<Undo> {
   const user = await getCurrentUser();
   const sessionId = uuid.parse(input.sessionId);
   const r = ref.parse(input.ref);
-  const id = await logInteraction(user.id, sessionId, r, "unsure");
+  const id = await logInteraction(
+    user.id,
+    sessionId,
+    r,
+    "unsure",
+    null,
+    source.parse(input.source) ?? null,
+  );
   return { ref: r, sessionId, interactionIds: [id], watchlist: [] };
 }
 
@@ -545,6 +579,7 @@ const seenSchema = z.object({
     .nullable(),
   /** Null leaves se igen as it was (the sheet was closed). */
   rewatchGroupIds: z.array(uuid).max(10).nullable(),
+  source,
 });
 
 /** Groups where the title is already on the se igen list, for the sheet. */
@@ -594,7 +629,14 @@ export async function recordSeen(
   if (prevRating.error) throw prevRating.error;
   if (prevLog.error) throw prevLog.error;
 
-  const id = await logInteraction(user.id, s.sessionId, s.ref, "seen");
+  const id = await logInteraction(
+    user.id,
+    s.sessionId,
+    s.ref,
+    "seen",
+    null,
+    s.source ?? null,
+  );
   const undo: Undo = {
     ref: s.ref,
     sessionId: s.sessionId,
@@ -856,14 +898,16 @@ export async function clearTonight(input: { groupId: string }) {
 export async function openDetail(input: {
   sessionId: string;
   ref: Ref;
+  source?: CardSource | null;
 }): Promise<{ trailerKey: string | null; imdbId: string | null }> {
   const user = await getCurrentUser();
   const sessionId = uuid.parse(input.sessionId);
   const r = ref.parse(input.ref);
+  const from = source.parse(input.source) ?? null;
   const [trailerKey, imdbId] = await Promise.all([
     getTrailerKey(r.media_type, r.tmdb_id).catch(() => null),
     getImdbId(r.media_type, r.tmdb_id).catch(() => null),
-    logInteraction(user.id, sessionId, r, "open_detail"),
+    logInteraction(user.id, sessionId, r, "open_detail", null, from),
   ]);
   return { trailerKey, imdbId };
 }
