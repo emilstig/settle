@@ -245,6 +245,7 @@ const INTEREST_LABEL: Record<string, string> = {
 export async function buildGroupHistory(
   userId: string,
   group: { id: string; kind: string; name: string },
+  taste?: GroupTaste,
 ): Promise<string> {
   if (group.kind === "solo")
     return "Ingen, gruppen är Själv (se smakprofilen).";
@@ -273,6 +274,7 @@ export async function buildGroupHistory(
       .eq("reason", "not_for_me")
       .eq("sessions.group_id", group.id)
       .gte("created_at", yearAgo)
+      .order("created_at", { ascending: false })
       .limit(10),
   ]);
   for (const r of [ratingsRes, listRes, notForUsRes])
@@ -284,7 +286,7 @@ export async function buildGroupHistory(
     ...notForUsRes.data!,
   ] as Ref[];
   if (refs.length === 0)
-    return `Inget sparat eller betygsatt med ${group.name} än.`;
+    return taste?.text || `Inget sparat eller betygsatt med ${group.name} än.`;
   const { data: rows, error } = await supabase
     .from("titles")
     .select("tmdb_id, media_type, title, year")
@@ -324,5 +326,167 @@ export async function buildGroupHistory(
     `Inte vår grej med ${group.name}:`,
     (notForUsRes.data as Ref[]).map(name),
   );
+  if (taste?.text) lines.push(taste.text);
   return lines.join("\n");
+}
+
+/**
+ * Group genre weights, per the domain rules: the group's own history weighs
+ * more than the personal profile when the group is not Själv.
+ */
+const GROUP_SHARE = 0.7;
+/** A right swipe with the group, and "inte vår grej" as a mild dislike. */
+const RIGHT_WEIGHT = 1;
+/**
+ * A genre the group has turned down this often, and almost never wanted, is
+ * left out of discover for the group, so the next title of the kind does not
+ * just take the place of the last one.
+ */
+const AVOID_MIN_TITLES = 10;
+const AVOID_MAX_WANTED_SHARE = 0.05;
+
+export type GroupTaste = {
+  /** Average weight per film genre id from the group's own history. */
+  affinity: Record<number, number>;
+  /** Film genre ids the group has clearly turned down. */
+  avoid: number[];
+  /** Genre lines for {{GROUP_HISTORY}}. */
+  text: string;
+};
+
+/**
+ * The group's genre profile from what was said with it in the last year:
+ * ratings with the group, right swipes and "inte min grej" / "inte vår grej".
+ * The latest reaction to a title counts. For Själv the ratings are already in
+ * the personal profile, so only the swipes are used.
+ */
+export async function buildGroupTaste(
+  userId: string,
+  group: { id: string; kind: string; name: string },
+): Promise<GroupTaste> {
+  const supabase = await createClient();
+  const yearAgo = new Date(Date.now() - YEAR_MS).toISOString();
+  const [swipesRes, ratingsRes, genreNames] = await Promise.all([
+    supabase
+      .from("interactions")
+      .select(
+        "tmdb_id, media_type, action, reason, created_at, sessions!inner(group_id)",
+      )
+      .eq("user_id", userId)
+      .eq("sessions.group_id", group.id)
+      .or("action.eq.right,reason.eq.not_for_me")
+      .gte("created_at", yearAgo)
+      .order("created_at"),
+    group.kind === "solo"
+      ? Promise.resolve({ data: [], error: null })
+      : supabase
+          .from("ratings")
+          .select("tmdb_id, media_type, rating, updated_at")
+          .eq("user_id", userId)
+          .eq("group_id", group.id)
+          .gte("updated_at", yearAgo),
+    getGenreNames(),
+  ]);
+  if (swipesRes.error) throw swipesRes.error;
+  if (ratingsRes.error) throw ratingsRes.error;
+
+  // Latest reaction per title: a swipe, then a rating on top of it.
+  const latest = new Map<string, { ref: Ref; weight: number; at: string }>();
+  for (const s of swipesRes.data as unknown as (Ref & {
+    action: string;
+    created_at: string;
+  })[])
+    latest.set(keyOf(s), {
+      ref: s,
+      weight: s.action === "right" ? RIGHT_WEIGHT : NOT_FOR_ME_WEIGHT,
+      at: s.created_at,
+    });
+  for (const r of ratingsRes.data as (Ref & {
+    rating: number;
+    updated_at: string;
+  })[])
+    latest.set(keyOf(r), {
+      ref: r,
+      weight: WEIGHT[r.rating] ?? 0,
+      at: r.updated_at,
+    });
+  if (latest.size === 0) return { affinity: {}, avoid: [], text: "" };
+
+  const { data: rows, error } = await supabase
+    .from("titles")
+    .select("tmdb_id, media_type, genre_ids")
+    .in("tmdb_id", [...new Set([...latest.values()].map((l) => l.ref.tmdb_id))]);
+  if (error) throw error;
+  const genreIds = new Map(
+    rows.map((t) => [keyOf(t as Ref), t.genre_ids as number[]]),
+  );
+
+  const now = Date.now();
+  const sum = new Map<number, number>();
+  const count = new Map<number, number>();
+  const wanted = new Map<number, number>();
+  const declined = new Map<number, number>();
+  const bump = (m: Map<number, number>, g: number, by = 1) =>
+    m.set(g, (m.get(g) ?? 0) + by);
+  for (const { ref, weight, at } of latest.values()) {
+    for (const g of genresOf(genreIds.get(keyOf(ref)) ?? [])) {
+      bump(sum, g, weight * decay(at, now));
+      bump(count, g);
+      if (weight > 0) bump(wanted, g);
+      if (weight < 0) bump(declined, g);
+    }
+  }
+
+  const ranked: [number, number][] = [...sum.entries()]
+    .filter(([g]) => genreNames[g] && (count.get(g) ?? 0) >= MIN_GENRE_TITLES)
+    .map(([g, total]): [number, number] => [
+      g,
+      total / ((count.get(g) ?? 0) + GENRE_PRIOR),
+    ])
+    .filter(([, avg]) => Math.abs(avg) >= 0.1)
+    .sort((a, b) => b[1] - a[1]);
+  const avoid = [...declined.entries()]
+    .filter(([g, no]) => {
+      const yes = wanted.get(g) ?? 0;
+      return no >= AVOID_MIN_TITLES && yes / (yes + no) <= AVOID_MAX_WANTED_SHARE;
+    })
+    .map(([g]) => g);
+
+  const liked = ranked.filter(([, s]) => s > 0).slice(0, TOP_GENRES);
+  const low = ranked
+    .filter(([, s]) => s < 0)
+    .slice(-LOW_GENRES)
+    .reverse();
+  const genreLine = (list: [number, number][]) =>
+    list.map(([g, s]) => `${genreNames[g]} ${fmt(s)}`).join(", ");
+  const lines: string[] = [];
+  if (liked.length)
+    lines.push(`Genrer som fungerar med ${group.name}: ${genreLine(liked)}`);
+  if (low.length)
+    lines.push(`Genrer som undviks med ${group.name}: ${genreLine(low)}`);
+
+  return { affinity: Object.fromEntries(ranked), avoid, text: lines.join("\n") };
+}
+
+/**
+ * Genre weights for sorting the deck. Själv uses the personal profile. Other
+ * groups mostly use their own history, so what works alone (say, animated
+ * films) does not lift those titles with a partner who keeps turning them down.
+ */
+export function blendAffinity(
+  personal: Record<number, number>,
+  group: GroupTaste,
+  kind: string,
+): Record<number, number> {
+  if (kind === "solo") return personal;
+  const ids = new Set(
+    [...Object.keys(personal), ...Object.keys(group.affinity)].map(Number),
+  );
+  return Object.fromEntries(
+    [...ids].map((g) => [
+      g,
+      GROUP_SHARE * (group.affinity[g] ?? 0) +
+        (1 - GROUP_SHARE) * (personal[g] ?? 0),
+    ]),
+  );
 }

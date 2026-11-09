@@ -11,7 +11,7 @@ import {
   type MediaType,
   type Title,
 } from "@/lib/tmdb/titles";
-import { getGenreNames } from "@/lib/tmdb/genres";
+import { getGenreIds, getGenreNames } from "@/lib/tmdb/genres";
 import { seededRandom, spread } from "@/lib/spread";
 import { genresOf } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -134,6 +134,56 @@ export function buildFilters(group: Group, quickPicks: string[]): DeckFilters {
     tv.with_genres = tvGenres.join("|");
 
   return { mediaTypes: ["movie", "tv"], movie, tv, sortBy, firstPage, maxCert };
+}
+
+/** TMDB series genres that cover several film genres. */
+const TV_COVERS: Record<number, number[]> = {
+  10759: [28, 12], // Action & Adventure
+  10765: [878, 14], // Sci-Fi & Fantasy
+  10768: [10752], // War & Politics
+  10762: [10751], // Kids
+};
+
+/**
+ * Leaves out genres the group has clearly turned down (see buildGroupTaste),
+ * unless the mood asked for them. A combined series genre is left out only
+ * when all the film genres it covers are.
+ */
+export async function withoutGroupGenres(
+  filters: DeckFilters,
+  avoid: number[],
+): Promise<DeckFilters> {
+  if (avoid.length === 0) return filters;
+  const valid = await getGenreIds();
+  const avoided = new Set(avoid);
+  const ids = {
+    movie: avoid.filter((g) => valid.movie.includes(g)),
+    tv: valid.tv.filter((g) =>
+      (TV_COVERS[g] ?? [g]).every((f) => avoided.has(f)),
+    ),
+  };
+  const out: DeckFilters = {
+    ...filters,
+    movie: { ...filters.movie },
+    tv: { ...filters.tv },
+  };
+  for (const type of ["movie", "tv"] as const) {
+    const f = out[type];
+    const list = (v: unknown) =>
+      String(v ?? "")
+        .split(/[,|]/)
+        .filter(Boolean)
+        .map(Number);
+    const asked = new Set(list(f.with_genres));
+    const without = [
+      ...new Set([
+        ...list(f.without_genres),
+        ...ids[type].filter((g) => !asked.has(g)),
+      ]),
+    ];
+    if (without.length) f.without_genres = without.join(",");
+  }
+  return out;
 }
 
 export const key = (t: { tmdb_id: number; media_type: string }) =>

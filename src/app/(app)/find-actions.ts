@@ -6,10 +6,11 @@ import {
   buildFilters,
   deckFiltersSchema,
   loadDeckPage,
+  withoutGroupGenres,
   type Card,
 } from "@/lib/deck";
 import { getGroups } from "@/lib/groups";
-import { buildProfile } from "@/lib/profile";
+import { blendAffinity, buildGroupTaste, buildProfile } from "@/lib/profile";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
@@ -93,9 +94,10 @@ export async function startSession(
   // Prompt 1 turns the mood into filters. Without a mood it is skipped, and
   // if it fails the rule-based filters stay.
   const hasMood = moodText.trim() !== "" || quickPicks.length > 0;
-  const [providerIds, profile, parsed] = await Promise.all([
+  const [providerIds, profile, groupTaste, parsed] = await Promise.all([
     getUserProviderIds(),
     buildProfile(user.id),
+    buildGroupTaste(user.id, group),
     hasMood
       ? parseMood({
           sessionId: data.id,
@@ -106,14 +108,17 @@ export async function startSession(
         })
       : Promise.resolve(null),
   ]);
-  if (parsed) {
-    filters = await applyParsed(filters, parsed, group);
+  if (parsed) filters = await applyParsed(filters, parsed, group);
+  // Genres the group keeps turning down stay out of discover.
+  filters = await withoutGroupGenres(filters, groupTaste.avoid);
+  if (parsed || groupTaste.avoid.length) {
     const { error: updateError } = await supabase
       .from("sessions")
       .update({ filters })
       .eq("id", data.id);
     if (updateError) throw updateError;
   }
+  const affinity = blendAffinity(profile.affinity, groupTaste, group.kind);
   // Keep loading until there is something to show, so the start button
   // waits instead of opening an empty deck.
   let { cards, page, hasMore } = await loadEnough(
@@ -123,7 +128,7 @@ export async function startSession(
       providerIds,
       filters,
       seed: data.id,
-      affinity: profile.affinity,
+      affinity,
     },
     1,
     [],
@@ -141,7 +146,7 @@ export async function startSession(
         providerIds,
         filters,
         seed: data.id,
-        affinity: profile.affinity,
+        affinity,
       },
       1,
       [],
@@ -162,7 +167,8 @@ export async function startSession(
     groups,
     providerIds,
     filters,
-    profile,
+    profile: { ...profile, affinity },
+    groupTaste,
     moodText,
     quickPicks,
     deck: cards,
@@ -255,6 +261,10 @@ export async function loadMore(
     buildProfile(user.id),
     getGroups(),
   ]);
+  const group = groups.find((g) => g.id === session.group_id);
+  if (!group) throw new Error("Unknown group");
+  const groupTaste = await buildGroupTaste(user.id, group);
+  const affinity = blendAffinity(profile.affinity, groupTaste, group.kind);
   const loaded = await loadEnough(
     {
       userId: user.id,
@@ -262,7 +272,7 @@ export async function loadMore(
       providerIds,
       filters,
       seed: sessionId,
-      affinity: profile.affinity,
+      affinity,
     },
     page,
     skip,
@@ -272,9 +282,8 @@ export async function loadMore(
   // Prompt 2 runs again on a new page only once the user has swiped through
   // enough of the last picks. A page fetched ahead of time right after the
   // start would otherwise run Claude for cards nobody reaches.
-  const group = groups.find((g) => g.id === session.group_id);
   const deck =
-    group && (await swipedSinceLastPicks(sessionId)) >= SWIPES_BETWEEN_PICKS
+    (await swipedSinceLastPicks(sessionId)) >= SWIPES_BETWEEN_PICKS
       ? await withPicks({
           sessionId,
           userId: user.id,
@@ -282,7 +291,8 @@ export async function loadMore(
           groups,
           providerIds,
           filters,
-          profile,
+          profile: { ...profile, affinity },
+          groupTaste,
           moodText: session.mood_text ?? "",
           quickPicks: session.quick_picks ?? [],
           deck: cards,

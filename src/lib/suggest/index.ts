@@ -1,7 +1,11 @@
 import "server-only";
 import { key, type Card, type DeckFilters } from "@/lib/deck";
 import type { Group } from "@/lib/groups";
-import { buildGroupHistory, type TasteProfile } from "@/lib/profile";
+import {
+  buildGroupHistory,
+  type GroupTaste,
+  type TasteProfile,
+} from "@/lib/profile";
 import { extraCandidates, listCandidates } from "./candidates";
 import { pickThree, recentPicks } from "./pick";
 
@@ -24,6 +28,7 @@ export async function withPicks({
   providerIds,
   filters,
   profile,
+  groupTaste,
   moodText,
   quickPicks,
   deck,
@@ -35,7 +40,9 @@ export async function withPicks({
   groups: Group[];
   providerIds: number[];
   filters: DeckFilters;
+  /** Genre weights blended with the group's (see blendAffinity). */
   profile: TasteProfile;
+  groupTaste?: GroupTaste;
   moodText: string;
   quickPicks: string[];
   deck: Card[];
@@ -70,7 +77,7 @@ export async function withPicks({
         comfort,
         novelty !== "high",
       ),
-      buildGroupHistory(userId, group),
+      buildGroupHistory(userId, group, groupTaste),
       recentPicks(userId),
     ]);
 
