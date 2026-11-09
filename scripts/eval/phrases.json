@@ -1,0 +1,122 @@
+[
+  {
+    "text": "Filmer liknande civil war",
+    "note": "Smalare och smartare än storfilmer.",
+    "good": ["Sicario", "Dunkirk", "Beasts of No Nation", "The Road", "Children of Men", "Generation Kill"],
+    "bad": ["Interstellar", "The Hunger Games: Mockingjay - Part 1", "Avengers: Infinity War", "Fight Club"]
+  },
+  {
+    "text": "Serier med högt betyg och flera säsonger",
+    "note": "De största serierna, HBO har flera.",
+    "good": ["The Sopranos", "Game of Thrones", "Breaking Bad", "The Wire", "Mad Men", "Better Call Saul", "Succession", "Six Feet Under"],
+    "bad": ["Teach You a Lesson", "Regular Show: The Lost Tapes", "KPop Demon Hunters Lyric Videos"]
+  },
+  {
+    "text": "Spännande skandinaviskt som jag inte har sett",
+    "note": "Stämde någorlunda.",
+    "good": ["Forbrydelsen", "Wallander", "Bron", "Wisting", "Låt den rätte komma in"],
+    "bad": ["Troll 2"]
+  },
+  {
+    "text": "Skandinaviskt med högt betyg",
+    "note": "Stämde någorlunda.",
+    "good": ["Borgen", "Forbrydelsen", "Druk", "Låt den rätte komma in", "Fanny och Alexander", "Det sjunde inseglet"],
+    "bad": []
+  },
+  {
+    "text": "Filmer från A24 eller liknande",
+    "note": "Mycket bättre med A24 som bolag.",
+    "good": ["Uncut Gems", "Hereditary", "Midsommar", "The Zone of Interest", "Minari", "Heretic"],
+    "bad": ["The Dark Knight", "Coco", "Toy Story 5"]
+  },
+  {
+    "text": "Indiefilmer med högt betyg",
+    "note": "Liknande titlar som A24-frasen, inga storfilmer.",
+    "good": ["Winter's Bone", "The Lobster", "Little Miss Sunshine", "Nomadland", "Uncut Gems", "Minari"],
+    "bad": ["The Dark Knight", "Interstellar", "Forrest Gump", "Sagan om ringen - härskarringen", "Demon Slayer: Kimetsu no Yaiba Infinity Castle"]
+  },
+  {
+    "text": "Scifi med högt betyg som släppts i modern tid",
+    "note": "Väntade titlar som Arrival och Världarnas krig.",
+    "good": ["Arrival", "Blade Runner 2049", "Dune", "Interstellar", "The Martian", "Ex Machina", "Edge of Tomorrow", "Dark"],
+    "bad": ["Regular Show: The Lost Tapes", "Magi bortom Waverly Place", "Sicario", "Chernobyl", "Better Call Saul"]
+  },
+  {
+    "text": "Gamlar klassiska filmer som man inte får missa",
+    "note": "Hyfsat. Filmer, inte serier.",
+    "good": ["Gökboet", "Alien", "Stjärnornas krig", "Det sjunde inseglet", "Trollkarlen från Oz"],
+    "bad": ["Simpsons", "Seinfeld", "M.A.S.H.", "Knatte, Fnatte & Tjatte på äventyr"]
+  },
+  {
+    "text": "Nostalgiska actionrullar",
+    "note": "Die Hard och Speed klockrena, inte moderna äventyrsfilmer.",
+    "good": ["Die Hard", "Speed", "Predator", "Commando", "Point Break", "Face/Off", "Beverly Hills Cop"],
+    "bad": ["Inception", "Avengers", "Game of Thrones", "Stranger Things", "The Dark Knight"]
+  },
+  {
+    "text": "Barnfilmer som liknar studio gibli",
+    "note": "Ghibli själv och liknande.",
+    "good": ["Spirited Away", "My Neighbor Totoro", "Ponyo", "Kiki's Delivery Service", "Arrietty"],
+    "bad": ["Phineas och Ferb", "The Vampire Diaries", "The Flash"]
+  },
+  {
+    "text": "Något lätt och roligt, max en och en halv timme",
+    "note": "Hyfsat, mycket barnfilm, men smaken saknas i testet. Längden ska hållas.",
+    "good": ["Paddington", "Game Night", "The Princess Bride", "Shaun of the Dead"],
+    "bad": ["Knives Out"]
+  },
+  {
+    "text": "Mysig serie att somna till",
+    "note": "Gilmore Girls och Heartstopper bra, inte action.",
+    "good": ["Gilmore Girls", "Heartstopper", "Schitt's Creek", "The Great British Bake Off", "All Creatures Great & Small"],
+    "bad": ["Game of Thrones", "Stranger Things", "La Casa de Papel", "Loki", "The Flash"]
+  },
+  {
+    "text": "Koreansk thriller",
+    "note": "Satt.",
+    "good": ["Squid Game", "Forgotten", "Bloodhounds"],
+    "bad": []
+  },
+  {
+    "text": "Avslutad miniserie som går att se klart på en helg",
+    "note": "Väldigt bra.",
+    "good": ["Chernobyl", "Band of Brothers", "The Queen's Gambit", "Mare of Easttown", "Sharp Objects"],
+    "bad": []
+  },
+  {
+    "text": "Något med Florence Pugh",
+    "note": "Bra.",
+    "good": ["Midsommar", "Little Women", "Dune: Part Two", "Black Widow", "The Wonder"],
+    "bad": []
+  },
+  {
+    "text": "Feelgood som hela familjen kan se",
+    "note": "Inget som inte passar barn.",
+    "good": ["Paddington", "Paddington 2", "Finding Nemo", "Mrs. Doubtfire", "Inside Out", "Up"],
+    "bad": ["Game of Thrones", "The Walking Dead", "Deadpool", "Django Unchained", "Rick and Morty"]
+  },
+  {
+    "text": "Tidsresor",
+    "note": "Satt hyfsat.",
+    "good": ["Dark", "Predestination", "Edge of Tomorrow", "Interstellar", "Russian Doll"],
+    "bad": []
+  },
+  {
+    "text": "True crime-dokumentär",
+    "note": "Bra, dokumentärer och inte dramatiseringar.",
+    "good": ["Making a Murderer", "The Staircase", "The Jinx", "Wild Wild Country", "The Keepers"],
+    "bad": ["Zodiac", "The Good Nurse", "The Alto Knights"]
+  },
+  {
+    "text": "Något som Fargo, mörk humor",
+    "note": "Bra.",
+    "good": ["Fargo", "Three Billboards Outside Ebbing, Missouri", "The Banshees of Inisherin", "Barry", "In Bruges"],
+    "bad": []
+  },
+  {
+    "text": "Svensk komedi från 90-talet",
+    "note": "Jägarna är ingen komedi. Katalogen är tunn.",
+    "good": ["Fucking Åmål", "Adam & Eva", "Svensson, Svensson"],
+    "bad": ["Jägarna", "Rederiet", "Skärgårdsdoktorn"]
+  }
+]

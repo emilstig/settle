@@ -5,6 +5,12 @@ import type { DeckFilters } from "@/lib/deck";
 import type { Group } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 import { getGenreIds, getGenreNames } from "@/lib/tmdb/genres";
+import {
+  findAll,
+  findCompany,
+  findKeyword,
+  findPerson,
+} from "@/lib/tmdb/search";
 import { PARSE_PROMPT } from "./prompts";
 
 /** Prompt 1 runs on Haiku, per the project doc. */
@@ -13,14 +19,23 @@ export const PARSE_MODEL = "claude-haiku-5-5";
 const parseSchema = z.strictObject({
   media_type: z.enum(["movie", "tv", "any"]),
   with_genres: z.array(z.number()),
+  required_genres: z.array(z.number()),
   without_genres: z.array(z.number()),
+  origin_countries: z.array(z.string()),
   languages: z.array(z.string()),
+  people: z.array(z.string()),
+  companies: z.array(z.string()),
+  keywords: z.array(z.string()),
+  without_keywords: z.array(z.string()),
   max_runtime: z.number().nullable(),
   min_vote: z.number().nullable(),
   era: z.strictObject({
     from: z.number().nullable(),
     to: z.number().nullable(),
   }),
+  sort: z.enum(["popularity", "votes", "rating", "newest"]),
+  tv_ended: z.boolean(),
+  tv_miniseries: z.boolean(),
   comfort: z.boolean(),
   novelty: z.enum(["low", "medium", "high"]),
   vibe: z.string(),
@@ -108,16 +123,20 @@ export async function parseMood(input: {
           ? parseSchema.safeParse(JSON.parse(text))
           : null;
       if (parsed?.success) {
-        // Keep only what TMDB understands: known genres, two-letter languages.
+        // Keep only what TMDB understands: known genres, two-letter
+        // languages and countries.
+        const genres = (ids: number[]) => ids.filter((g) => known.has(g));
         result = {
           ...parsed.data,
-          with_genres: parsed.data.with_genres.filter((g) => known.has(g)),
-          without_genres: parsed.data.without_genres.filter((g) =>
-            known.has(g),
-          ),
+          with_genres: genres(parsed.data.with_genres),
+          required_genres: genres(parsed.data.required_genres),
+          without_genres: genres(parsed.data.without_genres),
           languages: parsed.data.languages
             .map((l) => l.toLowerCase())
             .filter((l) => /^[a-z]{2}$/.test(l)),
+          origin_countries: parsed.data.origin_countries
+            .map((c) => c.toUpperCase())
+            .filter((c) => /^[A-Z]{2}$/.test(c)),
         };
         output = { attempt, ...result };
       } else {
@@ -151,16 +170,30 @@ export async function parseMood(input: {
 
 const uniq = (ids: number[]) => [...new Set(ids)];
 
+/** Rating sort needs a real floor of votes, or new titles with a handful of 9s lead. */
+const RATING_SORT_VOTES = { movie: 1000, tv: 300 };
+/** TMDB's series status and type for "avslutad" and "miniserie". */
+const TV_ENDED = "3";
+const TV_MINISERIES = "2";
+
 /**
  * Lays prompt 1's reading over the rule-based filters. The group's own limits
- * (age limit and family genres for Familj) always stay.
+ * (age limit and family genres for Familj) always stay. Names of people,
+ * companies and keywords are looked up in TMDB; unknown names fall away.
  */
 export async function applyParsed(
   base: DeckFilters,
   parsed: ParsedMood,
   group: Group,
 ): Promise<DeckFilters> {
-  const valid = await getGenreIds();
+  const [valid, people, companies, keywords, withoutKeywords] =
+    await Promise.all([
+      getGenreIds(),
+      findAll(findPerson, parsed.people),
+      findAll(findCompany, parsed.companies),
+      findAll(findKeyword, parsed.keywords),
+      findAll(findKeyword, parsed.without_keywords),
+    ]);
   const ok = { movie: new Set(valid.movie), tv: new Set(valid.tv) };
   const forType = (ids: number[], type: "movie" | "tv") =>
     uniq(
@@ -183,11 +216,21 @@ export async function applyParsed(
   };
   let types =
     parsed.media_type === "any" ? base.mediaTypes : [parsed.media_type];
+  // Discover has people for films only.
+  if (people.length) types = types.filter((t) => t === "movie");
+
+  if (parsed.comfort) out.sortBy = "vote_count.desc";
+  else if (parsed.sort === "votes") out.sortBy = "vote_count.desc";
+  else if (parsed.sort === "rating") out.sortBy = "vote_average.desc";
 
   for (const type of ["movie", "tv"] as const) {
     const f = out[type];
     const familyTv = group.kind === "family" && type === "tv";
-    if (parsed.with_genres.length && !familyTv) {
+    const required = forType(parsed.required_genres, type);
+    if (required.length && !familyTv) {
+      // Comma means and: every required genre.
+      f.with_genres = required.join(",");
+    } else if (parsed.with_genres.length && !familyTv) {
       const genres = forType(parsed.with_genres, type);
       // Nothing in this genre for series (or films): leave that type out.
       if (genres.length === 0) types = types.filter((t) => t !== type);
@@ -203,6 +246,12 @@ export async function applyParsed(
     if (without.length) f.without_genres = without.join(",");
     if (parsed.languages.length)
       f.with_original_language = parsed.languages.join("|");
+    if (parsed.origin_countries.length)
+      f.with_origin_country = parsed.origin_countries.join("|");
+    if (type === "movie" && people.length) f.with_people = people.join("|");
+    if (companies.length) f.with_companies = companies.join("|");
+    if (keywords.length) f.with_keywords = keywords.join("|");
+    if (withoutKeywords.length) f.without_keywords = withoutKeywords.join(",");
     if (parsed.max_runtime && (type === "movie" || parsed.max_runtime <= 60)) {
       const current = Number(f["with_runtime.lte"] ?? Infinity);
       f["with_runtime.lte"] = Math.min(current, Math.round(parsed.max_runtime));
@@ -214,20 +263,34 @@ export async function applyParsed(
         type === "movie" ? 200 : 100,
       );
     }
+    if (out.sortBy === "vote_average.desc")
+      f["vote_count.gte"] = Math.max(
+        Number(f["vote_count.gte"] ?? 0),
+        RATING_SORT_VOTES[type],
+      );
     const date = type === "movie" ? "primary_release_date" : "first_air_date";
     if (parsed.era.from) f[`${date}.gte`] = `${parsed.era.from}-01-01`;
     if (parsed.era.to) f[`${date}.lte`] = `${parsed.era.to}-12-31`;
+    if (type === "tv" && parsed.tv_ended) f.with_status = TV_ENDED;
+    if (type === "tv" && parsed.tv_miniseries) f.with_type = TV_MINISERIES;
   }
 
   out.mediaTypes = types.length ? types : base.mediaTypes;
-  if (parsed.comfort) out.sortBy = "vote_count.desc";
+  // "Senaste": newest first, per type (the sort key differs).
+  if (parsed.sort === "newest" && !parsed.comfort) {
+    out.sortBy =
+      out.mediaTypes.length === 1 && out.mediaTypes[0] === "tv"
+        ? "first_air_date.desc"
+        : "primary_release_date.desc";
+  }
   return out;
 }
 
 /**
  * Loosens prompt 1's filters when they leave too few titles: first a lower
- * rating bar and fewer votes, then no genres. The language stays, since it
- * is usually the clearest thing the user asked for.
+ * rating bar and fewer votes and no people, companies or keywords, then no
+ * genres. The language and country stay, since they are usually the clearest
+ * thing the user asked for.
  */
 export function relax(filters: DeckFilters, level: 1 | 2): DeckFilters {
   const out: DeckFilters = {
@@ -239,8 +302,18 @@ export function relax(filters: DeckFilters, level: 1 | 2): DeckFilters {
     const f = out[type];
     if (f["vote_average.gte"] !== undefined) {
       f["vote_average.gte"] = Math.min(Number(f["vote_average.gte"]), 7);
-      f["vote_count.gte"] = type === "movie" ? 50 : 20;
+      // Sorted by rating, the floor of votes stays, or the top fills up
+      // with new titles that have a handful of votes.
+      f["vote_count.gte"] =
+        filters.sortBy === "vote_average.desc"
+          ? RATING_SORT_VOTES[type]
+          : type === "movie"
+            ? 50
+            : 20;
     }
+    delete f.with_people;
+    delete f.with_companies;
+    delete f.with_keywords;
     if (level === 2) delete f.with_genres;
   }
   return out;

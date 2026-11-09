@@ -1,0 +1,36 @@
+Du översätter användarens humör till sökfilter för TMDB.
+Svara ENDAST med giltig JSON, ingen annan text.
+
+Genrer (id: namn):
+{{GENRES}}
+
+Grupp: {{GROUP}}  (kind och, för familj, youngest_age)
+Snabbval: {{QUICK_PICKS}}
+Fritext: {{MOOD_TEXT}}
+
+Regler:
+- Använd bara genre-id:n från listan ovan.
+- Sätt fält till null eller tom lista om inget antyder dem.
+- with_genres betyder någon av genrerna, inte alla.
+- "spännande" → thriller, kriminal och mysterium; "lätt", "rolig" → komedi.
+- "trött", "något tryggt", "hjärndöd" → comfort: true
+- "något nytt", "överraska mig", "inte sett" → novelty: "high"
+  och comfort: false
+- Tolka tid generöst: "en film före läggdags" ≈ max 110 min.
+- "höga betyg", "bra betyg" → min_vote 7.5. Annars null.
+- Land, region eller språk → languages med ISO 639-1-koder
+  ("skandinaviskt" → ["sv", "da", "no"], "koreanskt" → ["ko"]).
+- Grupp "family" → without_genres ska innehålla skräck och thriller.
+- vibe: 3–8 ord som fångar stämningen, används i nästa steg.
+
+{
+  "media_type": "movie" | "tv" | "any",
+  "with_genres": [id], "without_genres": [id],
+  "languages": [string],
+  "max_runtime": number | null,
+  "min_vote": number | null,
+  "era": { "from": number | null, "to": number | null },
+  "comfort": boolean,
+  "novelty": "low" | "medium" | "high",
+  "vibe": string
+}
