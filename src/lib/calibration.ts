@@ -31,7 +31,10 @@ const SOURCES = [
 ];
 
 /**
- * Well-known titles on the user's services, for rating with swipes. Sorted by
+ * Well-known titles on any service in Sweden, for rating with swipes. Not
+ * only the user's services: a rating says what they like, not what they can
+ * watch tonight, and one or two services would make the pool small. The cards
+ * show no services, so no one takes them to be on the services just chosen. Sorted by
  * vote count so they are likely to have been seen. Skips anything already
  * rated, marked as seen, or answered "Inte sett", so calibrating again shows
  * new titles. `skipped` holds titles passed over with "Hoppa över" this time,
@@ -39,7 +42,6 @@ const SOURCES = [
  */
 export async function getCalibrationCards(
   userId: string,
-  providerIds: number[],
   skipped: Iterable<string> = [],
 ): Promise<Card[]> {
   const supabase = await createClient();
@@ -86,7 +88,7 @@ export async function getCalibrationCards(
       pages.flatMap((page) =>
         SOURCES.map((src) =>
           Promise.all(
-            TYPES.map((t) => discover(t, { providerIds, page, ...src })),
+            TYPES.map((t) => discover(t, { providerIds: "all", page, ...src })),
           ),
         ),
       ),
@@ -115,12 +117,12 @@ export async function getCalibrationCards(
 
   const wanted = hits.slice(0, target);
   const rows = await getTitles(wanted);
-  const mine = new Set(providerIds);
+  const none = new Set<number>();
   const found = wanted.flatMap((h) => {
     const row = rows.get(key(h));
     return row ? [row] : [];
   });
   return spread(found)
     .slice(0, CALIBRATION_SIZE)
-    .map((row) => toCard(row, mine, genres));
+    .map((row) => toCard(row, none, genres));
 }

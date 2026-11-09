@@ -178,7 +178,7 @@ export function Calibrator({
       <div className={styles.head}>
         <h1 className={styles.title}>Vad tyckte du om de här?</h1>
         <p className={styles.lead}>
-          Svep på det du har sett, så lär sig Settle din smak. Inte sett? Svep
+          Svep på det du har sett, var som helst, så lär sig Settle din smak. Inte sett? Svep
           nedåt.
         </p>
       </div>

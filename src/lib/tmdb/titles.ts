@@ -101,14 +101,15 @@ const discoverPage = z.object({
 export type DiscoverHit = { tmdb_id: number; media_type: MediaType; popularity: number };
 
 export type DiscoverParams = {
-  providerIds: number[];
+  /** The services to search, or "all" for anything on flatrate in Sweden. */
+  providerIds: number[] | "all";
   page?: number;
   sortBy?: string;
   /** Extra TMDB discover filters, passed through as-is (genres, runtime, votes …). */
   filters?: Record<string, string | number | undefined>;
 };
 
-/** One page of TMDB discover, restricted to the given services on flatrate in Sweden. */
+/** One page of TMDB discover, restricted to the given services (or any) on flatrate in Sweden. */
 export async function discover(
   mediaType: MediaType,
   { providerIds, page = 1, sortBy = "popularity.desc", filters = {} }: DiscoverParams,
@@ -119,7 +120,7 @@ export async function discover(
     `/discover/${mediaType}`,
     {
       watch_region: REGION,
-      with_watch_providers: providerIds.join("|"),
+      with_watch_providers: providerIds === "all" ? undefined : providerIds.join("|"),
       with_watch_monetization_types: "flatrate",
       language: LANGUAGE,
       sort_by: sortBy,

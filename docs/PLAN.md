@@ -34,7 +34,7 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 **Klart när:** du har använt det själv tre kvällar, även om sorteringen är dum.
 
 ## 4. Kalibrering och profil
-- [x] Kalibrering: 20 kända titlar på dina tjänster, med swipe för betyg. Sist i onboarding och går att hoppa över, med ”Hoppa över” per titel, nås också från en sekundär knapp på startvyn när profilen är tunn (färre än 10 betyg)
+- [x] Kalibrering: 20 kända titlar från alla tjänster i Sverige (korten visar inga tjänster), med swipe för betyg. Sist i onboarding och går att hoppa över, med ”Hoppa över” per titel, nås också från en sekundär knapp på startvyn när profilen är tunn (färre än 10 betyg)
 - [x] Yngsta barnets ålder frågas första gången Familj väljs, inte i onboarding
 - [x] Funktion som bygger smakprofilen enligt domänreglerna (`src/lib/profile.ts`)
 - [x] Funktion som genererar texten till `{{PROFILE}}`, visad på sidan Din smakprofil
