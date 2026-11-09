@@ -119,6 +119,7 @@ export function Finder({
     card: Card;
     fromDeck: boolean;
     trailer: string | null;
+    imdbId: string | null;
     loading: boolean;
   } | null>(null);
   // Tonight belongs to the evening and the group: saved titles and the choice
@@ -533,12 +534,12 @@ export function Finder({
 
   function showDetail(c: Card) {
     if (!session) return;
-    setDetail({ card: c, fromDeck: true, trailer: null, loading: true });
+    setDetail({ card: c, fromDeck: true, trailer: null, imdbId: null, loading: true });
     openDetail({ sessionId: session.id, ref: refOf(c) })
       .then((r) =>
         setDetail((d) =>
           d && d.card === c
-            ? { ...d, trailer: r.trailerKey, loading: false }
+            ? { ...d, trailer: r.trailerKey, imdbId: r.imdbId, loading: false }
             : d,
         ),
       )
@@ -739,6 +740,7 @@ export function Finder({
         <DetailView
           card={detail.card}
           trailerKey={detail.trailer}
+          imdbId={detail.imdbId}
           trailerLoading={detail.loading}
           fromDeck={detail.fromDeck && detail.card === card}
           onClose={() => setDetail(null)}

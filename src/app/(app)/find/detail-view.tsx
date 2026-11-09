@@ -12,6 +12,7 @@ const vote = (v: number | null) => (v ? v.toFixed(1).replace(".", ",") : null);
 export function DetailView({
   card,
   trailerKey,
+  imdbId,
   trailerLoading,
   fromDeck,
   onClose,
@@ -20,6 +21,8 @@ export function DetailView({
 }: {
   card: Card;
   trailerKey: string | null;
+  /** IMDb id (tt…) for a plain link out, no IMDb data is shown in the app. */
+  imdbId: string | null;
   trailerLoading: boolean;
   fromDeck: boolean;
   onClose: () => void;
@@ -109,6 +112,16 @@ export function DetailView({
                 rel="noopener noreferrer"
               >
                 Var den finns (JustWatch)
+              </a>
+            )}
+            {imdbId && (
+              <a
+                className="link"
+                href={`https://www.imdb.com/title/${imdbId}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Se på IMDb
               </a>
             )}
           </div>
