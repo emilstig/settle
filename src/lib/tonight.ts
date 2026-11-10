@@ -10,7 +10,10 @@ export { eveningStart };
 export type Tonight = {
   /** Tonight's choice for the group, if one is made. */
   choice: Card | null;
-  /** What was swiped right tonight with the group and is still saved. */
+  /**
+   * What was saved tonight with the group and is still saved: swiped right,
+   * added from Att se, or seen with "se igen" for the group.
+   */
   saved: Card[];
 };
 
@@ -52,7 +55,7 @@ export async function getTonight(
       .from("interactions")
       .select("tmdb_id, media_type, action, created_at")
       .eq("user_id", userId)
-      .in("action", ["right", "undo"])
+      .in("action", ["right", "seen", "undo"])
       .in(
         "session_id",
         sessions.map((s) => s.id),
@@ -60,7 +63,7 @@ export async function getTonight(
       .order("created_at", { ascending: false }),
     supabase
       .from("watchlist")
-      .select("tmdb_id, media_type")
+      .select("tmdb_id, media_type, interest")
       .eq("user_id", userId)
       .eq("group_id", groupId),
   ]);
@@ -69,13 +72,21 @@ export async function getTonight(
 
   // Still saved for the group: a moved or undone title is not a candidate,
   // and neither is one taken off tonight ("undo" after the last right swipe).
-  // Rows are latest first, so the first row per title decides.
-  const onList = new Set(list.data.map(key));
+  // A title seen tonight counts when it got "se igen" with the group: seen
+  // and wanted again is saved too. Rows are latest first, so the first row
+  // per title decides.
+  const interestOf = new Map(
+    list.data.map((w) => [key(w), w.interest as string]),
+  );
   const latest = new Map<string, Ref & { action: string }>();
   for (const r of rights.data as (Ref & { action: string })[])
     if (!latest.has(key(r))) latest.set(key(r), r);
   const savedRefs = [...latest.values()]
-    .filter((r) => r.action === "right" && onList.has(key(r)))
+    .filter((r) =>
+      r.action === "seen"
+        ? interestOf.get(key(r)) === "rewatch"
+        : r.action === "right" && interestOf.has(key(r)),
+    )
     .map(({ tmdb_id, media_type }) => ({ tmdb_id, media_type }));
   const refs = [...savedRefs, ...(choiceRef ? [choiceRef] : [])];
   if (refs.length === 0) return { choice: null, saved: [] };

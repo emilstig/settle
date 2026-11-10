@@ -800,31 +800,7 @@ export async function chooseTonight(input: z.infer<typeof chooseSchema>) {
   const user = await getCurrentUser();
   const { groupId, ref: r, sessionId } = chooseSchema.parse(input);
   const supabase = await createClient();
-  const since = eveningStart();
-  const { data: sessions, error } = await supabase
-    .from("sessions")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("group_id", groupId)
-    .gte("started_at", since)
-    .order("started_at", { ascending: false });
-  if (error) throw error;
-  let target =
-    sessionId && sessions.some((s) => s.id === sessionId)
-      ? sessionId
-      : sessions[0]?.id;
-  // Chosen from Att se without a session tonight: the choice still needs a
-  // session to live on. Marked by its origin, so it is not counted as a
-  // session started without a mood.
-  if (!target) {
-    const { data: created, error: createError } = await supabase
-      .from("sessions")
-      .insert({ user_id: user.id, group_id: groupId, filters: { origin: "list" } })
-      .select("id")
-      .single();
-    if (createError) throw createError;
-    target = created.id as string;
-  }
+  const target = await tonightSession(user.id, groupId, sessionId);
 
   await clearTonightChoice(user.id, groupId);
   const { error: pickError } = await supabase
@@ -836,6 +812,60 @@ export async function chooseTonight(input: z.infer<typeof chooseSchema>) {
     })
     .eq("id", target);
   if (pickError) throw pickError;
+}
+
+/**
+ * The session tonight's choices and additions live on: the given one when it
+ * is tonight's, else tonight's latest for the group. Without a session tonight
+ * (from Att se) one is made, marked by its origin so that it is not counted as
+ * a session started without a mood.
+ */
+async function tonightSession(
+  userId: string,
+  groupId: string,
+  sessionId?: string,
+): Promise<string> {
+  const supabase = await createClient();
+  const { data: sessions, error } = await supabase
+    .from("sessions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("group_id", groupId)
+    .gte("started_at", eveningStart())
+    .order("started_at", { ascending: false });
+  if (error) throw error;
+  if (sessionId && sessions.some((s) => s.id === sessionId)) return sessionId;
+  if (sessions[0]) return sessions[0].id as string;
+  const { data: created, error: createError } = await supabase
+    .from("sessions")
+    .insert({ user_id: userId, group_id: groupId, filters: { origin: "list" } })
+    .select("id")
+    .single();
+  if (createError) throw createError;
+  return created.id as string;
+}
+
+const addSchema = z.object({ groupId: uuid, ref });
+
+/**
+ * "Lägg till ikväll" from Att se: the title is on the group's list already,
+ * so it is logged as a right swipe in tonight's session and joins Ikväll.
+ * Profiles and seeds count the latest reaction per title, so it is not
+ * counted twice. Taken off again with removeFromTonight, like a row in Ikväll.
+ */
+export async function addToTonight(input: z.infer<typeof addSchema>) {
+  const user = await getCurrentUser();
+  const { groupId, ref: r } = addSchema.parse(input);
+  const supabase = await createClient();
+  const { data: onList, error } = await supabase
+    .from("watchlist")
+    .select("tmdb_id")
+    .match({ user_id: user.id, group_id: groupId, ...r })
+    .maybeSingle();
+  if (error) throw error;
+  if (!onList) throw new Error("Not on the group's list");
+  const sessionId = await tonightSession(user.id, groupId);
+  await logInteraction(user.id, sessionId, r, "right");
 }
 
 async function clearTonightChoice(userId: string, groupId: string) {

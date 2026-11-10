@@ -39,8 +39,17 @@ export function DetailView({
   onDecide: (dir: "left" | "up" | "right") => void;
   /** "Välj den här": sets tonight's choice. */
   onChoose: () => void;
-  /** From Att se: take it off the list, or toggle "Vill gärna". */
-  list?: { wanted: boolean; onRemove: () => void; onWant?: () => void };
+  /**
+   * From Att se: take it off the list, toggle "Vill gärna", or put it in
+   * Ikväll (or take it out) to compare with the evening's other candidates.
+   */
+  list?: {
+    wanted: boolean;
+    onRemove: () => void;
+    onWant?: () => void;
+    tonight: boolean;
+    onTonight: () => void;
+  };
 }) {
   const backRef = useRef<HTMLButtonElement>(null);
   useEffect(() => backRef.current?.focus(), []);
@@ -191,6 +200,14 @@ export function DetailView({
                   {list.wanted ? "✓ Vill gärna" : "Vill gärna"}
                 </button>
               )}
+              <button
+                type="button"
+                aria-pressed={list.tonight}
+                aria-label="Ikväll"
+                onClick={list.onTonight}
+              >
+                {list.tonight ? "✓ Ikväll" : "+ Ikväll"}
+              </button>
             </>
           )}
           <button
