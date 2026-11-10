@@ -288,36 +288,41 @@ export function ListView({
     }
   }
 
+  // A button that needs a choice opens its sheet over the view; what the
+  // answer does to the title decides whether the view closes.
   function openSeen(item: ListItem) {
-    // Sett takes it out of the view, like a swipe up in the deck: the sheet
-    // comes instead of the detail view, not on top of it.
-    setDetail(null);
     rewatchGroupsFor(refOf(item))
       .catch(() => [] as string[])
       .then((rewatch) => setSeen({ item, rewatch }));
   }
 
   /**
-   * After the sett-sheet: with se igen for this group it is on Att se om,
-   * otherwise it leaves Att se for Profil. Either way it leaves the view,
-   * and "Ångra" puts back everything it wrote.
+   * After the sett-sheet. With se igen for this group it stays in Att se,
+   * on Att se om, and the view stays open; otherwise it leaves Att se for
+   * Profil and the view closes. A rating cannot be tapped away, so the
+   * toast has "Ångra" either way. Closed before any answer: nothing.
    */
   async function finishSeen(answers: SeenAnswers) {
     if (!seen) return;
     const { item } = seen;
     setSeen(null);
+    if (answers.rating === null && answers.rewatchGroupIds === null) return;
     const before = items;
     const again = answers.rewatchGroupIds
       ? answers.rewatchGroupIds.includes(groupId)
       : item.interest === "rewatch";
+    const moved = { ...item, interest: "rewatch" } as ListItem;
+    const putBack = (to: ListItem) =>
+      setDetail((d) =>
+        d && keyOf(d.item) === keyOf(item) ? { ...d, item: to } : d,
+      );
     setItems((list) =>
       again
-        ? list.map((i) =>
-            keyOf(i) === keyOf(item) ? { ...i, interest: "rewatch" } : i,
-          )
+        ? list.map((i) => (keyOf(i) === keyOf(item) ? moved : i))
         : list.filter((i) => keyOf(i) !== keyOf(item)),
     );
-    setDetail(null);
+    if (again) putBack(moved);
+    else setDetail(null);
     try {
       const u = await recordSeen({
         sessionId: null,
@@ -337,6 +342,7 @@ export function ListView({
             label: "Ångra",
             onClick: () => {
               setItems(before);
+              putBack(item);
               undoSwipe(u).catch((e) => {
                 console.error(e);
                 router.refresh();
@@ -349,6 +355,7 @@ export function ListView({
     } catch (e) {
       console.error(e);
       setItems(before);
+      putBack(item);
       showToast("Det gick inte att spara");
     }
   }
