@@ -23,19 +23,20 @@ import {
 } from "../actions";
 import styles from "./history.module.css";
 
-type Size = "s" | "m" | "l";
 type Rating = HistoryItem["rating"];
 
 /** Cards shown on a shelf before "Visa alla". */
 const ON_SHELF = 12;
-const BIGGER: Record<Size, Size> = { s: "m", m: "l", l: "l" };
-
-const SHELVES: { key: HistoryShelf; title: string; size: Size }[] = [
-  { key: "love", title: "Älskar", size: "m" },
-  { key: "like", title: "Gillar", size: "s" },
-  { key: "seen", title: "Sett utan betyg", size: "s" },
-  { key: "disliked", title: "Ogillade", size: "s" },
-  { key: "notForMe", title: "Inte min grej", size: "s" },
+/**
+ * Every shelf has small cards: Historik is a record to look things up in,
+ * not a shelf to tempt, so no shelf weighs more than another.
+ */
+const SHELVES: { key: HistoryShelf; title: string }[] = [
+  { key: "love", title: "Älskar" },
+  { key: "like", title: "Gillar" },
+  { key: "seen", title: "Sett utan betyg" },
+  { key: "disliked", title: "Ogillade" },
+  { key: "notForMe", title: "Inte min grej" },
 ];
 const SHELF_TITLE = Object.fromEntries(
   SHELVES.map((s) => [s.key, s.title]),
@@ -283,9 +284,7 @@ export function HistoryView({
   const shelves = SHELVES.map((s) => ({
     ...s,
     items: items.filter((i) => i.shelf === s.key),
-  }))
-    .filter((s) => s.items.length > 0)
-    .map((s) => (s.items.length <= 3 ? { ...s, size: BIGGER[s.size] } : s));
+  })).filter((s) => s.items.length > 0);
 
   return (
     <>
@@ -313,7 +312,7 @@ export function HistoryView({
               <li key={keyOf(i)}>
                 <button
                   type="button"
-                  className={`${list.poster} ${list[s.size]}`}
+                  className={`${list.poster} ${list.s}`}
                   aria-label={i.title}
                   onClick={() => open(i)}
                 >
@@ -322,13 +321,7 @@ export function HistoryView({
                       src={`https://image.tmdb.org/t/p/w342${i.poster_path}`}
                       alt=""
                       fill
-                      sizes={
-                        s.size === "l"
-                          ? "180px"
-                          : s.size === "m"
-                            ? "140px"
-                            : "104px"
-                      }
+                      sizes="104px"
                     />
                   ) : (
                     <span className={list.noPoster}>{i.title}</span>
