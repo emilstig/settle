@@ -80,7 +80,9 @@ export function DetailView({
   return (
     <>
       <div
-        className={styles.overlay}
+        className={`${styles.overlay} ${
+          actions === "deck" || actions === "list" ? styles.withBar : ""
+        }`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-title"
@@ -119,29 +121,6 @@ export function DetailView({
               {facts.map((f) => (
                 <span key={f}>{f}</span>
               ))}
-            </div>
-          )}
-          {/* The choice comes where the reading ends, before the links
-              out; the group link is a smaller second step under it. */}
-          {actions !== "none" && (
-            <div className={styles.dchooseRow}>
-              <button
-                type="button"
-                className="primary"
-                onClick={onChoose}
-                disabled={chosen}
-              >
-                {chosen ? "Vald för ikväll" : "Välj den här"}
-              </button>
-              {groupsRow && (
-                <button
-                  type="button"
-                  className={styles.dgroupsLink}
-                  onClick={groupsRow.onClick}
-                >
-                  {groupsRow.label}
-                </button>
-              )}
             </div>
           )}
           <ul className={styles.dlist}>
@@ -204,6 +183,32 @@ export function DetailView({
               />
             )}
           </ul>
+          {/* The choice rides above the bar while reading and rests after
+              the links, so it is there after a look at IMDb too. The group
+              link is a smaller second step under it. */}
+          {actions !== "none" && (
+            <>
+              <div className={styles.dstick}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={onChoose}
+                  disabled={chosen}
+                >
+                  {chosen ? "Vald för ikväll" : "Välj den här"}
+                </button>
+              </div>
+              {groupsRow && (
+                <button
+                  type="button"
+                  className={styles.dgroupsLink}
+                  onClick={groupsRow.onClick}
+                >
+                  {groupsRow.label}
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
       {/* The decisions, with the deck's icons and a word. From Ikväll
