@@ -286,6 +286,8 @@
 .dstick :global(.primary):disabled { opacity: 0.6; }
 /* Three buttons when a title is already seen (no Vill gärna). */
 .dbar.decide:has(> button:nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 340px; }
+/* One button (Inte min grej in Historik): centred, the bar as wide as usual. */
+.dbar.decide:has(> button:only-child) { grid-template-columns: minmax(0, 160px); justify-content: center; }
 .dbar.decide .don { color: var(--bg); background: var(--ink); border-color: var(--ink); }
 .dstate { margin: 0 0 8px; text-align: center; font-size: 14px; font-weight: 600; color: var(--mute); }
 .dgroupsLink { margin-top: 8px; align-self: center; border: 0; background: none; padding: 8px 10px; font-size: 15px; font-weight: 600; color: var(--mute); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

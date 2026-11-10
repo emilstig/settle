@@ -7,6 +7,7 @@ import {
   DECISION_ORDER,
   DECISION_WORD,
   DecisionIcon,
+  HistoryIcon,
   ListIcon,
 } from "./decision-icons";
 import type { Dir } from "./swipe-card";
@@ -28,6 +29,7 @@ export function DetailView({
   onDecide,
   onChoose,
   list,
+  history,
   groupsRow,
 }: {
   card: Card;
@@ -40,7 +42,7 @@ export function DetailView({
    * only "Välj den här" (it is saved already), Att se its list actions (see
    * `list`), the end view none.
    */
-  actions: "deck" | "choose" | "list" | "none";
+  actions: "deck" | "choose" | "list" | "history" | "none";
   /** It is tonight's choice already. */
   chosen?: boolean;
   onClose: () => void;
@@ -61,6 +63,23 @@ export function DetailView({
     tonight: boolean;
     onTonight: () => void;
   };
+  /**
+   * From Historik in Profil. A new rating is a state: the view stays. Se
+   * igen, Inte sett and lifting "Inte min grej" take the title out of
+   * Historik and close the view. No primary button: nothing here is a step
+   * towards tonight.
+   */
+  history?:
+    | {
+        kind: "seen";
+        /** The word on the rating button: "Älskar", or "Betyg" when unrated. */
+        ratingWord: string;
+        rated: boolean;
+        onRate: () => void;
+        onRewatch: () => void;
+        onUnseen: () => void;
+      }
+    | { kind: "notForMe"; label: string; onLift: () => void };
   /**
    * The deck's "Spara för en annan grupp": a text link where the primary
    * button would be, since ♥ Vill se is the deck's step towards tonight.
@@ -85,7 +104,9 @@ export function DetailView({
     <>
       <div
         className={`${styles.overlay} ${
-          actions === "deck" || actions === "list" ? styles.withBar : ""
+          actions === "deck" || actions === "list" || actions === "history"
+            ? styles.withBar
+            : ""
         }`}
         role="dialog"
         aria-modal="true"
@@ -269,6 +290,39 @@ export function DetailView({
           <button type="button" onClick={list.onGroups}>
             <ListIcon kind="groups" />
             <span>Grupper</span>
+          </button>
+        </div>
+      )}
+      {actions === "history" && history?.kind === "seen" && (
+        <div className={`${styles.dbar} ${styles.decide}`}>
+          <button
+            type="button"
+            className={history.rated ? styles.don : undefined}
+            onClick={history.onRate}
+          >
+            <HistoryIcon kind="rate" on={history.rated} />
+            <span>{history.ratingWord}</span>
+          </button>
+          <button type="button" onClick={history.onRewatch}>
+            <HistoryIcon kind="rewatch" />
+            <span>Se igen</span>
+          </button>
+          <button type="button" onClick={history.onUnseen}>
+            <HistoryIcon kind="unseen" />
+            <span>Inte sett</span>
+          </button>
+        </div>
+      )}
+      {actions === "history" && history?.kind === "notForMe" && (
+        <div className={`${styles.dbar} ${styles.decide}`}>
+          <button
+            type="button"
+            aria-pressed="true"
+            className={styles.don}
+            onClick={history.onLift}
+          >
+            <HistoryIcon kind="notForMe" on />
+            <span>{history.label}</span>
           </button>
         </div>
       )}
