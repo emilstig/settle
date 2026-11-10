@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import type { Card } from "@/lib/deck";
-import type { GroupOption } from "./types";
 import styles from "./find.module.css";
 
 export const QUICK_PICKS = [
@@ -12,27 +11,9 @@ export const QUICK_PICKS = [
   "Något tryggt",
   "Överraska mig",
 ];
-const AGES = Array.from({ length: 18 }, (_, i) => i);
-/** Used when the question is skipped, per the domain rules. */
-const DEFAULT_AGE = 7;
-
-/** The line under a group's name: the family age limit, or what is saved. */
-function tileSub(g: GroupOption, on: boolean): string {
-  if (g.kind === "family") {
-    if (g.youngest_age === null) return "Ange ålder";
-    return on
-      ? `Från ${g.youngest_age} år · ändra`
-      : `Från ${g.youngest_age} år`;
-  }
-  if (g.savedCount === 0) return "Inget sparat än";
-  return g.savedCount === 1 ? "1 sparad" : `${g.savedCount} sparade`;
-}
 
 export function StartView({
-  groups,
-  groupId,
-  onGroup,
-  onAge,
+  together,
   quickPicks,
   onToggleQuick,
   mood,
@@ -40,17 +21,12 @@ export function StartView({
   onStart,
   loading,
   error,
-  footer,
   belowStart,
   tonightChoice,
-  tonightCount,
-  onOpenTonight,
   onOpenChoice,
 }: {
-  groups: GroupOption[];
-  groupId: string;
-  onGroup: (id: string) => void;
-  onAge: (groupId: string, age: number) => void;
+  /** Not Själv: "ni" and "vår" instead of "du" and "min". */
+  together: boolean;
   quickPicks: Set<string>;
   onToggleQuick: (pick: string) => void;
   mood: string;
@@ -58,86 +34,20 @@ export function StartView({
   onStart: () => void;
   loading: boolean;
   error: string | null;
-  footer: React.ReactNode;
   /** Shown right under the start button, such as ”Fortsätt kalibrera”. */
   belowStart?: React.ReactNode;
   /** Tonight's choice for the selected group, if made. */
   tonightChoice: Card | null;
-  /** Candidates saved tonight with the selected group. */
-  tonightCount: number;
-  onOpenTonight: () => void;
   onOpenChoice: () => void;
 }) {
-  const [editingAge, setEditingAge] = useState(false);
-  const selected = groups.find((g) => g.id === groupId);
-  const family = selected?.kind === "family" ? selected : null;
-  // Själv is "du" and "min"; any other group watches together: "ni" and "vår".
-  const together = selected !== undefined && selected.kind !== "solo";
   const sugen = together ? "Vad är ni sugna på" : "Vad är du sugen på";
-  const askAge =
-    family !== null && (family.youngest_age === null || editingAge);
 
-  function pickAge(age: number) {
-    if (!family) return;
-    onAge(family.id, age);
-    setEditingAge(false);
-  }
-
+  // Who is watching is chosen in the header; the page starts with the mood.
   return (
     <div className={styles.start}>
-      <h1 className="q" id="who-q">
-        Vem tittar ikväll?
-      </h1>
-      {/* One choice, so tiles and a radio group rather than pills like the mood. */}
-      <div
-        className={styles.who}
-        role="radiogroup"
-        aria-labelledby="who-q"
-        onKeyDown={(e) => {
-          const step = {
-            ArrowRight: 1,
-            ArrowDown: 1,
-            ArrowLeft: -1,
-            ArrowUp: -1,
-          }[e.key];
-          if (!step) return;
-          e.preventDefault();
-          const i = groups.findIndex((g) => g.id === groupId);
-          const next = groups[(i + step + groups.length) % groups.length];
-          onGroup(next.id);
-          (
-            e.currentTarget.querySelector(
-              `[data-id="${next.id}"]`,
-            ) as HTMLElement | null
-          )?.focus();
-        }}
-      >
-        {groups.map((g) => {
-          const on = g.id === groupId;
-          return (
-            <button
-              key={g.id}
-              data-id={g.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              tabIndex={on ? 0 : -1}
-              className={styles.tile}
-              onClick={() => {
-                // Tapping Familj again opens the age question.
-                if (on && g.kind === "family") setEditingAge((v) => !v);
-                else onGroup(g.id);
-              }}
-            >
-              <span className={styles.tileName}>{g.name}</span>
-              <span className={styles.tileSub}>{tileSub(g, on)}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Back the same evening: what was found tonight, without a new session. */}
-      {tonightChoice ? (
+      {/* Back the same evening: what was chosen tonight. Candidates are
+          behind "Ikväll · N" in the header. */}
+      {tonightChoice && (
         <div className={styles.tonightCard}>
           <div>
             <strong>Ikväll blir det {tonightChoice.title}</strong>
@@ -146,54 +56,6 @@ export function StartView({
           <button type="button" onClick={onOpenChoice}>
             Visa
           </button>
-        </div>
-      ) : (
-        tonightCount > 0 && (
-          <div className={styles.tonightCard}>
-            <div>
-              <strong>
-                Ikväll · {tonightCount}{" "}
-                {tonightCount === 1 ? "kandidat" : "kandidater"}
-              </strong>
-              <span>Det {together ? "ni" : "du"} har sparat ikväll</span>
-            </div>
-            <button type="button" onClick={onOpenTonight}>
-              Visa
-            </button>
-          </div>
-        )
-      )}
-
-      {askAge && family && (
-        <div className={styles.age} role="group" aria-labelledby="age-q">
-          <p id="age-q" className={styles.ageQ}>
-            Hur gammal är den yngsta?
-          </p>
-          <p className={styles.ageLead}>
-            Vi föreslår bara sådant som passar alla i soffan.
-          </p>
-          <div className={styles.ages}>
-            {AGES.map((age) => (
-              <button
-                key={age}
-                type="button"
-                className="chip"
-                aria-pressed={age === family.youngest_age}
-                onClick={() => pickAge(age)}
-              >
-                {age}
-              </button>
-            ))}
-          </div>
-          {family.youngest_age === null && (
-            <button
-              type="button"
-              className="link"
-              onClick={() => pickAge(DEFAULT_AGE)}
-            >
-              Hoppa över (7 år)
-            </button>
-          )}
         </div>
       )}
 
@@ -245,8 +107,6 @@ export function StartView({
         )}
       </button>
       {belowStart}
-
-      <div className={styles.startFooter}>{footer}</div>
     </div>
   );
 }

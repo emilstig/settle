@@ -14,9 +14,6 @@ export const metadata: Metadata = { title: "Att se" };
 export default function ListPage() {
   return (
     <main className={home.main}>
-      <header className={home.header}>
-        <p className="logo">Settle</p>
-      </header>
       <Suspense fallback={<p className={home.wait}>Hämtar din lista …</p>}>
         <List />
       </Suspense>
@@ -37,9 +34,14 @@ async function List() {
     <ListView
       // A new group is a new list: start over with its own state.
       key={groupId}
-      groups={groups.map(({ id, name, kind }) => ({ id, name, kind }))}
+      groups={groups.map(({ id, name, kind, youngest_age }) => ({
+        id,
+        name,
+        kind,
+        youngest_age,
+        savedCount: saved.get(id) ?? 0,
+      }))}
       groupId={groupId}
-      counts={Object.fromEntries(saved)}
       items={items}
     />
   );

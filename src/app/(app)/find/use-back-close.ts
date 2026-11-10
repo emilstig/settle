@@ -27,11 +27,28 @@ function onPopState() {
   close?.();
 }
 
-export function useBackClose(open: boolean, close: () => void) {
+export function useBackClose(
+  open: boolean,
+  close: () => void,
+  /**
+   * Keep the history entry when the component unmounts while open, as when
+   * the deck is left for another tab and kept for when the user comes back.
+   * Going back there would otherwise also undo the tab change.
+   */
+  { keepOnUnmount = false }: { keepOnUnmount?: boolean } = {},
+) {
   const closeRef = useRef(close);
   useEffect(() => {
     closeRef.current = close;
   });
+  // Declared first, so on unmount it runs before the cleanup below.
+  const unmounting = useRef(false);
+  useEffect(() => {
+    unmounting.current = false;
+    return () => {
+      unmounting.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -49,8 +66,9 @@ export function useBackClose(open: boolean, close: () => void) {
       if (at === -1) return;
       stack.splice(at, 1);
       closers.delete(id);
+      if (keepOnUnmount && unmounting.current) return;
       ignore++;
       window.history.back();
     };
-  }, [open]);
+  }, [open, keepOnUnmount]);
 }

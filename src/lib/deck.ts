@@ -41,6 +41,8 @@ export const deckFiltersSchema = z.object({
       comfort: z.boolean(),
       novelty: z.enum(["low", "medium", "high"]),
       vibe: z.string(),
+      /** Prompt 1's heading for the deck; older sessions lack it. */
+      label: z.string().optional(),
     })
     .optional(),
 });

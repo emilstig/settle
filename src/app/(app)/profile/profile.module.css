@@ -9,4 +9,7 @@
   line-height: 1.5;
   white-space: pre-wrap;
 }
-.button { text-align: center; margin-bottom: calc(16px + env(safe-area-inset-bottom)); }
+.button { text-align: center; }
+/* Links, the name and the credits at the bottom, where the logo used to be at the top. */
+.footer { display: grid; gap: 10px; margin-top: 24px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+.footer :global(.logo) { font-size: 18px; margin-top: 8px; }

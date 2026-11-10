@@ -38,42 +38,57 @@ import {
 } from "./swipe-card";
 import { Toast } from "./toast";
 import { useBackClose } from "./use-back-close";
-import { rememberGroup } from "@/lib/group-cookie";
+import {
+  useDeckMemory,
+  type DeckSession as Session,
+  type HistoryEntry,
+} from "./deck-memory";
+import {
+  BackIcon,
+  DECISION_ORDER,
+  DECISION_WORD,
+  DecisionIcon,
+  UndoIcon,
+} from "./decision-icons";
+import { AppHeader, GroupPicker } from "./group-picker";
+import { FIND_AGAIN } from "@/components/tab-bar/tab-bar";
+import { readGroup, rememberGroup } from "@/lib/group-cookie";
+import { eveningStart } from "@/lib/evening";
 import type { GroupOption, ToastButton, ToastState } from "./types";
 import styles from "./find.module.css";
-
-type Session = {
-  id: string;
-  groupId: string;
-  cards: Card[];
-  page: number;
-  hasMore: boolean;
-  label: string;
-  /** Set when loading more failed: the index it failed at. */
-  loadFailedAt: number | null;
-};
-
-/** One swipe that can be undone. `undo` settles once the database writes are done. */
-type HistoryEntry = {
-  index: number;
-  undo: Promise<Undo | null>;
-  dir: Dir;
-  key: string;
-};
 
 const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
 
+/** The gesture hint under the deck shows until this many swipes in Hitta. */
+const HINT_SWIPES = 10;
+const HINT_KEY = "settle_swipes";
+function readSwipes(): number {
+  try {
+    return Number(window.localStorage.getItem(HINT_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** The line under the header when prompt 1 gave no heading. */
+function moodLabel(picks: string[], text: string): string | null {
+  const t = text.trim();
+  const p = picks.map((x) => x.toLowerCase());
+  const parts = t ? [`”${t}”`, ...p] : p;
+  if (!parts.length) return null;
+  const s = parts.join(" · ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export function Finder({
   groups: initialGroups,
   initialGroupId,
-  footer,
   belowStart,
 }: {
   groups: GroupOption[];
   /** The group chosen last, in Hitta or Att se. */
   initialGroupId?: string;
-  footer: React.ReactNode;
   belowStart?: React.ReactNode;
 }) {
   const [groups, setGroups] = useState(initialGroups);
@@ -89,23 +104,55 @@ export function Finder({
     setTonightVersion((v) => v + 1);
     router.refresh();
   };
-  const [phase, setPhase] = useState<"start" | "deck" | "chosen">("start");
+  // The back arrow, the back gesture and Hitta tapped again: the start view
+  // with the mood cleared.
+  const leaveDeck = () => {
+    setMood("");
+    setQuickPicks(new Set());
+    setToast(null);
+    backToStart();
+  };
+
+  // Hitta as it was left this evening, after a look at another tab.
+  const memory = useDeckMemory();
+  const [restored] = useState(() => {
+    const deck = memory.read();
+    return deck && deck.evening === eveningStart() ? deck : null;
+  });
+  const [phase, setPhase] = useState<"start" | "deck" | "chosen">(
+    restored?.phase ?? "start",
+  );
+  // The cookie first: Att se may have changed the group since this page
+  // was rendered.
+  const [arrivedWith] = useState(() => {
+    const id = readGroup();
+    return id && initialGroups.some((g) => g.id === id) ? id : initialGroupId;
+  });
   const [groupId, setGroupIdState] = useState(
-    initialGroupId ?? groups[0]?.id ?? "",
+    arrivedWith ?? restored?.groupId ?? groups[0]?.id ?? "",
   );
   // The group is shared with Att se, so it is remembered for that tab too.
   const setGroupId = (id: string) => {
     setGroupIdState(id);
     rememberGroup(id);
   };
-  const [quickPicks, setQuickPicks] = useState<Set<string>>(new Set());
-  const [mood, setMood] = useState("");
+  const [quickPicks, setQuickPicks] = useState<Set<string>>(
+    () => new Set(restored?.quickPicks ?? []),
+  );
+  const [mood, setMood] = useState(restored?.mood ?? "");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [session, setSession] = useState<Session | null>(null);
-  const [index, setIndex] = useState(0);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [session, setSession] = useState<Session | null>(
+    restored?.session ?? null,
+  );
+  const [index, setIndex] = useState(restored?.index ?? 0);
+  const [history, setHistory] = useState<HistoryEntry[]>(
+    restored?.history ?? [],
+  );
+  const [swipes, setSwipes] = useState(() =>
+    typeof window === "undefined" ? 0 : readSwipes(),
+  );
   const [toast, setToast] = useState<ToastState | null>(null);
   const [seen, setSeen] = useState<{
     card: Card;
@@ -126,6 +173,7 @@ export function Finder({
   // survive starting over.
   const [tonightSaved, setTonightSaved] = useState<Card[]>([]);
   const [tonightChoice, setTonightChoice] = useState<Card | null>(null);
+  // "Ikväll · N" in Att se lands here with the sheet open.
   const [tonightOpen, setTonightOpen] = useState(false);
   // Bumped to read tonight from the server again, e.g. when starting over.
   const [tonightVersion, setTonightVersion] = useState(0);
@@ -264,28 +312,30 @@ export function Finder({
 
   // One button: the mood is optional. Without it, prompt 2 picks from the
   // taste profile alone.
-  async function start() {
+  /**
+   * `forGroup` starts a new deck for another group with the same mood, when
+   * the group is changed in the deck or in Att se.
+   */
+  async function start(forGroup?: string) {
+    const group = forGroup ?? groupId;
     setStarting(true);
     setError(null);
     try {
       const picks = [...quickPicks];
       const text = mood;
       const res = await startSession({
-        groupId,
+        groupId: group,
         quickPicks: picks,
         moodText: text,
       });
-      const group = groups.find((g) => g.id === groupId);
       setSession({
         id: res.sessionId,
-        groupId,
+        groupId: group,
         cards: res.cards,
         page: res.page,
         hasMore: res.hasMore,
         loadFailedAt: null,
-        label: [group?.name, ...picks.map((p) => p.toLowerCase())]
-          .filter(Boolean)
-          .join(" · "),
+        label: res.label || moodLabel(picks, text),
       });
       setIndex(0);
       setHistory([]);
@@ -293,16 +343,69 @@ export function Finder({
     } catch (e) {
       console.error(e);
       setError("Det gick inte att hämta förslag. Prova igen.");
+      if (forGroup) setPhase("start");
     } finally {
       setStarting(false);
     }
   }
 
+  function switchGroup(id: string) {
+    setGroupId(id);
+    // In the deck a new group is a new deck, with the same mood.
+    if (phase === "deck") void start(id);
+  }
+
+  // Keep Hitta for when the user comes back from another tab.
+  useEffect(() => {
+    memory.save({
+      evening: eveningStart(),
+      phase,
+      groupId,
+      session,
+      index,
+      history,
+      quickPicks: [...quickPicks],
+      mood,
+    });
+  }, [memory, phase, groupId, session, index, history, quickPicks, mood]);
+
+  // Back from Att se with another group: a new deck for it, same mood.
+  // Runs on arrival and each time Hitta is shown again, since the router
+  // keeps the page alive (hidden) while another tab is open.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      // "Ikväll · N" in Att se lands here with the sheet open.
+      if (memory.wantsTonight()) {
+        memory.clearTonight();
+        setTonightOpen(true);
+      }
+      const id = readGroup();
+      if (!id || !groups.some((g) => g.id === id)) return;
+      if (id !== groupId) setGroupIdState(id);
+      if (phase === "deck" && session && session.groupId !== id) {
+        const name = groups.find((g) => g.id === id)?.name;
+        void start(id);
+        if (name) showToast(`Nya förslag för ${name}`, [], 2200);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+    // On arrival and on being shown again, not on every change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Hitta tapped again while in Hitta.
+  useEffect(() => {
+    const onAgain = () => leaveDeck();
+    window.addEventListener(FIND_AGAIN, onAgain);
+    return () => window.removeEventListener(FIND_AGAIN, onAgain);
+  });
+
   // Fetch the next page when the deck runs low. A failure (often TMDB having
   // a bad minute) does not end the deck: it is tried again after the next
   // swipe, or with the button when the deck is empty.
   useEffect(() => {
-    if (!session || loadingMore.current || !session.hasMore) return;
+    if (!session || starting || loadingMore.current || !session.hasMore)
+      return;
     if (session.cards.length - index > 5) return;
     if (session.loadFailedAt !== null && index <= session.loadFailedAt) return;
     loadingMore.current = true;
@@ -334,7 +437,7 @@ export function Finder({
       .finally(() => {
         loadingMore.current = false;
       });
-  }, [session, index]);
+  }, [session, index, starting]);
 
   const retryLoad = () =>
     setSession((s) => (s ? { ...s, loadFailedAt: null } : s));
@@ -388,6 +491,16 @@ export function Finder({
     const c = card;
     const at = index;
     setIndex((i) => i + 1);
+    // The gesture hint goes once the user has swiped a few cards.
+    setSwipes((n) => {
+      const next = n + 1;
+      try {
+        window.localStorage.setItem(HINT_KEY, String(next));
+      } catch {
+        // Private mode: the hint just stays.
+      }
+      return next;
+    });
     const base = {
       sessionId: session.id,
       groupId: session.groupId,
@@ -462,8 +575,8 @@ export function Finder({
         }),
       );
       // Seen and wanted again with this group: on the list as "se igen",
-      // which is about some evening, not tonight. "+ Ikväll" adds it, and
-      // "Ångra" takes that back too.
+      // which is about some evening, not tonight. "Vill se" adds it to
+      // Ikväll, like the right swipe, and "Ångra" takes that back too.
       if (answers.rewatchGroupIds?.includes(session.groupId)) {
         const group = groups.find((g) => g.id === session.groupId);
         const groupId = session.groupId;
@@ -473,7 +586,7 @@ export function Finder({
             : `Sparad att se om med ${group?.name}`,
           [
             {
-              label: "+ Ikväll",
+              label: "Vill se",
               onClick: () => {
                 setTonightSaved((saved) => [
                   c,
@@ -641,6 +754,8 @@ export function Finder({
   useBackClose(tonightOpen, () => setTonightOpen(false));
   useBackClose(detail !== null, () => setDetail(null));
   useBackClose(moving !== null, () => setMoving(null));
+  // The deck is a layer over the start view: back goes to the start view.
+  useBackClose(phase === "deck", leaveDeck, { keepOnUnmount: true });
 
   const detailView = detail && (
     <DetailView
@@ -669,8 +784,7 @@ export function Finder({
       groupsRow={
         detail.from === "deck" && detail.card === card && groups.length > 1
           ? {
-              label: "Spara för annan grupp",
-              hint: "Passar den bättre med någon annan?",
+              label: "Spara för en annan grupp",
               onClick: () => setMoving(detail.card),
             }
           : undefined
@@ -691,9 +805,43 @@ export function Finder({
     />
   );
 
+  const tonightButton = tonightItems.length > 0 && (
+    <button
+      ref={chipRef}
+      type="button"
+      className={styles.tonightChip}
+      onClick={() => setTonightOpen(true)}
+    >
+      Ikväll · {tonightItems.length}
+    </button>
+  );
+  const picker = (
+    <GroupPicker
+      groups={groups}
+      groupId={groupId}
+      onGroup={switchGroup}
+      onAge={(id, age) => {
+        setGroups((gs) =>
+          gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)),
+        );
+        setYoungestAge({ groupId: id, age }).catch((e) => {
+          console.error(e);
+          setError("Det gick inte att spara åldern. Prova igen.");
+        });
+      }}
+      title="Vem tittar ikväll?"
+      note={
+        phase === "deck"
+          ? "Förslagen börjar om för gruppen du väljer."
+          : undefined
+      }
+    />
+  );
+
   if (phase === "chosen" && tonightChoice) {
     return (
       <>
+        <AppHeader right={tonightButton}>{picker}</AppHeader>
         <ChosenView
           card={tonightChoice}
           busy={choosing}
@@ -701,6 +849,7 @@ export function Finder({
           onDone={backToStart}
           onOpen={() => showDetail(tonightChoice, "chosen")}
         />
+        {sheet}
         {detailView}
       </>
     );
@@ -709,23 +858,11 @@ export function Finder({
   if (phase === "start" || !session) {
     return (
       <>
+        <AppHeader right={tonightButton}>{picker}</AppHeader>
         <StartView
           tonightChoice={tonightChoice}
-          tonightCount={tonightItems.length}
-          onOpenTonight={() => setTonightOpen(true)}
           onOpenChoice={() => setPhase("chosen")}
-          groups={groups}
-          groupId={groupId}
-          onGroup={setGroupId}
-          onAge={(id, age) => {
-            setGroups((gs) =>
-              gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)),
-            );
-            setYoungestAge({ groupId: id, age }).catch((e) => {
-              console.error(e);
-              setError("Det gick inte att spara åldern. Prova igen.");
-            });
-          }}
+          together={together}
           quickPicks={quickPicks}
           onToggleQuick={(q) =>
             setQuickPicks((s) => {
@@ -737,10 +874,9 @@ export function Finder({
           }
           mood={mood}
           onMood={setMood}
-          onStart={start}
+          onStart={() => void start()}
           loading={starting}
           error={error}
-          footer={footer}
           belowStart={belowStart}
         />
         {sheet}
@@ -752,24 +888,27 @@ export function Finder({
 
   return (
     <div className={styles.swipe}>
-      <div className={styles.bar}>
-        <button type="button" className={styles.ctx} onClick={backToStart}>
-          {session.label} ✎
+      <AppHeader
+        right={tonightButton}
+        under={
+          session.label && (
+            <p className={styles.moodLine}>{session.label}</p>
+          )
+        }
+      >
+        <button
+          type="button"
+          className={styles.headBack}
+          aria-label="Tillbaka till start"
+          onClick={leaveDeck}
+        >
+          <BackIcon />
         </button>
-        {tonightItems.length > 0 && (
-          <button
-            ref={chipRef}
-            type="button"
-            className={styles.tonightChip}
-            onClick={() => setTonightOpen(true)}
-          >
-            Ikväll · {tonightItems.length}
-          </button>
-        )}
-      </div>
+        {picker}
+      </AppHeader>
 
       <div ref={deckRef} className={styles.deck}>
-        {card ? (
+        {card && !starting ? (
           <>
             {next && (
               <div
@@ -789,7 +928,11 @@ export function Finder({
           </>
         ) : (
           <div className={styles.empty}>
-            {session.hasMore && session.loadFailedAt !== null ? (
+            {starting ? (
+              <p>
+                <LoadingLabel together={together} />
+              </p>
+            ) : session.hasMore && session.loadFailedAt !== null ? (
               <>
                 <p>Det gick inte att hämta fler förslag.</p>
                 <button type="button" className="primary" onClick={retryLoad}>
@@ -812,52 +955,37 @@ export function Finder({
         )}
       </div>
 
-      <p className={styles.hint}>
-        Höger: vill se · Vänster: inte nu · Upp: sett · Ner: kanske
-      </p>
+      {swipes < HINT_SWIPES && (
+        <p className={styles.hint}>
+          Höger: vill se · Vänster: inte nu · Upp: sett · Ner: kanske
+        </p>
+      )}
       <div className={styles.actions}>
-        {history.length > 0 && (
+        {history.length > 0 ? (
           <button
             type="button"
             className={styles.undo}
             aria-label="Ångra"
             onClick={undo}
           >
-            ↶
+            <UndoIcon />
           </button>
+        ) : (
+          <span className={styles.undo} aria-hidden="true" />
         )}
-        <button
-          type="button"
-          aria-label="Inte nu"
-          onClick={() => decide("left")}
-          disabled={!card}
-        >
-          ✕
-        </button>
-        <button
-          type="button"
-          aria-label="Kanske"
-          onClick={() => decide("down")}
-          disabled={!card}
-        >
-          Kanske
-        </button>
-        <button
-          type="button"
-          aria-label="Sett den"
-          onClick={() => decide("up")}
-          disabled={!card}
-        >
-          Sett
-        </button>
-        <button
-          type="button"
-          aria-label="Vill se"
-          onClick={() => decide("right")}
-          disabled={!card}
-        >
-          ♥
-        </button>
+        {DECISION_ORDER.map((d) => (
+          <button
+            key={d}
+            type="button"
+            className={d === "left" || d === "right" ? styles.big : undefined}
+            aria-label={DECISION_WORD[d]}
+            onClick={() => decide(d)}
+            disabled={!card || starting}
+          >
+            <DecisionIcon dir={d} />
+          </button>
+        ))}
+        <span className={styles.undo} aria-hidden="true" />
       </div>
 
       <Toast key={toast?.id} toast={toast} onClose={closeToast} />
@@ -882,7 +1010,6 @@ export function Finder({
           rewatchGroupIds={seen.rewatch}
         />
       )}
-
 
       {sheet}
       {detailView}

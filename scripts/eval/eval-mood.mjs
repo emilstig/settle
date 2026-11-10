@@ -165,7 +165,7 @@ const numArr = { type: "array", items: { type: "number" } };
 const V2_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["media_type", "with_genres", "required_genres", "without_genres", "origin_countries", "languages", "people", "companies", "keywords", "without_keywords", "max_runtime", "min_vote", "era", "sort", "tv_ended", "tv_miniseries", "comfort", "novelty", "vibe"],
+  required: ["media_type", "with_genres", "required_genres", "without_genres", "origin_countries", "languages", "people", "companies", "keywords", "without_keywords", "max_runtime", "min_vote", "era", "sort", "tv_ended", "tv_miniseries", "comfort", "novelty", "vibe", "label"],
   properties: {
     ...V1_SCHEMA.properties,
     required_genres: numArr,
@@ -177,6 +177,7 @@ const V2_SCHEMA = {
     sort: { enum: ["popularity", "votes", "rating", "newest"] },
     tv_ended: { type: "boolean" },
     tv_miniseries: { type: "boolean" },
+    label: { type: "string" },
   },
 };
 const STYLE_SCHEMA = {
