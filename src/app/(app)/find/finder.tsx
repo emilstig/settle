@@ -575,8 +575,8 @@ export function Finder({
         }),
       );
       // Seen and wanted again with this group: on the list as "se igen",
-      // which is about some evening, not tonight. "+ Ikväll" adds it, and
-      // "Ångra" takes that back too.
+      // which is about some evening, not tonight. "Vill se" adds it to
+      // Ikväll, like the right swipe, and "Ångra" takes that back too.
       if (answers.rewatchGroupIds?.includes(session.groupId)) {
         const group = groups.find((g) => g.id === session.groupId);
         const groupId = session.groupId;
@@ -586,7 +586,7 @@ export function Finder({
             : `Sparad att se om med ${group?.name}`,
           [
             {
-              label: "+ Ikväll",
+              label: "Vill se",
               onClick: () => {
                 setTonightSaved((saved) => [
                   c,
