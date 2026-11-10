@@ -4,6 +4,8 @@ Ett steg i taget. Varje steg är klart när kriteriet ”Klart när” är uppfy
 
 Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md`). Bocka av på båda ställena.
 
+Tidsplanen fram till Product Hunt finns i projektdokumentet. Funktionerna fryses när steg 5–6 är klara (vecka 2); därefter kommer bara design och rörelse, buggar och det testarna tar upp, med valet av grupper som enda undantag.
+
 ## 1. Grund
 - [x] Next.js med TypeScript, Supabase-klient (server och klient)
 - [x] Inloggning med magic link och en skyddad layout
@@ -56,6 +58,8 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 - [x] Se igen: gruppens `rewatch`-titlar och, vid tryggt humör, älskade sedda titlar läggs till som kandidater, med etiketten ”Se igen” på kortet
 - [x] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
 - [ ] Tillfällig växel: Claude-sortering mot ren TMDB-sortering, för jämförelse
+- [ ] `suggest_runs` loggar input_tokens, output_tokens och beräknad kostnad (mål under 0,50 kr per aktiv användare och månad)
+- [ ] Testa Haiku för prompt 2 i `scripts/eval` och jämför Toppvalen med Sonnets
 
 **Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
 
@@ -64,10 +68,18 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 - [x] Fliken Profil som meny med Din smak (genrerutor, Fortsätt kalibrera), Historik (hyllor med det man sett, ogillat och sagt Inte min grej om, där betyg, se igen, Inte sett och Inte min grej går att ändra i efterhand) och Tjänster
 - [x] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen (byggt med Toppval ikväll i steg 5)
 - [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
+- [ ] Grupper med filter i stället för typer: `kind` blir `solo`/`group`, `youngest_age` flyttas till `filters.max_age`, `filters` får `without_genres`, `services`, `max_runtime` och `audio`, och `groups` får `hidden` och `archived_at`. Filtren läggs på servern som hårda gränser och promptarna utgår från dem
+- [ ] Välj vilka grupper man använder: i onboarding (”Vem brukar du titta med?”) och i Profil. Släckta grupper döljs men raderas inte, och med bara Själv hoppas ”Vem tittar ikväll?” över (undantag från frysningen)
 
 **Klart när:** check-in fyller på betyg utan att du tänker på det.
 
-## 7. Testare
+## 7. Design och rörelse
+- [ ] Identitet och UI
+- [ ] Övergångar och laddningar
+
+**Klart när:** appen känns färdig för någon som aldrig sett den.
+
+## 8. Testare
 - [ ] Bjud in 3–5 personer
 - [ ] Enkel vy eller SQL för mätvärden: andel sessioner med ett val, tid till val, återkommande användare per vecka
 - [ ] Kort intervju efter två veckor
@@ -78,4 +90,4 @@ Status förs också under Byggplan och status i projektdokumentet (se `CLAUDE.md
 
 Byggs inte utan ett beslut som först förts in i Beslutsloggen i projektdokumentet.
 
-Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, rader i Att se som Claude sätter ihop, inställningar per grupp (till exempel inga barnfilmer med Själv eller Vänner), native app.
+Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, rader i Att se som Claude sätter ihop, inställningar per grupp (till exempel inga barnfilmer med Själv eller Vänner), notiser om nytt och kommande, fri sökning på alla tjänster, att visa var titlar finns på tjänster användaren saknar, native app. Underlag för det som kommer efter MVP (grupper, notiser, Settle Plus, AI-kostnad) finns i projektdokumentet.
