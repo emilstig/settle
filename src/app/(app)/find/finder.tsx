@@ -496,6 +496,7 @@ export function Finder({
               },
             },
           ],
+          2500,
         );
         return;
       }
