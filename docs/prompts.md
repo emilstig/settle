@@ -49,6 +49,8 @@ Regler:
 - Serier: "avslutad" → tv_ended: true; "miniserie" → tv_miniseries: true.
 - Grupp "family" → without_genres ska innehålla skräck och thriller.
 - vibe: 3–8 ord som fångar stämningen, används i nästa steg.
+- label: 2–5 ord som rubrik i leken, på svenska i sentence case, till
+  användaren. Inga ord om användaren eller gruppen.
 
 {
   "media_type": "movie" | "tv" | "any",
@@ -63,7 +65,8 @@ Regler:
   "tv_ended": boolean, "tv_miniseries": boolean,
   "comfort": boolean,
   "novelty": "low" | "medium" | "high",
-  "vibe": string
+  "vibe": string,
+  "label": string
 }
 ```
 

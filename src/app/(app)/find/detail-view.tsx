@@ -3,6 +3,12 @@
 import Image from "next/image";
 import { useEffect, useRef, type ReactNode } from "react";
 import type { Card } from "@/lib/deck";
+import {
+  DECISION_ORDER,
+  DECISION_WORD,
+  DecisionIcon,
+} from "./decision-icons";
+import type { Dir } from "./swipe-card";
 import styles from "./find.module.css";
 
 const poster = (p: string | null) =>
@@ -37,7 +43,7 @@ export function DetailView({
   /** It is tonight's choice already. */
   chosen?: boolean;
   onClose: () => void;
-  onDecide: (dir: "left" | "up" | "right") => void;
+  onDecide: (dir: Dir) => void;
   /** "Välj den här": sets tonight's choice. */
   onChoose: () => void;
   /**
@@ -52,10 +58,10 @@ export function DetailView({
     onTonight: () => void;
   };
   /**
-   * A row that opens the group sheet: "Med annan grupp" in Att se, "Spara
-   * för annan grupp" in the deck.
+   * A text link under "Välj den här" that opens the group sheet: "Med annan
+   * grupp" in Att se, "Spara för en annan grupp" in the deck.
    */
-  groupsRow?: { label: string; hint: string; onClick: () => void };
+  groupsRow?: { label: string; onClick: () => void };
 }) {
   const backRef = useRef<HTMLButtonElement>(null);
   useEffect(() => backRef.current?.focus(), []);
@@ -115,20 +121,28 @@ export function DetailView({
               ))}
             </div>
           )}
-          {groupsRow && (
-            <button
-              type="button"
-              className={styles.dgroups}
-              onClick={groupsRow.onClick}
-            >
-              <span className={styles.dicon} aria-hidden="true">
-                ⇄
-              </span>
-              <span className={styles.drowText}>
-                <span>{groupsRow.label}</span>
-                <small>{groupsRow.hint}</small>
-              </span>
-            </button>
+          {/* The choice comes where the reading ends, before the links
+              out; the group link is a smaller second step under it. */}
+          {actions !== "none" && (
+            <div className={styles.dchooseRow}>
+              <button
+                type="button"
+                className="primary"
+                onClick={onChoose}
+                disabled={chosen}
+              >
+                {chosen ? "Vald för ikväll" : "Välj den här"}
+              </button>
+              {groupsRow && (
+                <button
+                  type="button"
+                  className={styles.dgroupsLink}
+                  onClick={groupsRow.onClick}
+                >
+                  {groupsRow.label}
+                </button>
+              )}
+            </div>
           )}
           <ul className={styles.dlist}>
             {card.providers_link && (
@@ -192,52 +206,39 @@ export function DetailView({
           </ul>
         </div>
       </div>
-      {actions !== "none" && (
+      {/* The decisions, with the deck's icons and a word. From Ikväll
+          and the end view there is none to take here. */}
+      {actions === "deck" && (
+        <div className={`${styles.dbar} ${styles.decide}`}>
+          {DECISION_ORDER.map((d) => (
+            <button key={d} type="button" onClick={() => onDecide(d)}>
+              <DecisionIcon dir={d} />
+              <span>{DECISION_WORD[d]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {actions === "list" && list && (
         <div className={styles.dbar}>
-          {actions === "deck" && (
-            <>
-              <button type="button" onClick={() => onDecide("left")}>
-                ✕ Inte nu
-              </button>
-              <button type="button" onClick={() => onDecide("up")}>
-                Sett
-              </button>
-              <button type="button" onClick={() => onDecide("right")}>
-                ♥ Vill se
-              </button>
-            </>
-          )}
-          {actions === "list" && list && (
-            <>
-              <button type="button" onClick={list.onRemove}>
-                Ta bort
-              </button>
-              {list.onWant && (
-                <button
-                  type="button"
-                  aria-pressed={list.wanted}
-                  onClick={list.onWant}
-                >
-                  {list.wanted ? "✓ Vill gärna" : "Vill gärna"}
-                </button>
-              )}
-              <button
-                type="button"
-                aria-pressed={list.tonight}
-                aria-label="Ikväll"
-                onClick={list.onTonight}
-              >
-                {list.tonight ? "✓ Ikväll" : "+ Ikväll"}
-              </button>
-            </>
+          <button type="button" onClick={list.onRemove}>
+            Ta bort
+          </button>
+          {list.onWant && (
+            <button
+              type="button"
+              aria-pressed={list.wanted}
+              onClick={list.onWant}
+            >
+              {list.wanted ? "✓ Vill gärna" : "Vill gärna"}
+            </button>
           )}
           <button
             type="button"
-            className={styles.dchoose}
-            onClick={onChoose}
-            disabled={chosen}
+            aria-pressed={list.tonight}
+            aria-label="Ikväll"
+            onClick={list.onTonight}
           >
-            {chosen ? "Vald för ikväll" : "Välj den här"}
+            {list.tonight ? "✓ Ikväll" : "+ Ikväll"}
           </button>
         </div>
       )}

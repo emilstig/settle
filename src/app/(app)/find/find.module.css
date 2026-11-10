@@ -137,19 +137,26 @@
 }
 
 .hint { font-size: 13px; color: var(--mute); text-align: center; }
-.actions { display: flex; justify-content: center; gap: 12px; }
+/* Icons only, the same as in the detail view. The two main answers are larger. */
+.actions { display: flex; justify-content: center; align-items: center; gap: 14px; }
 .actions button {
-  min-width: 60px;
+  width: 56px;
   height: 56px;
-  padding: 0 14px;
-  border-radius: 999px;
+  padding: 0;
+  border-radius: 50%;
   border: 1px solid var(--line);
   background: var(--panel);
-  font-size: 15px;
-  font-weight: 600;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
 }
+.actions button svg { width: 24px; height: 24px; }
+.actions .big { width: 66px; height: 66px; }
+.actions .big svg { width: 28px; height: 28px; }
 .actions button:disabled { opacity: 0.4; }
-.actions .undo { min-width: 44px; height: 44px; align-self: center; font-size: 18px; padding: 0; }
+/* Undo and its twin on the right keep the four centred. */
+.actions .undo { width: 40px; height: 40px; flex: none; }
+.actions .undo svg { width: 18px; height: 18px; }
 
 /* Toast */
 .toast {
@@ -266,6 +273,14 @@
   border-top: 1px solid var(--line);
 }
 .dbar button { min-width: 80px; height: 52px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: 15px; font-weight: 600; }
+/* From the deck: the four decisions with the deck's icons and a word. */
+.dbar.decide { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 452px; margin: 0 auto; }
+.dbar.decide button { min-width: 0; height: 58px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 13px; padding: 0 4px; }
+.dbar.decide svg { width: 20px; height: 20px; }
+/* The choice comes where the reading ends, before the links out. */
+.dchooseRow { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.dchooseRow :global(.primary):disabled { opacity: 0.6; }
+.dgroupsLink { align-self: center; border: 0; background: none; padding: 8px 10px; font-size: 15px; font-weight: 600; color: var(--mute); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .card, .sheet { transition: none; }
@@ -308,10 +323,6 @@
 .tonightCard span { font-size: 13px; color: var(--mute); }
 .tonightCard button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
 
-.dbar .dchoose { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-/* Alone (from Ikväll), the choice gets the width of a main button. */
-.dbar .dchoose:only-child { flex: 1; max-width: 388px; }
-.dbar .dchoose:disabled { opacity: 0.6; }
 
 /* A poster on its way to Ikväll after a save. */
 .fly { position: fixed; left: 0; top: 0; width: 120px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; background: #2a2740; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); pointer-events: none; z-index: 30; transform-origin: 0 0; opacity: 0; }
@@ -323,9 +334,26 @@
   .tonightChip { animation: none; }
 }
 
-/* An action in the detail view, kept apart from the links out. */
-.dgroups { display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 16px; padding: 12px 16px; background: none; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 
 /* "Med annan grupp" opens from the detail view, so it goes above it. */
 .scrim.overDetail { z-index: 14; }
 .sheet.overDetail { z-index: 15; }
+
+/* The header: who is watching on the left, Ikväll on the right. */
+.appHeader { display: grid; gap: 2px; }
+.appHeaderRow { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+.appHeaderLeft { flex: 1; min-width: 0; display: flex; align-items: center; }
+.appHeaderRight { display: flex; align-items: center; gap: 8px; flex: none; }
+.picker { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; border: 0; background: none; color: inherit; margin-left: -8px; padding: 4px 8px; border-radius: 12px; font: inherit; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; cursor: pointer; transition: background 0.15s; }
+.picker:active, .picker[aria-expanded="true"] { background: var(--panel); }
+.pickerName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickerAge { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--mute); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+.pickerChev { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; }
+.pickerChev svg { width: 14px; height: 14px; }
+.pickerAgeQ { margin-top: 12px; }
+.headBack { flex: none; width: 36px; height: 40px; margin: 0 -2px 0 -10px; border: 0; background: none; color: inherit; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer; }
+.headBack svg { width: 26px; height: 26px; }
+.headBack:active { background: var(--panel); }
+/* The mood as prompt 1 read it, only when there is one. */
+.moodLine { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) { .picker { transition: none; } }

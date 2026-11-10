@@ -64,6 +64,8 @@ export type DeckResult = {
   cards: Card[];
   page: number;
   hasMore: boolean;
+  /** Prompt 1's heading for the deck, when there was a mood to read. */
+  label?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -214,7 +216,13 @@ export async function startSession(
     quickPicks,
     deck: cards,
   });
-  return { sessionId: data.id, cards: deck, page, hasMore };
+  return {
+    sessionId: data.id,
+    cards: deck,
+    page,
+    hasMore,
+    label: filters.parsed?.label || null,
+  };
 }
 
 const moreSchema = z.object({

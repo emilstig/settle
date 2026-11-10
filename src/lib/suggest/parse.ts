@@ -39,6 +39,8 @@ const parseSchema = z.strictObject({
   comfort: z.boolean(),
   novelty: z.enum(["low", "medium", "high"]),
   vibe: z.string(),
+  /** A short heading for the deck, shown under the header. */
+  label: z.string(),
 });
 export type ParsedMood = z.infer<typeof parseSchema>;
 
@@ -212,6 +214,7 @@ export async function applyParsed(
       comfort: parsed.comfort,
       novelty: parsed.novelty,
       vibe: parsed.vibe,
+      label: parsed.label.trim(),
     },
   };
   let types =

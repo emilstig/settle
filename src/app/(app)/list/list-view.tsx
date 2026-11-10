@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { formatRuntime } from "@/lib/format";
-import { rememberGroup } from "@/lib/group-cookie";
+import { readGroup, rememberGroup } from "@/lib/group-cookie";
 import type { ListItem } from "@/lib/list";
 import {
   addToTonight,
@@ -13,10 +13,13 @@ import {
   removeFromTonight,
   tonight as getTonight,
 } from "../find-actions";
+import { setYoungestAge } from "../actions";
+import { useDeckMemory } from "../find/deck-memory";
 import { DetailView } from "../find/detail-view";
+import { AppHeader, GroupPicker } from "../find/group-picker";
 import { GroupSheet } from "../find/group-sheet";
 import { Toast } from "../find/toast";
-import type { ToastButton, ToastState } from "../find/types";
+import type { GroupOption, ToastButton, ToastState } from "../find/types";
 import { useBackClose } from "../find/use-back-close";
 import find from "../find/find.module.css";
 import {
@@ -110,16 +113,21 @@ const length = (c: ListItem) =>
 export function ListView({
   groups,
   groupId,
-  counts,
   items: initialItems,
 }: {
-  groups: { id: string; name: string; kind: string }[];
+  groups: GroupOption[];
   groupId: string;
-  /** Titles on each group's list, by group id. */
-  counts: Record<string, number>;
   items: ListItem[];
 }) {
   const router = useRouter();
+  const memory = useDeckMemory();
+  // A render kept by the router can show the group from before a change in
+  // Hitta: fetch the list again for the group the browser has now.
+  useEffect(() => {
+    const id = readGroup();
+    if (id && id !== groupId && groups.some((g) => g.id === id))
+      router.refresh();
+  }, [groupId, groups, router]);
   const [items, setItems] = useState(initialItems);
   const [full, setFull] = useState<ShelfKey | null>(null);
   const [chips, setChips] = useState<Set<Chip>>(new Set());
@@ -333,32 +341,41 @@ export function ListView({
               : b.addedAt.localeCompare(a.addedAt),
         )
     : [];
-  const together = group?.kind !== "solo";
 
   return (
     <>
-      <h1 className="q">{together ? "Vad ska ni se?" : "Vad ska du se?"}</h1>
-      <div className={find.who} role="radiogroup" aria-label="Vem tittar">
-        {groups.map((g) => {
-          const on = g.id === groupId;
-          const n = counts[g.id] ?? 0;
-          return (
+      <AppHeader
+        right={
+          tonightKeys.size > 0 && (
             <button
-              key={g.id}
               type="button"
-              role="radio"
-              aria-checked={on}
-              className={find.tile}
-              onClick={() => pickGroup(g.id)}
+              className={find.tonightChip}
+              onClick={() => {
+                // Ikväll lives in Hitta: open it there, over the deck if any.
+                memory.askForTonight();
+                router.push("/");
+              }}
             >
-              <span className={find.tileName}>{g.name}</span>
-              <span className={find.tileSub}>
-                {n === 0 ? "Inget sparat" : `${n} sparade`}
-              </span>
+              Ikväll · {tonightKeys.size}
             </button>
-          );
-        })}
-      </div>
+          )
+        }
+      >
+        <GroupPicker
+          groups={groups}
+          groupId={groupId}
+          onGroup={pickGroup}
+          onAge={(id, age) => {
+            setYoungestAge({ groupId: id, age })
+              .then(() => router.refresh())
+              .catch((e) => {
+                console.error(e);
+                showToast("Det gick inte att spara åldern");
+              });
+          }}
+          title="Vem tittar?"
+        />
+      </AppHeader>
 
       {shelves.length === 0 && (
         <p className={styles.empty}>
@@ -546,7 +563,6 @@ export function ListView({
           }}
           groupsRow={{
             label: "Med annan grupp",
-            hint: "Välj vilka gruppers listor den ligger på",
             onClick: () => openGroups(detail.item),
           }}
         />
