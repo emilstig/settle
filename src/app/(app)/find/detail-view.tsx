@@ -115,6 +115,21 @@ export function DetailView({
               ))}
             </div>
           )}
+          {groupsRow && (
+            <button
+              type="button"
+              className={styles.dgroups}
+              onClick={groupsRow.onClick}
+            >
+              <span className={styles.dicon} aria-hidden="true">
+                ⇄
+              </span>
+              <span className={styles.drowText}>
+                <span>{groupsRow.label}</span>
+                <small>{groupsRow.hint}</small>
+              </span>
+            </button>
+          )}
           <ul className={styles.dlist}>
             {card.providers_link && (
               <LinkRow
@@ -173,26 +188,6 @@ export function DetailView({
                 label="Betyg och rollista"
                 source="IMDb"
               />
-            )}
-            {groupsRow && (
-              <li>
-                <button
-                  type="button"
-                  className={styles.drow}
-                  onClick={groupsRow.onClick}
-                >
-                  <span className={styles.dicon} aria-hidden="true">
-                    ⇄
-                  </span>
-                  <span className={styles.drowText}>
-                    <span>{groupsRow.label}</span>
-                    <small>{groupsRow.hint}</small>
-                  </span>
-                  <span className={styles.drowOut} aria-hidden="true">
-                    ›
-                  </span>
-                </button>
-              </li>
             )}
           </ul>
         </div>
