@@ -27,13 +27,28 @@ function tileSub(g: GroupOption, on: boolean): string {
  * one choice. The first time Familj is chosen it asks for the youngest's
  * age, and tapping Familj again changes it.
  */
+/**
+ * Who is watching, as plain text: the deck's header. The deck is already
+ * suggestions for one group, so it shows the group without a way to switch
+ * it there; going back to the start view does that.
+ */
+export function GroupName({ group }: { group: GroupOption | undefined }) {
+  return (
+    <span className={styles.groupName}>
+      <span className={styles.pickerName}>{group?.name}</span>
+      {group?.kind === "family" && group.youngest_age != null && (
+        <span className={styles.pickerAge}>{group.youngest_age}+</span>
+      )}
+    </span>
+  );
+}
+
 export function GroupPicker({
   groups,
   groupId,
   onGroup,
   onAge,
   title,
-  note,
 }: {
   groups: GroupOption[];
   groupId: string;
@@ -41,8 +56,6 @@ export function GroupPicker({
   onAge?: (groupId: string, age: number) => void;
   /** "Vem tittar ikväll?" in Hitta, "Vem tittar?" in Att se. */
   title: string;
-  /** Said in the sheet, such as that the deck starts over. */
-  note?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [editingAge, setEditingAge] = useState(false);
@@ -123,7 +136,6 @@ export function GroupPicker({
                 ✕
               </button>
             </div>
-            {note && <p>{note}</p>}
             {/* One choice, so tiles and a radio group rather than pills. */}
             <div
               className={styles.who}
