@@ -28,19 +28,12 @@ function tileSub(g: GroupOption, on: boolean): string {
  * age, and tapping Familj again changes it.
  */
 /**
- * Who is watching, as plain text: the deck's header. The deck is already
- * suggestions for one group, so it shows the group without a way to switch
- * it there; going back to the start view does that.
+ * Who is watching, as plain text: the deck's header, inside its back button.
+ * The deck is already suggestions for one group, so it shows the name
+ * without a way to switch; the cards already say the age limit.
  */
 export function GroupName({ group }: { group: GroupOption | undefined }) {
-  return (
-    <span className={styles.groupName}>
-      <span className={styles.pickerName}>{group?.name}</span>
-      {group?.kind === "family" && group.youngest_age != null && (
-        <span className={styles.pickerAge}>{group.youngest_age}+</span>
-      )}
-    </span>
-  );
+  return <span className={styles.groupName}>{group?.name}</span>;
 }
 
 export function GroupPicker({

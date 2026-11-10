@@ -359,7 +359,7 @@
 .picker { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; border: 0; background: none; color: inherit; margin-left: -8px; padding: 4px 8px; border-radius: 12px; font: inherit; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; cursor: pointer; transition: background 0.15s; }
 .picker:active, .picker[aria-expanded="true"] { background: var(--panel); }
 /* The deck's header: the group as text, sized like the picker. */
-.groupName { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
+.groupName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
 .pickerName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pickerAge { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--mute); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
 .pickerChev { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; }
