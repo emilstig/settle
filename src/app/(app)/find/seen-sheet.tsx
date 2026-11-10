@@ -66,9 +66,14 @@ export function SeenSheet({
 
   return (
     <>
-      <div className={styles.scrim} onClick={() => finish(null)} />
+      {/* Above every layer it can open from: the deck, and "Visa alla" in
+          Att se, which covers the page. */}
       <div
-        className={`${styles.sheet} ${styles.sheetOpen}`}
+        className={`${styles.scrim} ${styles.overDetail}`}
+        onClick={() => finish(null)}
+      />
+      <div
+        className={`${styles.sheet} ${styles.sheetOpen} ${styles.overDetail}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="seen-title"
