@@ -10,14 +10,17 @@ import {
   addToTonight,
   chooseTonight,
   openDetail,
-  removeFromTonight,
+  recordSeen,
+  rewatchGroupsFor,
   tonight as getTonight,
+  undoSwipe,
 } from "../find-actions";
 import { setYoungestAge } from "../actions";
 import { useDeckMemory } from "../find/deck-memory";
 import { DetailView } from "../find/detail-view";
 import { AppHeader, GroupPicker } from "../find/group-picker";
 import { GroupSheet } from "../find/group-sheet";
+import { SeenSheet, type SeenAnswers } from "../find/seen-sheet";
 import { Toast } from "../find/toast";
 import type { GroupOption, ToastButton, ToastState } from "../find/types";
 import { useBackClose } from "../find/use-back-close";
@@ -145,9 +148,16 @@ export function ListView({
     item: ListItem;
     savedFor: string[];
   } | null>(null);
+  // "Sett": the sett-sheet for the title, with where it is on se igen now.
+  const [seen, setSeen] = useState<{
+    item: ListItem;
+    rewatch: string[];
+  } | null>(null);
   const group = groups.find((g) => g.id === groupId);
+  const solo = group?.kind === "solo";
   // What is in Ikväll with the group, so the detail view can say so.
   const [tonightKeys, setTonightKeys] = useState<Set<string>>(new Set());
+  const [chosenKey, setChosenKey] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     getTonight({ groupId })
@@ -155,6 +165,7 @@ export function ListView({
         if (!alive) return;
         const cards = t.choice ? [t.choice, ...t.saved] : t.saved;
         setTonightKeys(new Set(cards.map(keyOf)));
+        setChosenKey(t.choice ? keyOf(t.choice) : null);
       })
       .catch((e) => console.error(e));
     return () => {
@@ -165,6 +176,7 @@ export function ListView({
   useBackClose(full !== null, () => setFull(null));
   useBackClose(detail !== null, () => setDetail(null));
   useBackClose(moving !== null, () => setMoving(null));
+  useBackClose(seen !== null, () => setSeen(null));
 
   const showToast = (text: string, buttons: ToastButton[] = [], ms = 2200) => {
     setToast({ id: ++toastId.current, text, buttons, ms });
@@ -235,6 +247,11 @@ export function ListView({
       list.map((i) => (keyOf(i) === keyOf(item) ? updated : i)),
     );
     setDetail((d) => (d ? { ...d, item: updated } : d));
+    // A state, not a way out: the view stays and says where it went. No
+    // chip, since the same button takes it back.
+    showToast(
+      next === "want" ? "Flyttad till Vill gärna" : "Flyttad till Vill se",
+    );
     try {
       await setListInterest({ groupId, ref: refOf(item), interest: next });
     } catch (e) {
@@ -246,9 +263,12 @@ export function ListView({
     }
   }
 
-  async function toggleTonight(item: ListItem) {
+  /**
+   * "Spara till ikväll": into the group's Ikväll, where the button becomes
+   * "Välj den här". Out of Ikväll is the cross in Ikväll itself.
+   */
+  async function saveTonight(item: ListItem) {
     const k = keyOf(item);
-    const was = tonightKeys.has(k);
     const flip = (on: boolean) =>
       setTonightKeys((keys) => {
         const next = new Set(keys);
@@ -256,22 +276,86 @@ export function ListView({
         else next.delete(k);
         return next;
       });
-    flip(!was);
+    // No toast: "Sparad till ikväll" shows above the button, which turns
+    // into "Välj den här".
+    flip(true);
     try {
-      if (was) {
-        await removeFromTonight({ groupId, ref: refOf(item) });
-        showToast("Borttagen från ikväll");
-      } else {
-        await addToTonight({ groupId, ref: refOf(item) });
-        showToast(
-          "Tillagd i ikväll",
-          [{ label: "Visa", onClick: () => router.push("/") }],
-          4000,
-        );
-      }
+      await addToTonight({ groupId, ref: refOf(item) });
     } catch (e) {
       console.error(e);
-      flip(was);
+      flip(false);
+      showToast("Det gick inte att spara");
+    }
+  }
+
+  // A button that needs a choice opens its sheet over the view; what the
+  // answer does to the title decides whether the view closes.
+  function openSeen(item: ListItem) {
+    rewatchGroupsFor(refOf(item))
+      .catch(() => [] as string[])
+      .then((rewatch) => setSeen({ item, rewatch }));
+  }
+
+  /**
+   * After the sett-sheet. With se igen for this group it stays in Att se,
+   * on Att se om, and the view stays open; otherwise it leaves Att se for
+   * Profil and the view closes. A rating cannot be tapped away, so the
+   * toast has "Ångra" either way. Closed before any answer: nothing.
+   */
+  async function finishSeen(answers: SeenAnswers) {
+    if (!seen) return;
+    const { item } = seen;
+    setSeen(null);
+    if (answers.rating === null && answers.rewatchGroupIds === null) return;
+    const before = items;
+    const again = answers.rewatchGroupIds
+      ? answers.rewatchGroupIds.includes(groupId)
+      : item.interest === "rewatch";
+    const moved = { ...item, interest: "rewatch" } as ListItem;
+    const putBack = (to: ListItem) =>
+      setDetail((d) =>
+        d && keyOf(d.item) === keyOf(item) ? { ...d, item: to } : d,
+      );
+    setItems((list) =>
+      again
+        ? list.map((i) => (keyOf(i) === keyOf(item) ? moved : i))
+        : list.filter((i) => keyOf(i) !== keyOf(item)),
+    );
+    if (again) putBack(moved);
+    else setDetail(null);
+    try {
+      const u = await recordSeen({
+        sessionId: null,
+        groupId,
+        ref: refOf(item),
+        source: null,
+        ...answers,
+      });
+      showToast(
+        again
+          ? solo
+            ? "Sparad att se om"
+            : `Sparad att se om med ${group?.name}`
+          : "Markerad som sett",
+        [
+          {
+            label: "Ångra",
+            onClick: () => {
+              setItems(before);
+              putBack(item);
+              undoSwipe(u).catch((e) => {
+                console.error(e);
+                router.refresh();
+              });
+            },
+          },
+        ],
+        4000,
+      );
+    } catch (e) {
+      console.error(e);
+      setItems(before);
+      putBack(item);
       showToast("Det gick inte att spara");
     }
   }
@@ -292,11 +376,8 @@ export function ListView({
     if (!groupIds) return;
     try {
       await setListGroups({ ref: refOf(item), groupIds });
-      // Off this group's list: it leaves the shelves here too.
-      if (!groupIds.includes(groupId)) {
-        setItems((list) => list.filter((i) => keyOf(i) !== keyOf(item)));
-        setDetail(null);
-      }
+      // This group is locked in the sheet: the title stays here and the
+      // view stays open.
       const names = groups
         .filter((g) => groupIds.includes(g.id))
         .map((g) => g.name);
@@ -311,6 +392,7 @@ export function ListView({
   async function choose(item: ListItem) {
     try {
       await chooseTonight({ groupId, ref: refOf(item) });
+      setChosenKey(keyOf(item));
       setDetail(null);
       showToast(
         `Ikväll blir det ${item.title}`,
@@ -551,6 +633,7 @@ export function ListView({
           onClose={() => setDetail(null)}
           onDecide={() => {}}
           onChoose={() => void choose(detail.item)}
+          chosen={chosenKey === keyOf(detail.item)}
           list={{
             wanted: detail.item.interest === "want",
             onRemove: () => void remove(detail.item),
@@ -558,13 +641,20 @@ export function ListView({
               detail.item.interest === "rewatch"
                 ? undefined
                 : () => void toggleWant(detail.item),
+            onSeen: () => openSeen(detail.item),
+            onGroups: () => openGroups(detail.item),
             tonight: tonightKeys.has(keyOf(detail.item)),
-            onTonight: () => void toggleTonight(detail.item),
+            onTonight: () => void saveTonight(detail.item),
           }}
-          groupsRow={{
-            label: "Med annan grupp",
-            onClick: () => openGroups(detail.item),
-          }}
+        />
+      )}
+
+      {seen && (
+        <SeenSheet
+          title={seen.item.title}
+          groups={groups}
+          onDone={(a) => void finishSeen(a)}
+          rewatchGroupIds={seen.rewatch}
         />
       )}
 
@@ -573,6 +663,7 @@ export function ListView({
           title={moving.item.title}
           groups={groups}
           savedFor={moving.savedFor}
+          locked={groupId}
           onDone={(ids) => void finishGroups(ids)}
         />
       )}

@@ -45,13 +45,15 @@ const ratingRow = z.object({
 });
 const watchLogRow = z.object({
   times_seen: z.enum(["once", "few", "many"]).nullable(),
+  last_seen: z.iso.date().nullable().optional(),
   last_seen_approx: z.enum(["recent", "this_year", "long_ago"]).nullable(),
 });
 
 /** Everything needed to put the database back as it was before a swipe. */
 const undoSchema = z.object({
   ref,
-  sessionId: uuid,
+  /** Null for Sett in Att se, which has no session. */
+  sessionId: uuid.nullable(),
   interactionIds: z.array(z.number().int()),
   watchlist: z.array(z.object({ group_id: uuid, prev: interest.nullable() })),
   rating: z.object({ prev: ratingRow.nullable() }).optional(),
@@ -407,13 +409,7 @@ async function logInteraction(
   sessionId: string | null,
   r: Ref,
   action:
-    | "right"
-    | "left"
-    | "seen"
-    | "open_detail"
-    | "undo"
-    | "unsure"
-    | "maybe",
+    "right" | "left" | "seen" | "open_detail" | "undo" | "unsure" | "maybe",
   reason: "not_now" | "not_for_me" | "seen" | "other_group" | null = null,
   from: CardSource | null = null,
 ): Promise<number> {
@@ -608,7 +604,8 @@ export async function setLeftReason(input: {
 }
 
 const seenSchema = z.object({
-  sessionId: uuid,
+  /** Null from Att se, outside the deck. */
+  sessionId: uuid.nullable(),
   groupId: uuid,
   ref,
   rating: z
@@ -659,7 +656,7 @@ export async function recordSeen(
       .maybeSingle(),
     supabase
       .from("watch_log")
-      .select("times_seen, last_seen_approx")
+      .select("times_seen, last_seen, last_seen_approx")
       .match(match)
       .maybeSingle(),
   ]);
@@ -682,10 +679,20 @@ export async function recordSeen(
     watchLog: { prev: prevLog.data ?? null },
   };
 
-  const { error: logError } = await supabase.from("watch_log").upsert(match, {
-    onConflict: "user_id,tmdb_id,media_type",
-    ignoreDuplicates: true,
-  });
+  // Seen before (a title on Att se om, say): this is one more time.
+  const { error: logError } = prevLog.data
+    ? await supabase
+        .from("watch_log")
+        .update({
+          times_seen:
+            prevLog.data.times_seen === null ||
+            prevLog.data.times_seen === "once"
+              ? "few"
+              : "many",
+          last_seen: stockholmDate(),
+        })
+        .match(match)
+    : await supabase.from("watch_log").insert(match);
   if (logError) throw logError;
 
   if (s.rating !== null) {
@@ -722,7 +729,36 @@ export async function recordSeen(
     }
   }
 
+  // Seen is a fact about the user: it is not something to see any more in
+  // any group, so Vill se and Vill gärna go. Se igen stays where it is.
+  const { data: wishes, error: wishError } = await supabase
+    .from("watchlist")
+    .select("group_id, interest")
+    .match(match)
+    .in("interest", ["maybe", "want"]);
+  if (wishError) throw wishError;
+  if (wishes.length) {
+    for (const w of wishes)
+      undo.watchlist.push({
+        group_id: w.group_id as string,
+        prev: w.interest as z.infer<typeof interest>,
+      });
+    const { error } = await supabase
+      .from("watchlist")
+      .delete()
+      .match(match)
+      .in("interest", ["maybe", "want"]);
+    if (error) throw error;
+  }
+
   return undo;
+}
+
+/** Today's date in Sweden, for last_seen. */
+function stockholmDate(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Stockholm",
+  }).format(now);
 }
 
 /** Puts back everything the last swipe wrote, and logs the undo. */
