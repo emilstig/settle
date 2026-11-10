@@ -12,7 +12,7 @@ export type Tonight = {
   choice: Card | null;
   /**
    * What was saved tonight with the group and is still saved: swiped right,
-   * added from Att se, or seen with "se igen" for the group.
+   * or added with "+ Ikväll" from Att se or after "se igen".
    */
   saved: Card[];
 };
@@ -71,10 +71,10 @@ export async function getTonight(
   if (list.error) throw list.error;
 
   // Still saved for the group: a moved or undone title is not a candidate,
-  // and neither is one taken off tonight ("undo" after the last right swipe).
-  // A title seen tonight counts when it got "se igen" with the group: seen
-  // and wanted again is saved too. Rows are latest first, so the first row
-  // per title decides.
+  // and neither is one taken off tonight ("undo" after the last right swipe)
+  // or seen after it. "Se igen" is about some evening, so a seen title joins
+  // only through "+ Ikväll" (a right swipe). Rows are latest first, so the
+  // first row per title decides.
   const interestOf = new Map(
     list.data.map((w) => [key(w), w.interest as string]),
   );
@@ -82,11 +82,7 @@ export async function getTonight(
   for (const r of rights.data as (Ref & { action: string })[])
     if (!latest.has(key(r))) latest.set(key(r), r);
   const savedRefs = [...latest.values()]
-    .filter((r) =>
-      r.action === "seen"
-        ? interestOf.get(key(r)) === "rewatch"
-        : r.action === "right" && interestOf.has(key(r)),
-    )
+    .filter((r) => r.action === "right" && interestOf.has(key(r)))
     .map(({ tmdb_id, media_type }) => ({ tmdb_id, media_type }));
   const refs = [...savedRefs, ...(choiceRef ? [choiceRef] : [])];
   if (refs.length === 0) return { choice: null, saved: [] };

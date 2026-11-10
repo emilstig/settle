@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Card } from "@/lib/deck";
 import { setYoungestAge } from "../actions";
 import {
+  addToTonight,
   chooseTonight,
   clearTonight,
   removeFromTonight,
@@ -12,10 +13,9 @@ import {
   loadMore,
   openDetail,
   recordSeen,
+  saveForGroups,
   rewatchGroupsFor,
-  setInterest,
   setLeftReason,
-  setListGroups,
   startSession,
   swipeDown,
   swipeLeft,
@@ -26,8 +26,8 @@ import {
 } from "../find-actions";
 import { ChosenView, TonightSheet } from "./tonight-sheet";
 import { DetailView } from "./detail-view";
-import { FlyToTonight } from "./fly-to-tonight";
 import { GroupSheet } from "./group-sheet";
+import { FlyToTonight } from "./fly-to-tonight";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
 import { LoadingLabel, StartView } from "./start-view";
 import {
@@ -63,22 +63,6 @@ type HistoryEntry = {
 
 const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
-/** Combines two undos for one swipe; per group the earliest snapshot wins. */
-const merge = (a: Undo | null, b: Undo | null): Undo | null => {
-  if (!a) return b;
-  if (!b) return a;
-  const known = new Set(a.watchlist.map((w) => w.group_id));
-  return {
-    ...b,
-    ...(a.rating ? { rating: a.rating } : {}),
-    ...(a.watchLog ? { watchLog: a.watchLog } : {}),
-    interactionIds: [...a.interactionIds, ...b.interactionIds],
-    watchlist: [
-      ...a.watchlist,
-      ...b.watchlist.filter((w) => !known.has(w.group_id)),
-    ],
-  };
-};
 
 export function Finder({
   groups: initialGroups,
@@ -128,10 +112,8 @@ export function Finder({
     resolve: (u: Undo | null) => void;
     rewatch: string[];
   } | null>(null);
-  const [moving, setMoving] = useState<{
-    card: Card;
-    resolve: (u: Undo | null) => void;
-  } | null>(null);
+  // "Spara för annan grupp" from the deck's detail view.
+  const [moving, setMoving] = useState<Card | null>(null);
   const [detail, setDetail] = useState<{
     card: Card;
     /** Where it was opened, which decides the button bar. */
@@ -386,45 +368,7 @@ export function Finder({
     );
   }
 
-  function openGroups(c: Card): Promise<Undo | null> {
-    return new Promise((resolve) => setMoving({ card: c, resolve }));
-  }
-
-  async function finishGroups(groupIds: string[] | null) {
-    if (!moving || !session) return;
-    const { card: c, resolve } = moving;
-    setMoving(null);
-    if (!groupIds) return resolve(null);
-    try {
-      resolve(
-        await setListGroups({
-          sessionId: session.id,
-          ref: refOf(c),
-          fromGroupId: session.groupId,
-          groupIds,
-        }),
-      );
-      // Ikväll is this group's evening: a title moved to other groups only
-      // leaves it.
-      if (!groupIds.includes(session.groupId)) {
-        setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== keyOf(c)));
-      }
-      const names = groups
-        .filter((g) => groupIds.includes(g.id))
-        .map((g) => g.name);
-      showToast(`Sparad för ${names.join(" och ")}`, [], 1600);
-    } catch (e) {
-      console.error(e);
-      resolve(null);
-      showToast("Det gick inte att spara", [], 2200);
-    }
-  }
-
-  /**
-   * `wanted` is a group the user has just said they want to see it with
-   * (after "Har sett den" on a right swipe), so it starts chosen too.
-   */
-  function openSeen(c: Card, wanted?: string): Promise<Undo | null> {
+  function openSeen(c: Card): Promise<Undo | null> {
     return new Promise((resolve) => {
       // Show where it is already on the se igen list before asking.
       rewatchGroupsFor(refOf(c))
@@ -433,7 +377,7 @@ export function Finder({
           setSeen({
             card: c,
             resolve,
-            rewatch: wanted ? [...new Set([...rewatch, wanted])] : rewatch,
+            rewatch,
           }),
         );
     });
@@ -455,43 +399,14 @@ export function Finder({
     if (dir === "right") {
       const undo = swipeRight(base).catch(() => null);
       push({ index: at, undo }, dir, c);
+      // One chip only: the rest is not a decision for now, and can be done
+      // later in Att se.
       showToast(
         group?.kind === "solo"
-          ? "Sparad i Att se"
-          : `Sparad för ${group?.name}`,
-        [
-          {
-            label: "Vill gärna",
-            onClick: () =>
-              void undo.then(() => setInterest({ ...base, interest: "want" })),
-          },
-          { label: "Välj för ikväll", onClick: () => void choose(c) },
-          {
-            // Seen it already: the right swipe becomes "Sett", with this
-            // group chosen for se igen, since the swipe said so.
-            label: "Har sett den",
-            onClick: () => {
-              setTonightSaved((saved) =>
-                saved.filter((x) => keyOf(x) !== keyOf(c)),
-              );
-              replaceTop((prev) =>
-                prev
-                  .then((u) => (u ? undoSwipe(u) : undefined))
-                  .catch((e) => console.error(e))
-                  .then(() => openSeen(c, session.groupId)),
-              );
-            },
-          },
-          {
-            label: "Med annan grupp",
-            onClick: () =>
-              replaceTop((prev) =>
-                prev.then((a) => openGroups(c).then((b) => merge(a, b))),
-              ),
-          },
-        ],
-        // Four chips over two rows take longer to read than one.
-        4000,
+          ? "Sparad till ikväll"
+          : `Sparad till ikväll med ${group?.name}`,
+        [{ label: "Välj den här", onClick: () => void choose(c) }],
+        2500,
       );
     } else if (dir === "left") {
       const undo = swipeLeft({
@@ -517,13 +432,16 @@ export function Finder({
         },
       ]);
     } else if (dir === "down") {
-      const undo = swipeDown({
-        sessionId: session.id,
-        ref: refOf(c),
-        source: c.source,
-      }).catch(() => null);
+      // "Kanske": on the group's list, but not in Ikväll.
+      const undo = swipeDown(base).catch(() => null);
       push({ index: at, undo }, dir, c);
-      showToast("Vet inte · visas igen om en vecka", [], 1400);
+      showToast(
+        group?.kind === "solo"
+          ? "Sparad till en annan kväll"
+          : `Sparad till en annan kväll med ${group?.name}`,
+        [],
+        2000,
+      );
     } else {
       push({ index: at, undo: openSeen(c) }, dir, c);
     }
@@ -543,20 +461,41 @@ export function Finder({
           ...answers,
         }),
       );
-      // Seen and wanted again with this group: saved for tonight too, like
-      // a right swipe.
+      // Seen and wanted again with this group: on the list as "se igen",
+      // which is about some evening, not tonight. "+ Ikväll" adds it, and
+      // "Ångra" takes that back too.
       if (answers.rewatchGroupIds?.includes(session.groupId)) {
-        setTonightSaved((saved) => [
-          c,
-          ...saved.filter((x) => keyOf(x) !== keyOf(c)),
-        ]);
-        flyToTonight(c);
         const group = groups.find((g) => g.id === session.groupId);
+        const groupId = session.groupId;
         showToast(
           group?.kind === "solo"
             ? "Sparad att se om"
             : `Sparad att se om med ${group?.name}`,
-          [{ label: "Välj för ikväll", onClick: () => void choose(c) }],
+          [
+            {
+              label: "+ Ikväll",
+              onClick: () => {
+                setTonightSaved((saved) => [
+                  c,
+                  ...saved.filter((x) => keyOf(x) !== keyOf(c)),
+                ]);
+                flyToTonight(c);
+                const added = addToTonight({ groupId, ref: refOf(c) });
+                replaceTop((prev) =>
+                  Promise.all([prev, added]).then(([u, id]) =>
+                    u ? { ...u, interactionIds: [...u.interactionIds, id] } : u,
+                  ),
+                );
+                added.catch((e) => {
+                  console.error(e);
+                  setTonightSaved((saved) =>
+                    saved.filter((x) => keyOf(x) !== keyOf(c)),
+                  );
+                  showToast("Det gick inte att spara", [], 2200);
+                });
+              },
+            },
+          ],
         );
         return;
       }
@@ -581,16 +520,48 @@ export function Finder({
       s?.resolve(null);
       return null;
     });
-    setMoving((m) => {
-      m?.resolve(null);
-      return null;
-    });
     setIndex(last.index);
     if (last.dir === "right" || last.dir === "up") {
       setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== last.key));
     }
     const u = await last.undo;
     if (u) await undoSwipe(u).catch((e) => console.error(e));
+  }
+
+  /**
+   * "Spara för annan grupp": the card leaves the deck as if swiped, onto the
+   * chosen groups' lists. With this group among them it is a right swipe and
+   * joins Ikväll.
+   */
+  function finishGroups(groupIds: string[] | null) {
+    const c = moving;
+    setMoving(null);
+    if (!groupIds || !c || !session || card !== c) return;
+    setDetail(null);
+    const at = index;
+    setIndex((i) => i + 1);
+    const withThis = groupIds.includes(session.groupId);
+    const undo = saveForGroups({
+      sessionId: session.id,
+      groupId: session.groupId,
+      ref: refOf(c),
+      source: c.source,
+      groupIds,
+    }).catch((e) => {
+      console.error(e);
+      showToast("Det gick inte att spara", [], 2200);
+      return null;
+    });
+    push({ index: at, undo }, withThis ? "right" : "left", c);
+    const names = groups
+      .filter((g) => groupIds.includes(g.id))
+      .map((g) => g.name)
+      .join(" och ");
+    showToast(
+      `Sparad för ${names}`,
+      withThis ? [{ label: "Välj den här", onClick: () => void choose(c) }] : [],
+      2500,
+    );
   }
 
   async function decide(dir: Dir) {
@@ -668,6 +639,7 @@ export function Finder({
   // The phone's back gesture closes the top layer, not the page.
   useBackClose(tonightOpen, () => setTonightOpen(false));
   useBackClose(detail !== null, () => setDetail(null));
+  useBackClose(moving !== null, () => setMoving(null));
 
   const detailView = detail && (
     <DetailView
@@ -693,6 +665,15 @@ export function Finder({
         void decide(dir);
       }}
       onChoose={() => void choose(detail.card)}
+      groupsRow={
+        detail.from === "deck" && detail.card === card && groups.length > 1
+          ? {
+              label: "Spara för annan grupp",
+              hint: "Passar den bättre med någon annan?",
+              onClick: () => setMoving(detail.card),
+            }
+          : undefined
+      }
     />
   );
 
@@ -831,7 +812,7 @@ export function Finder({
       </div>
 
       <p className={styles.hint}>
-        Höger: vill se · Vänster: inte nu · Upp: sett · Ner: vet inte
+        Höger: vill se · Vänster: inte nu · Upp: sett · Ner: kanske
       </p>
       <div className={styles.actions}>
         {history.length > 0 && (
@@ -854,11 +835,11 @@ export function Finder({
         </button>
         <button
           type="button"
-          aria-label="Vet inte"
+          aria-label="Kanske"
           onClick={() => decide("down")}
           disabled={!card}
         >
-          ?
+          Kanske
         </button>
         <button
           type="button"
@@ -901,17 +882,17 @@ export function Finder({
         />
       )}
 
-      {moving && (
-        <GroupSheet
-          title={moving.card.title}
-          groups={groups}
-          currentGroupId={session.groupId}
-          onDone={finishGroups}
-        />
-      )}
 
       {sheet}
       {detailView}
+      {moving && (
+        <GroupSheet
+          title={moving.title}
+          groups={groups}
+          savedFor={[]}
+          onDone={finishGroups}
+        />
+      )}
     </div>
   );
 }

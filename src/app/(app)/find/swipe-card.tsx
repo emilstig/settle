@@ -14,7 +14,7 @@ const FIND_STAMPS: Stamps = {
   right: ["Vill se", "var(--yes)"],
   left: ["Inte nu", "var(--no)"],
   up: ["Sett", "var(--seen)"],
-  down: ["Vet inte", "#555"],
+  down: ["Kanske", "#555"],
 };
 const FLY: Record<Dir, string> = {
   right: "translate(600px,0) rotate(24deg)",

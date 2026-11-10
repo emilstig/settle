@@ -4,28 +4,32 @@ import { useState } from "react";
 import type { GroupOption } from "./types";
 import styles from "./find.module.css";
 
-/** "Med annan grupp": choose whose lists a saved title belongs on. */
+/** "Med annan grupp" in Att se: choose whose lists a saved title belongs on. */
 export function GroupSheet({
   title,
   groups,
-  currentGroupId,
+  savedFor,
   onDone,
 }: {
   title: string;
-  groups: GroupOption[];
-  currentGroupId: string;
+  groups: Pick<GroupOption, "id" | "name">[];
+  /** The groups whose lists it is on now, chosen from the start. */
+  savedFor: string[];
   /** Null when closed without saving. */
   onDone: (groupIds: string[] | null) => void;
 }) {
   const [chosen, setChosen] = useState<Set<string>>(
-    () => new Set([currentGroupId]),
+    () => new Set(savedFor),
   );
 
   return (
     <>
-      <div className={styles.scrim} onClick={() => onDone(null)} />
       <div
-        className={`${styles.sheet} ${styles.sheetOpen}`}
+        className={`${styles.scrim} ${styles.overDetail}`}
+        onClick={() => onDone(null)}
+      />
+      <div
+        className={`${styles.sheet} ${styles.sheetOpen} ${styles.overDetail}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="group-title"
@@ -42,10 +46,12 @@ export function GroupSheet({
           </button>
         </div>
         <p>
-          Spara för vilka grupper? Nu sparad för{" "}
-          {groups.find((g) => g.id === currentGroupId)?.name ??
-            "den här gruppen"}
-          .
+          Spara för vilka grupper?
+          {savedFor.length > 0 &&
+            ` Nu sparad för ${groups
+              .filter((g) => savedFor.includes(g.id))
+              .map((g) => g.name)
+              .join(" och ")}.`}
         </p>
         <div className={styles.sheetRow}>
           {groups.map((g) => {

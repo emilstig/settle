@@ -322,3 +322,10 @@
 @media (prefers-reduced-motion: reduce) {
   .tonightChip { animation: none; }
 }
+
+/* A row in the detail view that opens a sheet rather than a link. */
+button.drow { width: 100%; background: none; border: 0; border-radius: 0; font: inherit; text-align: left; cursor: pointer; }
+
+/* "Med annan grupp" opens from the detail view, so it goes above it. */
+.scrim.overDetail { z-index: 14; }
+.sheet.overDetail { z-index: 15; }

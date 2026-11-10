@@ -205,11 +205,11 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  * Titles that must not be suggested now, per the domain rules. Facts about the
  * user apply in every group: disliked, dropped or already seen. Decisions about
  * the company apply in the group they were made in: "inte min grej" and the
- * group's own list. "Inte nu" and "Vet inte" are about the moment and hide a
- * title everywhere for 7 days.
+ * group's own list. "Inte nu" and "Kanske" (earlier "Vet inte") are about the
+ * moment and hide a title everywhere for 7 days.
  */
 /**
- * Titles the user turned down for now: "inte nu" and "vet inte" anywhere in
+ * Titles the user turned down for now: "inte nu" and "kanske" anywhere in
  * the last 7 days, "inte min grej" in this group, and what was swiped right
  * with this group tonight. Applies to every candidate, se igen titles included.
  */
@@ -219,13 +219,13 @@ export async function getDeclined(
 ): Promise<Set<string>> {
   const supabase = await createClient();
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const [notNow, notForUs, savedTonight] = await Promise.all([
+  const [notNow, notForUs, savedTonight, otherGroup] = await Promise.all([
     supabase
       .from("interactions")
       .select("tmdb_id, media_type")
       .eq("user_id", userId)
-      .in("action", ["left", "unsure"])
-      .or("reason.is.null,reason.neq.not_for_me")
+      .in("action", ["left", "unsure", "maybe"])
+      .or("reason.is.null,reason.not.in.(not_for_me,other_group)")
       .gte("created_at", weekAgo),
     // The session tells which group "inte min grej" was said in.
     supabase
@@ -245,12 +245,28 @@ export async function getDeclined(
       .eq("action", "right")
       .eq("sessions.group_id", groupId)
       .gte("created_at", eveningStart()),
+    // Saved for other groups from this group's deck: it rests here for 7
+    // days, but not in the groups it was saved for.
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type, sessions!inner(group_id)")
+      .eq("user_id", userId)
+      .eq("action", "left")
+      .eq("reason", "other_group")
+      .eq("sessions.group_id", groupId)
+      .gte("created_at", weekAgo),
   ]);
   if (notNow.error) throw notNow.error;
   if (notForUs.error) throw notForUs.error;
   if (savedTonight.error) throw savedTonight.error;
+  if (otherGroup.error) throw otherGroup.error;
   return new Set(
-    [...notNow.data, ...notForUs.data, ...savedTonight.data].map(key),
+    [
+      ...notNow.data,
+      ...notForUs.data,
+      ...savedTonight.data,
+      ...otherGroup.data,
+    ].map(key),
   );
 }
 
@@ -380,7 +396,7 @@ async function getOtherGroups(
       .from("interactions")
       .select("tmdb_id, media_type, sessions!inner(group_id)")
       .eq("user_id", userId)
-      .in("action", ["right", "left", "unsure"])
+      .in("action", ["right", "left", "unsure", "maybe"])
       .neq("sessions.group_id", groupId)
       .gte("created_at", since),
     supabase

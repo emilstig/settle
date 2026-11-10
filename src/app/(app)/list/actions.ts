@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { getGroups } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 
 const ref = z.object({
@@ -69,4 +70,62 @@ export async function setListInterest(
     { onConflict: "user_id,tmdb_id,media_type,group_id" },
   );
   if (error) throw error;
+}
+
+const refInput = z.object({ ref });
+
+/** The groups whose lists a title is on. */
+export async function listGroupsFor(
+  data: z.infer<typeof refInput>,
+): Promise<string[]> {
+  const user = await getCurrentUser();
+  const { ref: r } = refInput.parse(data);
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase
+    .from("watchlist")
+    .select("group_id")
+    .match({ user_id: user.id, ...r });
+  if (error) throw error;
+  return rows.map((w) => w.group_id as string);
+}
+
+const groupsInput = z.object({
+  ref,
+  groupIds: z.array(z.uuid()).min(1).max(10),
+});
+
+/**
+ * "Med annan grupp" in the detail view: the title ends up on exactly the
+ * chosen groups' lists. Added groups get "Vill se"; groups that keep it keep
+ * their interest.
+ */
+export async function setListGroups(data: z.infer<typeof groupsInput>) {
+  const user = await getCurrentUser();
+  const { ref: r, groupIds } = groupsInput.parse(data);
+  const owned = new Set((await getGroups()).map((g) => g.id));
+  const chosen = new Set(groupIds.filter((id) => owned.has(id)));
+  if (chosen.size === 0) throw new Error("No groups");
+  const before = new Set(await listGroupsFor({ ref: r }));
+  const supabase = await createClient();
+  const added = [...chosen].filter((id) => !before.has(id));
+  const removed = [...before].filter((id) => !chosen.has(id));
+  if (added.length) {
+    const { error } = await supabase.from("watchlist").insert(
+      added.map((group_id) => ({
+        user_id: user.id,
+        group_id,
+        ...r,
+        interest: "maybe",
+      })),
+    );
+    if (error) throw error;
+  }
+  if (removed.length) {
+    const { error } = await supabase
+      .from("watchlist")
+      .delete()
+      .match({ user_id: user.id, ...r })
+      .in("group_id", removed);
+    if (error) throw error;
+  }
 }

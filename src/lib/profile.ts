@@ -337,6 +337,8 @@ export async function buildGroupHistory(
 const GROUP_SHARE = 0.7;
 /** A right swipe with the group, and "inte vår grej" as a mild dislike. */
 const RIGHT_WEIGHT = 1;
+/** "Kanske": a hesitant yes. */
+const MAYBE_WEIGHT = 0.5;
 /**
  * A genre the group has turned down this often, and almost never wanted, is
  * left out of discover for the group, so the next title of the kind does not
@@ -374,7 +376,7 @@ export async function buildGroupTaste(
       )
       .eq("user_id", userId)
       .eq("sessions.group_id", group.id)
-      .or("action.eq.right,reason.eq.not_for_me")
+      .or("action.eq.right,action.eq.maybe,reason.eq.not_for_me")
       .gte("created_at", yearAgo)
       .order("created_at"),
     group.kind === "solo"
@@ -398,7 +400,12 @@ export async function buildGroupTaste(
   })[])
     latest.set(keyOf(s), {
       ref: s,
-      weight: s.action === "right" ? RIGHT_WEIGHT : NOT_FOR_ME_WEIGHT,
+      weight:
+        s.action === "right"
+          ? RIGHT_WEIGHT
+          : s.action === "maybe"
+            ? MAYBE_WEIGHT
+            : NOT_FOR_ME_WEIGHT,
       at: s.created_at,
     });
   for (const r of ratingsRes.data as (Ref & {
