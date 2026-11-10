@@ -7,6 +7,7 @@ import {
   DECISION_ORDER,
   DECISION_WORD,
   DecisionIcon,
+  ListIcon,
 } from "./decision-icons";
 import type { Dir } from "./swipe-card";
 import styles from "./find.module.css";
@@ -35,9 +36,9 @@ export function DetailView({
   imdbId: string | null;
   trailerLoading: boolean;
   /**
-   * The decisions that fit where it was opened: the deck has them all,
-   * Ikväll only "Välj den här" (it is saved already), Att se its list
-   * actions (see `list`), the end view none.
+   * The decisions that fit where it was opened: the deck its four, Ikväll
+   * only "Välj den här" (it is saved already), Att se its list actions (see
+   * `list`), the end view none.
    */
   actions: "deck" | "choose" | "list" | "none";
   /** It is tonight's choice already. */
@@ -47,19 +48,22 @@ export function DetailView({
   /** "Välj den här": sets tonight's choice. */
   onChoose: () => void;
   /**
-   * From Att se: take it off the list, toggle "Vill gärna", or put it in
-   * Ikväll (or take it out) to compare with the evening's other candidates.
+   * From Att se. Ta bort and Sett take it out of the view; Vill gärna and
+   * Grupper change a state and leave the view open. The primary button is
+   * the evening's next step: "Spara till ikväll", then "Välj den här".
    */
   list?: {
     wanted: boolean;
     onRemove: () => void;
     onWant?: () => void;
+    onSeen: () => void;
+    onGroups: () => void;
     tonight: boolean;
     onTonight: () => void;
   };
   /**
-   * A text link under "Välj den här" that opens the group sheet: "Med annan
-   * grupp" in Att se, "Spara för en annan grupp" in the deck.
+   * The deck's "Spara för en annan grupp": a text link where the primary
+   * button would be, since ♥ Vill se is the deck's step towards tonight.
    */
   groupsRow?: { label: string; onClick: () => void };
 }) {
@@ -183,31 +187,49 @@ export function DetailView({
               />
             )}
           </ul>
-          {/* The choice rides above the bar while reading and rests after
-              the links, so it is there after a look at IMDb too. The group
-              link is a smaller second step under it. */}
-          {actions !== "none" && (
-            <>
-              <div className={styles.dstick}>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={onChoose}
-                  disabled={chosen}
-                >
-                  {chosen ? "Vald för ikväll" : "Välj den här"}
-                </button>
-              </div>
-              {groupsRow && (
-                <button
-                  type="button"
-                  className={styles.dgroupsLink}
-                  onClick={groupsRow.onClick}
-                >
-                  {groupsRow.label}
-                </button>
+          {/* The evening's next step rides above the bar while reading and
+              rests after the links, so it is there after a look at IMDb
+              too. "Välj den här" only for a title in Ikväll: choosing is the
+              last step, after the shortlist. */}
+          {actions === "choose" && (
+            <div className={styles.dstick}>
+              <button
+                type="button"
+                className="primary"
+                onClick={onChoose}
+                disabled={chosen}
+              >
+                {chosen ? "Vald för ikväll" : "Välj den här"}
+              </button>
+            </div>
+          )}
+          {actions === "list" && list && (
+            <div className={styles.dstick}>
+              {list.tonight && !chosen && (
+                <p className={styles.dstate}>Sparad till ikväll</p>
               )}
-            </>
+              <button
+                type="button"
+                className="primary"
+                onClick={list.tonight ? onChoose : list.onTonight}
+                disabled={chosen}
+              >
+                {chosen
+                  ? "Vald för ikväll"
+                  : list.tonight
+                    ? "Välj den här"
+                    : "Spara till ikväll"}
+              </button>
+            </div>
+          )}
+          {actions === "deck" && groupsRow && (
+            <button
+              type="button"
+              className={styles.dgroupsLink}
+              onClick={groupsRow.onClick}
+            >
+              {groupsRow.label}
+            </button>
           )}
         </div>
       </div>
@@ -224,26 +246,29 @@ export function DetailView({
         </div>
       )}
       {actions === "list" && list && (
-        <div className={styles.dbar}>
+        <div className={`${styles.dbar} ${styles.decide}`}>
           <button type="button" onClick={list.onRemove}>
-            Ta bort
+            <ListIcon kind="remove" />
+            <span>Ta bort</span>
           </button>
           {list.onWant && (
             <button
               type="button"
               aria-pressed={list.wanted}
+              className={list.wanted ? styles.don : undefined}
               onClick={list.onWant}
             >
-              {list.wanted ? "✓ Vill gärna" : "Vill gärna"}
+              <ListIcon kind="want" on={list.wanted} />
+              <span>Vill gärna</span>
             </button>
           )}
-          <button
-            type="button"
-            aria-pressed={list.tonight}
-            aria-label="Ikväll"
-            onClick={list.onTonight}
-          >
-            {list.tonight ? "✓ Ikväll" : "+ Ikväll"}
+          <button type="button" onClick={list.onSeen}>
+            <ListIcon kind="seen" />
+            <span>Sett</span>
+          </button>
+          <button type="button" onClick={list.onGroups}>
+            <ListIcon kind="groups" />
+            <span>Grupper</span>
           </button>
         </div>
       )}

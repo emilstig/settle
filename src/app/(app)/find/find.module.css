@@ -284,7 +284,11 @@
 .overlay > .dwrap { padding-bottom: calc(var(--dbar-h) + 16px); }
 .dstick { position: sticky; bottom: var(--dbar-h); z-index: 1; display: grid; margin-top: -16px; padding: 28px 0 10px; background: linear-gradient(to bottom, transparent, var(--bg) 22px); }
 .dstick :global(.primary):disabled { opacity: 0.6; }
-.dgroupsLink { margin-top: -12px; align-self: center; border: 0; background: none; padding: 8px 10px; font-size: 15px; font-weight: 600; color: var(--mute); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* Three buttons when a title is already seen (no Vill gärna). */
+.dbar.decide:has(> button:nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 340px; }
+.dbar.decide .don { color: var(--bg); background: var(--ink); border-color: var(--ink); }
+.dstate { margin: 0 0 8px; text-align: center; font-size: 14px; font-weight: 600; color: var(--mute); }
+.dgroupsLink { margin-top: 8px; align-self: center; border: 0; background: none; padding: 8px 10px; font-size: 15px; font-weight: 600; color: var(--mute); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .card, .sheet { transition: none; }
