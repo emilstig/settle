@@ -34,14 +34,23 @@ export function SeenSheet({
   groups,
   onDone,
   rewatchGroupIds = [],
+  only,
+  rating,
 }: {
   title: string;
   groups: GroupOption[];
   onDone: (answers: SeenAnswers) => void;
   /** Groups where it is already on the se igen list: shown as chosen. */
   rewatchGroupIds?: string[];
+  /**
+   * One of the steps on its own, for a title already seen (Historik): the
+   * rating, or se igen with whom. Done after that step.
+   */
+  only?: "rating" | "rewatch";
+  /** The rating it has now, shown as chosen when `only` is "rating". */
+  rating?: number | null;
 }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(only === "rewatch" ? STEPS.length : 0);
   const [answers, setAnswers] = useState<SeenAnswers>({
     rating: null,
     rewatchGroupIds: [],
@@ -79,14 +88,21 @@ export function SeenSheet({
         aria-labelledby="seen-title"
       >
         <div className={styles.sheetHead}>
-          <div className={styles.dots}>
-            {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-              <span key={i} className={i <= step ? styles.dotOn : undefined} />
-            ))}
-            <small>
-              Steg {step + 1} av {TOTAL_STEPS}
-            </small>
-          </div>
+          {only ? (
+            <span />
+          ) : (
+            <div className={styles.dots}>
+              {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+                <span
+                  key={i}
+                  className={i <= step ? styles.dotOn : undefined}
+                />
+              ))}
+              <small>
+                Steg {step + 1} av {TOTAL_STEPS}
+              </small>
+            </div>
+          )}
           <button
             type="button"
             className={styles.sheetClose}
@@ -106,7 +122,19 @@ export function SeenSheet({
                 <button
                   key={label}
                   type="button"
+                  className={
+                    only === "rating" && rating === value
+                      ? styles.on
+                      : undefined
+                  }
+                  aria-pressed={
+                    only === "rating" ? rating === value : undefined
+                  }
                   onClick={() => {
+                    if (only === "rating") {
+                      onDone({ rating: value, rewatchGroupIds: null });
+                      return;
+                    }
                     setAnswers((a) => ({ ...a, [current.key]: value }));
                     setStep((s) => s + 1);
                   }}
@@ -115,13 +143,15 @@ export function SeenSheet({
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              className={styles.sheetSkip}
-              onClick={() => setStep((s) => s + 1)}
-            >
-              Hoppa över steget
-            </button>
+            {!only && (
+              <button
+                type="button"
+                className={styles.sheetSkip}
+                onClick={() => setStep((s) => s + 1)}
+              >
+                Hoppa över steget
+              </button>
+            )}
           </>
         ) : (
           <>

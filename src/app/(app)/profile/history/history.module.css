@@ -1,0 +1,14 @@
+/* "Visa alla": all of Historik, one group of rows per shelf. */
+.group {
+  display: grid;
+  gap: 8px;
+  scroll-margin-top: 12px;
+}
+.group h3 {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.group h3 span {
+  color: var(--mute);
+  font-weight: 400;
+}

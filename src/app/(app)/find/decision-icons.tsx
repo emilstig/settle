@@ -137,3 +137,55 @@ export function ListIcon({
     </svg>
   );
 }
+
+/**
+ * The detail view's bar from Historik, in the same line style: a star for
+ * the rating (filled when rated), two arrows round for Se igen, the eye
+ * struck through for Inte sett and a thumb down for Inte min grej.
+ */
+export function HistoryIcon({
+  kind,
+  on = false,
+}: {
+  kind: "rate" | "rewatch" | "unseen" | "notForMe";
+  on?: boolean;
+}) {
+  if (kind === "rate") return <ListIcon kind="want" on={on} />;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {kind === "rewatch" && (
+        <>
+          <path d="M20 11a8 8 0 0 0-14.3-4.9L4 8" />
+          <path d="M4 3v5h5" />
+          <path d="M4 13a8 8 0 0 0 14.3 4.9L20 16" />
+          <path d="M20 21v-5h-5" />
+        </>
+      )}
+      {kind === "unseen" && (
+        <>
+          <path d="M9.9 5.2A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.6 3.5M6.5 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6" />
+          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+          <path d="m3 3 18 18" />
+        </>
+      )}
+      {kind === "notForMe" && (
+        <>
+          <path
+            fill={on ? "currentColor" : "none"}
+            d="M16 14V3H7.5a2 2 0 0 0-2 1.6l-1.5 7.6A2 2 0 0 0 6 14.6h4.5l-.8 3.9A2 2 0 0 0 11.6 21h.4z"
+          />
+          <path d="M16 3h3.5a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H16" />
+        </>
+      )}
+    </svg>
+  );
+}
