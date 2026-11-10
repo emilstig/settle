@@ -50,7 +50,7 @@ import {
   DecisionIcon,
   UndoIcon,
 } from "./decision-icons";
-import { AppHeader, GroupPicker } from "./group-picker";
+import { AppHeader, GroupName, GroupPicker } from "./group-picker";
 import { FIND_AGAIN } from "@/components/tab-bar/tab-bar";
 import { readGroup, rememberGroup } from "@/lib/group-cookie";
 import { eveningStart } from "@/lib/evening";
@@ -347,12 +347,6 @@ export function Finder({
     } finally {
       setStarting(false);
     }
-  }
-
-  function switchGroup(id: string) {
-    setGroupId(id);
-    // In the deck a new group is a new deck, with the same mood.
-    if (phase === "deck") void start(id);
   }
 
   // Keep Hitta for when the user comes back from another tab.
@@ -819,7 +813,7 @@ export function Finder({
     <GroupPicker
       groups={groups}
       groupId={groupId}
-      onGroup={switchGroup}
+      onGroup={setGroupId}
       onAge={(id, age) => {
         setGroups((gs) =>
           gs.map((g) => (g.id === id ? { ...g, youngest_age: age } : g)),
@@ -830,11 +824,6 @@ export function Finder({
         });
       }}
       title="Vem tittar ikväll?"
-      note={
-        phase === "deck"
-          ? "Förslagen börjar om för gruppen du väljer."
-          : undefined
-      }
     />
   );
 
@@ -896,15 +885,19 @@ export function Finder({
           )
         }
       >
+        {/* The arrow and the group are one back button: the deck is for
+            one group, and switching is done from the start view. */}
         <button
           type="button"
-          className={styles.headBack}
+          className={styles.headBackGroup}
           aria-label="Tillbaka till start"
           onClick={leaveDeck}
         >
-          <BackIcon />
+          <span className={styles.headBackIcon}>
+            <BackIcon />
+          </span>
+          <GroupName group={groups.find((g) => g.id === groupId)} />
         </button>
-        {picker}
       </AppHeader>
 
       <div ref={deckRef} className={styles.deck}>
