@@ -477,12 +477,21 @@ export async function swipeRight(
     null,
     from ?? null,
   );
-  // A title already on the list as "vill gärna" or "se igen" keeps that.
+  // A title already on the list as "vill gärna" or "se igen" keeps that. A
+  // seen title wanted again is "se igen" for the group.
+  const { data: seen, error: seenError } = await (
+    await createClient()
+  )
+    .from("watch_log")
+    .select("tmdb_id")
+    .match({ user_id: user.id, ...r })
+    .maybeSingle();
+  if (seenError) throw seenError;
   await upsertWatchlist(
     user.id,
     groupId,
     r,
-    prev === "want" || prev === "rewatch" ? prev : "maybe",
+    prev === "want" || prev === "rewatch" ? prev : seen ? "rewatch" : "maybe",
   );
   return {
     ref: r,

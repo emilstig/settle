@@ -76,6 +76,8 @@ export type Card = {
    * right-swipe rate can be compared per source.
    */
   source: CardSource | null;
+  /** Seen before and rested (see getRestedSeen): the card says "Se igen". */
+  seen?: boolean;
 };
 /** "mood": named by Claude for the free text (see suggest/style.ts). */
 export type CardSource = "popular" | "similar" | "pick" | "mood";
@@ -272,13 +274,75 @@ export async function getDeclined(
   );
 }
 
+/** How long a seen title rests before the deck shows it again, by rating. */
+const REST_DAYS: Record<number, number> = { 3: 30, 2: 61, 1: 122, 0: 122 };
+const DAY_MS = 24 * 3600 * 1000;
+
+/**
+ * Seen titles whose rest is over, with their rating (0 when unrated): 1
+ * month after "älskar", 2 after "gillar mycket", 4 after "gillar" or no
+ * rating, counted from the latest stand on the title (the rating, Sett, or a
+ * swipe). Disliked and dropped titles never rest their way back.
+ */
+export async function getRestedSeen(
+  userId: string,
+  now = Date.now(),
+): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const since = new Date(now - REST_DAYS[0] * DAY_MS).toISOString();
+  const [seen, ratings, stands] = await Promise.all([
+    supabase
+      .from("watch_log")
+      .select("tmdb_id, media_type, status, updated_at")
+      .eq("user_id", userId),
+    supabase
+      .from("ratings")
+      .select("tmdb_id, media_type, rating, updated_at")
+      .eq("user_id", userId),
+    supabase
+      .from("interactions")
+      .select("tmdb_id, media_type, created_at")
+      .eq("user_id", userId)
+      .in("action", ["right", "left", "seen", "maybe", "unsure"])
+      .gte("created_at", since),
+  ]);
+  for (const r of [seen, ratings, stands]) if (r.error) throw r.error;
+
+  const rating = new Map<string, { rating: number; at: number }>();
+  for (const r of ratings.data!)
+    rating.set(key(r), { rating: r.rating, at: Date.parse(r.updated_at) });
+  const lastStand = new Map<string, number>();
+  for (const i of stands.data!) {
+    const at = Date.parse(i.created_at);
+    if (at > (lastStand.get(key(i)) ?? 0)) lastStand.set(key(i), at);
+  }
+
+  const out = new Map<string, number>();
+  for (const w of seen.data!) {
+    const k = key(w);
+    const r = rating.get(k);
+    if (w.status === "dropped" || (r && r.rating < 0)) continue;
+    const score = r?.rating ?? 0;
+    const last = Math.max(
+      Date.parse(w.updated_at),
+      r?.at ?? 0,
+      lastStand.get(k) ?? 0,
+    );
+    if (now - last >= (REST_DAYS[score] ?? REST_DAYS[0]) * DAY_MS)
+      out.set(k, score);
+  }
+  return out;
+}
+
 /**
  * Everything the deck leaves out: disliked, seen, turned down (see
- * getDeclined) and anything already on this group's list.
+ * getDeclined) and anything already on this group's list. Seen titles in
+ * `rested` are let through, for the deck to take a few per page.
  */
 export async function getExcluded(
   userId: string,
   groupId: string,
+  rested: ReadonlySet<string> = new Set(),
 ): Promise<Set<string>> {
   const supabase = await createClient();
   const [ratings, seen, declined, listed] = await Promise.all([
@@ -301,8 +365,8 @@ export async function getExcluded(
   for (const r of [ratings, seen, listed]) if (r.error) throw r.error;
 
   const out = new Set<string>(declined);
-  for (const r of [...ratings.data!, ...seen.data!, ...listed.data!])
-    out.add(key(r));
+  for (const r of [...ratings.data!, ...listed.data!]) out.add(key(r));
+  for (const r of seen.data!) if (!rested.has(key(r))) out.add(key(r));
   return out;
 }
 
@@ -458,6 +522,8 @@ async function collectionsOf(keys: string[]): Promise<Set<number>> {
 /** What the rules need about the user, read once for several pages. */
 export type DeckContext = {
   excluded: Set<string>;
+  /** Seen titles whose rest is over; not in `excluded`, but capped per page. */
+  rested: Set<string>;
   other: Awaited<ReturnType<typeof getOtherGroups>>;
 };
 
@@ -465,11 +531,24 @@ export async function getDeckContext(
   userId: string,
   groupId: string,
 ): Promise<DeckContext> {
-  const [excluded, other] = await Promise.all([
-    getExcluded(userId, groupId),
+  const [rested, other] = await Promise.all([
+    getRestedSeen(userId).then((m) => new Set(m.keys())),
     getOtherGroups(userId, groupId),
   ]);
-  return { excluded, other };
+  return {
+    excluded: await getExcluded(userId, groupId, rested),
+    rested,
+    other,
+  };
+}
+
+/**
+ * Rested seen titles a deck page takes: a few, more when the mood is safe,
+ * none when it asks for something new.
+ */
+export function restedPerPage(filters: DeckFilters): number {
+  if (filters.parsed?.novelty === "high") return 0;
+  return filters.parsed?.comfort ? 4 : 2;
 }
 
 /** One page of cards for a session: discover, refresh the cache, apply the rules. */
@@ -518,7 +597,7 @@ export async function loadDeckPage({
     .flat()
     .filter((h) => h !== undefined);
 
-  const [{ excluded, other }, rows, genres] = await Promise.all([
+  const [{ excluded, rested, other }, rows, genres] = await Promise.all([
     context ?? getDeckContext(userId, groupId),
     getTitles(hits),
     getGenreNames(),
@@ -537,6 +616,7 @@ export async function loadDeckPage({
         laneTypes.has(h.media_type) &&
         !hitKeys.has(key(h)) &&
         !excluded.has(key(h)) &&
+        !rested.has(key(h)) &&
         !skipSet.has(key(h)),
     )
     .slice(0, LANE_LOOKUP);
@@ -557,6 +637,9 @@ export async function loadDeckPage({
     })
     .slice(0, LANE_PER_PAGE);
 
+  // Seen titles whose rest is over: a few per page, so the deck stays
+  // mostly about something new.
+  let restedLeft = restedPerPage(filters);
   const kept = hits.flatMap((h) => {
     const k = key(h);
     const row = rows.get(k);
@@ -566,6 +649,10 @@ export async function loadDeckPage({
     if (filters.maxCert !== null) {
       const cert = certNumber(row.certification_se);
       if (cert !== null && cert > filters.maxCert) return [];
+    }
+    if (rested.has(k)) {
+      if (restedLeft === 0) return [];
+      restedLeft--;
     }
     return [row];
   });
@@ -595,6 +682,7 @@ export async function loadDeckPage({
     (row): Card => ({
       ...toCard(row, mine, genres, other.savedFor.get(key(row)) ?? []),
       source: fromLane.has(key(row)) ? "similar" : "popular",
+      ...(rested.has(key(row)) ? { seen: true } : {}),
     }),
   );
 

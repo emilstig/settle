@@ -4,6 +4,7 @@ import {
   certNumber,
   getDeclined,
   getExcluded,
+  getRestedSeen,
   key,
   toCard,
   type Card,
@@ -28,7 +29,6 @@ const FILM_TO_TV: Record<number, number> = {
   12: 10759, // Äventyr → Action & Adventure
   10752: 10768, // Krig → War & Politics
 };
-const SIX_MONTHS_MS = 182 * 24 * 3600 * 1000;
 const NEW_SINCE_MS = 548 * 24 * 3600 * 1000; // about 18 months
 
 type Context = {
@@ -155,7 +155,7 @@ type Ref = { tmdb_id: number; media_type: MediaType };
  * do not come back every time:
  * - the group's list, "vill gärna" before "vill se" (prompt 2 weighs it most)
  * - se igen for the group, any night
- * - when the mood is safe, loved titles not rated in the last 6 months
+ * - when the mood is safe, loved titles whose rest is over (getRestedSeen)
  * Turned down titles are left out, and so are titles answered "Sett" in the
  * last week, since the user just took a stand on them.
  */
@@ -168,7 +168,6 @@ export async function listCandidates(
   allowSeen = true,
 ): Promise<Card[]> {
   const supabase = await createClient();
-  const sixMonthsAgo = new Date(Date.now() - SIX_MONTHS_MS).toISOString();
   const weekAgo = new Date(Date.now() - SEEN_PAUSE_MS).toISOString();
   const [list, loved, recentSeen, declined] = await Promise.all([
     supabase
@@ -177,12 +176,15 @@ export async function listCandidates(
       .eq("user_id", ctx.userId)
       .eq("group_id", ctx.groupId),
     comfort
-      ? supabase
-          .from("ratings")
-          .select("tmdb_id, media_type")
-          .eq("user_id", ctx.userId)
-          .eq("rating", 3)
-          .lt("updated_at", sixMonthsAgo)
+      ? getRestedSeen(ctx.userId).then((rested) => ({
+          data: [...rested]
+            .filter(([, rating]) => rating === 3)
+            .map(([k]) => {
+              const [media_type, id] = k.split(":");
+              return { tmdb_id: Number(id), media_type } as Ref;
+            }),
+          error: null,
+        }))
       : Promise.resolve({ data: [], error: null }),
     supabase
       .from("interactions")

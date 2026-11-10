@@ -67,13 +67,16 @@ export function CardFace({
       <div className={styles.cardShade} />
       {card.year && <span className={styles.yr}>{card.year}</span>}
       <div className={styles.cardText}>
-        {(card.slot !== null || card.savedFor.length > 0) && (
+        {(card.slot !== null || card.seen || card.savedFor.length > 0) && (
           <div className={styles.tags}>
             {/* The top picks, so it is clear why the card has a reason. */}
             {card.slot !== null && (
-              <span className={`${styles.saved} ${styles.topTag}`}>Toppval</span>
+              <span className={`${styles.saved} ${styles.topTag}`}>
+                Toppval
+              </span>
             )}
-            {card.slot === "rewatch" && (
+            {/* Asked for again, or seen before and rested. */}
+            {(card.slot === "rewatch" || card.seen) && (
               <span className={styles.saved}>Se igen</span>
             )}
             {card.savedFor.length > 0 && (
