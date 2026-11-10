@@ -1,17 +1,31 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Attribution } from "@/components/attribution";
 import { getCurrentUser } from "@/lib/auth";
+import { countHistory, getHistoryRefs } from "@/lib/history";
 import { buildProfile } from "@/lib/profile";
+import { getUserProviderIds } from "@/lib/providers";
+import { getGenreNames } from "@/lib/tmdb/genres";
+import { getSwedishProviders } from "@/lib/tmdb/providers";
 import { signOut } from "../actions";
 import { AppHeader } from "../find/group-picker";
 import home from "../home.module.css";
+import { TOP_GENRES, tasteGenres } from "./genres";
+import { Chevron, MenuIcon } from "./icons";
 import styles from "./profile.module.css";
 
-export const metadata: Metadata = { title: "Din smakprofil" };
+export const metadata: Metadata = { title: "Profil" };
 
-/** Shows the text that becomes {{PROFILE}} in prompt 2, so it can be checked by eye. */
+const listSv = new Intl.ListFormat("sv", { type: "conjunction" });
+/** Logos on the Tjänster row before "+N". */
+const LOGOS = 5;
+
+/**
+ * Profil as a menu: Din smak (the conclusion), Historik (the evidence) and
+ * Tjänster, each with a line of real data.
+ */
 export default function ProfilePage() {
   return (
     <main className={home.main}>
@@ -20,22 +34,13 @@ export default function ProfilePage() {
       <AppHeader>
         <h1 className="logo">Profil</h1>
       </AppHeader>
-      <h2 className="q">Det här har appen lärt sig</h2>
-      <Suspense fallback={<p className={styles.lead}>Läser din smak …</p>}>
-        <Profile />
+      <Suspense fallback={<Menu />}>
+        <MenuWithData />
       </Suspense>
-      <Link href="/calibrate" className={`primary ${styles.button}`}>
-        Kalibrera
-      </Link>
       <footer className={styles.footer}>
-        <div className={home.links}>
-          <Link href="/onboarding/services" className="link">
-            Ändra tjänster
-          </Link>
-          <form action={signOut}>
-            <button className="link">Logga ut</button>
-          </form>
-        </div>
+        <form action={signOut}>
+          <button className="link">Logga ut</button>
+        </form>
         <p className="logo" aria-hidden="true">
           Settle
         </p>
@@ -45,19 +50,123 @@ export default function ProfilePage() {
   );
 }
 
-async function Profile() {
+async function MenuWithData() {
   const user = await getCurrentUser();
-  const profile = await buildProfile(user.id);
+  const [profile, names, refs, providerIds, providers] = await Promise.all([
+    buildProfile(user.id),
+    getGenreNames(),
+    getHistoryRefs(user.id),
+    getUserProviderIds(),
+    getSwedishProviders(),
+  ]);
+  const liked = tasteGenres(profile.affinity, names)
+    .filter((g) => g.value > 0)
+    .slice(0, TOP_GENRES)
+    .map((g) => g.name);
+  const { seen, disliked } = countHistory(refs);
+  const mine = new Set(providerIds);
+  const services = providers.filter((p) => mine.has(p.id));
+
   return (
-    <>
-      <p className={styles.lead}>
-        Så här beskrivs din smak när Settle väljer förslag. Den bygger på{" "}
-        {profile.ratingCount} egna betyg, från kalibreringen och när du tittar
-        själv.
-        {profile.groupRatingCount > 0 &&
-          ` ${profile.groupRatingCount} betyg med andra grupper räknas som gruppernas historik.`}
-      </p>
-      <pre className={styles.profile}>{profile.text}</pre>
-    </>
+    <Menu
+      taste={
+        liked.length
+          ? `Gillar mest: ${listSv.format(liked)}`
+          : profile.ratingCount
+            ? "Betygsätt fler för att se din smak"
+            : "Inga betyg än"
+      }
+      history={
+        seen + disliked > 0
+          ? [`${seen} sett`, disliked ? `${disliked} ogillade` : null]
+              .filter(Boolean)
+              .join(" · ")
+          : "Inget sett än"
+      }
+      services={
+        services.length ? (
+          <span className={styles.logos}>
+            {services
+              .slice(0, LOGOS)
+              .map((p) =>
+                p.logoPath ? (
+                  <Image
+                    key={p.id}
+                    src={`https://image.tmdb.org/t/p/w92${p.logoPath}`}
+                    alt={p.name}
+                    width={24}
+                    height={24}
+                  />
+                ) : (
+                  <span key={p.id}>{p.name}</span>
+                ),
+              )}
+            {services.length > LOGOS && <span>+{services.length - LOGOS}</span>}
+          </span>
+        ) : (
+          "Inga tjänster valda"
+        )
+      }
+    />
+  );
+}
+
+/** The rows; without data while it loads, so the page does not jump. */
+function Menu({
+  taste,
+  history,
+  services,
+}: {
+  taste?: ReactNode;
+  history?: ReactNode;
+  services?: ReactNode;
+}) {
+  return (
+    <nav aria-label="Profil">
+      <ul className={styles.menu}>
+        <Row href="/profile/taste" icon="taste" title="Din smak" sub={taste} />
+        <Row
+          href="/profile/history"
+          icon="history"
+          title="Historik"
+          sub={history}
+        />
+        <Row
+          href="/onboarding/services"
+          icon="services"
+          title="Tjänster"
+          sub={services}
+        />
+      </ul>
+    </nav>
+  );
+}
+
+function Row({
+  href,
+  icon,
+  title,
+  sub,
+}: {
+  href: string;
+  icon: "taste" | "history" | "services";
+  title: string;
+  sub?: ReactNode;
+}) {
+  return (
+    <li>
+      <Link href={href} className={styles.row}>
+        <span className={styles.rowIcon}>
+          <MenuIcon kind={icon} />
+        </span>
+        <span className={styles.rowText}>
+          <strong>{title}</strong>
+          <span>{sub ?? " "}</span>
+        </span>
+        <span className={styles.chevron}>
+          <Chevron />
+        </span>
+      </Link>
+    </li>
   );
 }

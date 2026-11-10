@@ -1,5 +1,153 @@
-.lead { color: var(--mute); font-size: 15px; line-height: 1.4; }
+.lead {
+  color: var(--mute);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.lead a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* Profil: one panel of rows, each to a page of its own. */
+.menu {
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.menu li + li {
+  border-top: 1px solid var(--line);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px 10px 12px 14px;
+}
+.row:active {
+  background: var(--bg);
+}
+.rowIcon {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+.rowIcon svg,
+.chevron svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.rowText strong {
+  font-size: 17px;
+  font-weight: 600;
+}
+.rowText > span {
+  color: var(--mute);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chevron {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--mute);
+}
+.logos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.logos img {
+  border-radius: 6px;
+}
+
+/* Din smak: a grid of genre tiles. */
+.tiles {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.tile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.tileHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tileHead svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+.tileHead strong {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink);
+}
+.tile.low .bar span {
+  background: var(--mute);
+}
+.tag {
+  font-size: 13px;
+  color: var(--mute);
+}
+.tile.top .tag {
+  color: var(--ink);
+  font-weight: 600;
+}
+.taste {
+  display: grid;
+  gap: 12px;
+}
+.taste > .actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.taste > .actions a {
+  text-align: center;
+}
+.asText summary {
+  cursor: pointer;
+  color: var(--mute);
+  font-size: 15px;
+  padding: 6px 0;
+}
 .profile {
+  margin-top: 6px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -9,7 +157,18 @@
   line-height: 1.5;
   white-space: pre-wrap;
 }
-.button { text-align: center; }
-/* Links, the name and the credits at the bottom, where the logo used to be at the top. */
-.footer { display: grid; gap: 10px; margin-top: 24px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-.footer :global(.logo) { font-size: 18px; margin-top: 8px; }
+
+/* The logo and the credits at the bottom, where the logo used to be at the top. */
+.footer {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding: 24px 0 calc(16px + env(safe-area-inset-bottom));
+}
+.footer form {
+  margin-left: -6px;
+}
+.footer :global(.logo) {
+  font-size: 18px;
+  margin-top: 8px;
+}
