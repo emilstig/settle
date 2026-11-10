@@ -14,11 +14,17 @@ import {
   tonight as getTonight,
 } from "../find-actions";
 import { DetailView } from "../find/detail-view";
+import { GroupSheet } from "../find/group-sheet";
 import { Toast } from "../find/toast";
 import type { ToastButton, ToastState } from "../find/types";
 import { useBackClose } from "../find/use-back-close";
 import find from "../find/find.module.css";
-import { removeFromList, setListInterest } from "./actions";
+import {
+  listGroupsFor,
+  removeFromList,
+  setListGroups,
+  setListInterest,
+} from "./actions";
 import styles from "./list.module.css";
 
 type Size = "s" | "m" | "l";
@@ -126,6 +132,11 @@ export function ListView({
   } | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
+  // "Med annan grupp": the title and the groups it is saved for now.
+  const [moving, setMoving] = useState<{
+    item: ListItem;
+    savedFor: string[];
+  } | null>(null);
   const group = groups.find((g) => g.id === groupId);
   // What is in Ikväll with the group, so the detail view can say so.
   const [tonightKeys, setTonightKeys] = useState<Set<string>>(new Set());
@@ -145,6 +156,7 @@ export function ListView({
 
   useBackClose(full !== null, () => setFull(null));
   useBackClose(detail !== null, () => setDetail(null));
+  useBackClose(moving !== null, () => setMoving(null));
 
   const showToast = (text: string, buttons: ToastButton[] = [], ms = 2200) => {
     setToast({ id: ++toastId.current, text, buttons, ms });
@@ -252,6 +264,38 @@ export function ListView({
     } catch (e) {
       console.error(e);
       flip(was);
+      showToast("Det gick inte att spara");
+    }
+  }
+
+  function openGroups(item: ListItem) {
+    listGroupsFor({ ref: refOf(item) })
+      .then((savedFor) => setMoving({ item, savedFor }))
+      .catch((e) => {
+        console.error(e);
+        showToast("Det gick inte att hämta grupperna");
+      });
+  }
+
+  async function finishGroups(groupIds: string[] | null) {
+    if (!moving) return;
+    const { item } = moving;
+    setMoving(null);
+    if (!groupIds) return;
+    try {
+      await setListGroups({ ref: refOf(item), groupIds });
+      // Off this group's list: it leaves the shelves here too.
+      if (!groupIds.includes(groupId)) {
+        setItems((list) => list.filter((i) => keyOf(i) !== keyOf(item)));
+        setDetail(null);
+      }
+      const names = groups
+        .filter((g) => groupIds.includes(g.id))
+        .map((g) => g.name);
+      showToast(`Sparad för ${names.join(" och ")}`);
+      router.refresh();
+    } catch (e) {
+      console.error(e);
       showToast("Det gick inte att spara");
     }
   }
@@ -500,6 +544,20 @@ export function ListView({
             tonight: tonightKeys.has(keyOf(detail.item)),
             onTonight: () => void toggleTonight(detail.item),
           }}
+          groupsRow={{
+            label: "Med annan grupp",
+            hint: "Välj vilka gruppers listor den ligger på",
+            onClick: () => openGroups(detail.item),
+          }}
+        />
+      )}
+
+      {moving && (
+        <GroupSheet
+          title={moving.item.title}
+          groups={groups}
+          savedFor={moving.savedFor}
+          onDone={(ids) => void finishGroups(ids)}
         />
       )}
 

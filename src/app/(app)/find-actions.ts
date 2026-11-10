@@ -317,7 +317,7 @@ async function swipedSinceLastPicks(sessionId: string): Promise<number> {
     .from("interactions")
     .select("*", { count: "exact", head: true })
     .eq("session_id", sessionId)
-    .in("action", ["right", "left", "unsure", "seen"])
+    .in("action", ["right", "left", "unsure", "maybe", "seen"])
     .gte("created_at", last.created_at);
   if (countError) throw countError;
   return count ?? 0;
@@ -398,8 +398,15 @@ async function logInteraction(
   userId: string,
   sessionId: string | null,
   r: Ref,
-  action: "right" | "left" | "seen" | "open_detail" | "undo" | "unsure",
-  reason: "not_now" | "not_for_me" | "seen" | null = null,
+  action:
+    | "right"
+    | "left"
+    | "seen"
+    | "open_detail"
+    | "undo"
+    | "unsure"
+    | "maybe",
+  reason: "not_now" | "not_for_me" | "seen" | "other_group" | null = null,
   from: CardSource | null = null,
 ): Promise<number> {
   const supabase = await createClient();
@@ -481,15 +488,6 @@ export async function swipeRight(
   };
 }
 
-/** "Vill gärna" on the toast after a right swipe. */
-export async function setInterest(
-  input: z.infer<typeof swipeSchema> & { interest: "maybe" | "want" },
-) {
-  const user = await getCurrentUser();
-  const { groupId, ref: r } = swipeSchema.parse(input);
-  await upsertWatchlist(user.id, groupId, r, interest.parse(input.interest));
-}
-
 /** Left: no. Starts as "inte nu"; the reason chips can change it. */
 export async function swipeLeft(input: {
   sessionId: string;
@@ -510,74 +508,80 @@ export async function swipeLeft(input: {
   return { ref: r, sessionId, interactionIds: [id], watchlist: [] };
 }
 
-/** Down: "Vet inte". No opinion yet; hidden for 7 days like "inte nu". */
-export async function swipeDown(input: {
-  sessionId: string;
-  ref: Ref;
-  source?: CardSource | null;
-}): Promise<Undo> {
+/**
+ * Down: "Kanske". Interesting, but not tonight: lands on the group's list as
+ * "maybe" without joining Ikväll, and rests in the deck for 7 days.
+ */
+export async function swipeDown(
+  input: z.infer<typeof swipeSchema>,
+): Promise<Undo> {
   const user = await getCurrentUser();
-  const sessionId = uuid.parse(input.sessionId);
-  const r = ref.parse(input.ref);
+  const { sessionId, groupId, ref: r, source: from } = swipeSchema.parse(input);
+  const prev = await currentInterest(user.id, groupId, r);
   const id = await logInteraction(
     user.id,
     sessionId,
     r,
-    "unsure",
+    "maybe",
     null,
-    source.parse(input.source) ?? null,
+    from ?? null,
   );
-  return { ref: r, sessionId, interactionIds: [id], watchlist: [] };
+  if (!prev) await upsertWatchlist(user.id, groupId, r, "maybe");
+  return {
+    ref: r,
+    sessionId,
+    interactionIds: [id],
+    watchlist: prev ? [] : [{ group_id: groupId, prev }],
+  };
 }
 
 const groupsSchema = z.object({
   sessionId: uuid,
+  groupId: uuid,
   ref,
-  fromGroupId: uuid,
+  source,
   groupIds: z.array(uuid).min(1).max(10),
 });
 
 /**
- * "Med annan grupp" on the toast after a right swipe: the title ends up on the
- * lists of the chosen groups instead. Returns the undo for the groups touched.
+ * "Spara för annan grupp" in the deck's detail view: the title goes on the
+ * chosen groups' lists as "maybe" (a title already there keeps its interest)
+ * and leaves the deck. With the group swiped with among them it is a right
+ * swipe and joins Ikväll; without it, it is logged as left with the reason
+ * "other_group", which rests it in this group's deck and says nothing about
+ * the group's taste.
  */
-export async function setListGroups(
+export async function saveForGroups(
   input: z.infer<typeof groupsSchema>,
 ): Promise<Undo> {
   const user = await getCurrentUser();
   const {
     sessionId,
+    groupId,
     ref: r,
-    fromGroupId,
+    source: from,
     groupIds,
   } = groupsSchema.parse(input);
   const owned = new Set((await getGroups()).map((g) => g.id));
-  const targets = [...new Set(groupIds)].filter((id) => owned.has(id));
-  const touched = [...new Set([fromGroupId, ...targets])];
-
-  const prev = await Promise.all(
-    touched.map((g) => currentInterest(user.id, g, r)),
-  );
-  const supabase = await createClient();
-  for (const g of touched) {
-    if (targets.includes(g)) {
-      await upsertWatchlist(user.id, g, r, prev[touched.indexOf(g)] ?? "maybe");
-    } else {
-      const { error } = await supabase.from("watchlist").delete().match({
-        user_id: user.id,
-        group_id: g,
-        tmdb_id: r.tmdb_id,
-        media_type: r.media_type,
-      });
-      if (error) throw error;
-    }
-  }
-  return {
-    ref: r,
+  const chosen = [...new Set(groupIds)].filter((id) => owned.has(id));
+  if (chosen.length === 0) throw new Error("No groups");
+  const withThis = chosen.includes(groupId);
+  const id = await logInteraction(
+    user.id,
     sessionId,
-    interactionIds: [],
-    watchlist: touched.map((g, i) => ({ group_id: g, prev: prev[i] })),
-  };
+    r,
+    withThis ? "right" : "left",
+    withThis ? null : "other_group",
+    from ?? null,
+  );
+  const watchlist: Undo["watchlist"] = [];
+  for (const g of chosen) {
+    const prev = await currentInterest(user.id, g, r);
+    if (prev) continue;
+    watchlist.push({ group_id: g, prev });
+    await upsertWatchlist(user.id, g, r, "maybe");
+  }
+  return { ref: r, sessionId, interactionIds: [id], watchlist };
 }
 
 export async function setLeftReason(input: {
@@ -848,7 +852,8 @@ async function tonightSession(
 const addSchema = z.object({ groupId: uuid, ref });
 
 /**
- * "Lägg till ikväll" from Att se: the title is on the group's list already,
+ * "+ Ikväll" from Att se, or after "se igen" in Hitta: the title is on the
+ * group's list already,
  * so it is logged as a right swipe in tonight's session and joins Ikväll.
  * Profiles and seeds count the latest reaction per title, so it is not
  * counted twice. Taken off again with removeFromTonight, like a row in Ikväll.
@@ -865,7 +870,7 @@ export async function addToTonight(input: z.infer<typeof addSchema>) {
   if (error) throw error;
   if (!onList) throw new Error("Not on the group's list");
   const sessionId = await tonightSession(user.id, groupId);
-  await logInteraction(user.id, sessionId, r, "right");
+  return logInteraction(user.id, sessionId, r, "right");
 }
 
 async function clearTonightChoice(userId: string, groupId: string) {

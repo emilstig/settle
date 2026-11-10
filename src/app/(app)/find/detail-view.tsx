@@ -21,6 +21,7 @@ export function DetailView({
   onDecide,
   onChoose,
   list,
+  groupsRow,
 }: {
   card: Card;
   trailerKey: string | null;
@@ -50,6 +51,11 @@ export function DetailView({
     tonight: boolean;
     onTonight: () => void;
   };
+  /**
+   * A row that opens the group sheet: "Med annan grupp" in Att se, "Spara
+   * för annan grupp" in the deck.
+   */
+  groupsRow?: { label: string; hint: string; onClick: () => void };
 }) {
   const backRef = useRef<HTMLButtonElement>(null);
   useEffect(() => backRef.current?.focus(), []);
@@ -108,6 +114,21 @@ export function DetailView({
                 <span key={f}>{f}</span>
               ))}
             </div>
+          )}
+          {groupsRow && (
+            <button
+              type="button"
+              className={styles.dgroups}
+              onClick={groupsRow.onClick}
+            >
+              <span className={styles.dicon} aria-hidden="true">
+                ⇄
+              </span>
+              <span className={styles.drowText}>
+                <span>{groupsRow.label}</span>
+                <small>{groupsRow.hint}</small>
+              </span>
+            </button>
           )}
           <ul className={styles.dlist}>
             {card.providers_link && (
