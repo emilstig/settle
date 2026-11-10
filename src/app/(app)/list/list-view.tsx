@@ -2,11 +2,17 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatRuntime } from "@/lib/format";
 import { rememberGroup } from "@/lib/group-cookie";
 import type { ListItem } from "@/lib/list";
-import { chooseTonight, openDetail } from "../find-actions";
+import {
+  addToTonight,
+  chooseTonight,
+  openDetail,
+  removeFromTonight,
+  tonight as getTonight,
+} from "../find-actions";
 import { DetailView } from "../find/detail-view";
 import { Toast } from "../find/toast";
 import type { ToastButton, ToastState } from "../find/types";
@@ -121,6 +127,21 @@ export function ListView({
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
   const group = groups.find((g) => g.id === groupId);
+  // What is in Ikväll with the group, so the detail view can say so.
+  const [tonightKeys, setTonightKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let alive = true;
+    getTonight({ groupId })
+      .then((t) => {
+        if (!alive) return;
+        const cards = t.choice ? [t.choice, ...t.saved] : t.saved;
+        setTonightKeys(new Set(cards.map(keyOf)));
+      })
+      .catch((e) => console.error(e));
+    return () => {
+      alive = false;
+    };
+  }, [groupId]);
 
   useBackClose(full !== null, () => setFull(null));
   useBackClose(detail !== null, () => setDetail(null));
@@ -201,6 +222,36 @@ export function ListView({
       setItems((list) =>
         list.map((i) => (keyOf(i) === keyOf(item) ? item : i)),
       );
+      showToast("Det gick inte att spara");
+    }
+  }
+
+  async function toggleTonight(item: ListItem) {
+    const k = keyOf(item);
+    const was = tonightKeys.has(k);
+    const flip = (on: boolean) =>
+      setTonightKeys((keys) => {
+        const next = new Set(keys);
+        if (on) next.add(k);
+        else next.delete(k);
+        return next;
+      });
+    flip(!was);
+    try {
+      if (was) {
+        await removeFromTonight({ groupId, ref: refOf(item) });
+        showToast("Borttagen från ikväll");
+      } else {
+        await addToTonight({ groupId, ref: refOf(item) });
+        showToast(
+          "Tillagd i ikväll",
+          [{ label: "Visa", onClick: () => router.push("/") }],
+          4000,
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      flip(was);
       showToast("Det gick inte att spara");
     }
   }
@@ -446,6 +497,8 @@ export function ListView({
               detail.item.interest === "rewatch"
                 ? undefined
                 : () => void toggleWant(detail.item),
+            tonight: tonightKeys.has(keyOf(detail.item)),
+            onTonight: () => void toggleTonight(detail.item),
           }}
         />
       )}

@@ -26,6 +26,7 @@ import {
 } from "../find-actions";
 import { ChosenView, TonightSheet } from "./tonight-sheet";
 import { DetailView } from "./detail-view";
+import { FlyToTonight } from "./fly-to-tonight";
 import { GroupSheet } from "./group-sheet";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
 import { LoadingLabel, StartView } from "./start-view";
@@ -149,6 +150,15 @@ export function Finder({
   const [choosing, setChoosing] = useState(false);
   const loadingMore = useRef(false);
   const cardRef = useRef<SwipeCardHandle>(null);
+  // A poster flying to "Ikväll · N" after a save.
+  const [flight, setFlight] = useState<{ card: Card; id: number } | null>(
+    null,
+  );
+  const deckRef = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const flightId = useRef(0);
+  const flyToTonight = (c: Card) =>
+    setFlight({ card: c, id: ++flightId.current });
   const toastId = useRef(0);
 
   const showToast = useCallback(
@@ -359,6 +369,7 @@ export function Finder({
         c,
         ...saved.filter((x) => keyOf(x) !== keyOf(c)),
       ]);
+      flyToTonight(c);
     }
   }
 
@@ -409,12 +420,22 @@ export function Finder({
     }
   }
 
-  function openSeen(c: Card): Promise<Undo | null> {
+  /**
+   * `wanted` is a group the user has just said they want to see it with
+   * (after "Har sett den" on a right swipe), so it starts chosen too.
+   */
+  function openSeen(c: Card, wanted?: string): Promise<Undo | null> {
     return new Promise((resolve) => {
       // Show where it is already on the se igen list before asking.
       rewatchGroupsFor(refOf(c))
         .catch(() => [] as string[])
-        .then((rewatch) => setSeen({ card: c, resolve, rewatch }));
+        .then((rewatch) =>
+          setSeen({
+            card: c,
+            resolve,
+            rewatch: wanted ? [...new Set([...rewatch, wanted])] : rewatch,
+          }),
+        );
     });
   }
 
@@ -436,7 +457,7 @@ export function Finder({
       push({ index: at, undo }, dir, c);
       showToast(
         group?.kind === "solo"
-          ? "Sparad i din lista"
+          ? "Sparad i Att se"
           : `Sparad för ${group?.name}`,
         [
           {
@@ -446,6 +467,22 @@ export function Finder({
           },
           { label: "Välj för ikväll", onClick: () => void choose(c) },
           {
+            // Seen it already: the right swipe becomes "Sett", with this
+            // group chosen for se igen, since the swipe said so.
+            label: "Har sett den",
+            onClick: () => {
+              setTonightSaved((saved) =>
+                saved.filter((x) => keyOf(x) !== keyOf(c)),
+              );
+              replaceTop((prev) =>
+                prev
+                  .then((u) => (u ? undoSwipe(u) : undefined))
+                  .catch((e) => console.error(e))
+                  .then(() => openSeen(c, session.groupId)),
+              );
+            },
+          },
+          {
             label: "Med annan grupp",
             onClick: () =>
               replaceTop((prev) =>
@@ -453,6 +490,8 @@ export function Finder({
               ),
           },
         ],
+        // Four chips over two rows take longer to read than one.
+        4000,
       );
     } else if (dir === "left") {
       const undo = swipeLeft({
@@ -504,6 +543,23 @@ export function Finder({
           ...answers,
         }),
       );
+      // Seen and wanted again with this group: saved for tonight too, like
+      // a right swipe.
+      if (answers.rewatchGroupIds?.includes(session.groupId)) {
+        setTonightSaved((saved) => [
+          c,
+          ...saved.filter((x) => keyOf(x) !== keyOf(c)),
+        ]);
+        flyToTonight(c);
+        const group = groups.find((g) => g.id === session.groupId);
+        showToast(
+          group?.kind === "solo"
+            ? "Sparad att se om"
+            : `Sparad att se om med ${group?.name}`,
+          [{ label: "Välj för ikväll", onClick: () => void choose(c) }],
+        );
+        return;
+      }
       showToast(
         answers.rating !== null ? "Betyget är sparat" : "Markerad som sett",
         [],
@@ -530,7 +586,7 @@ export function Finder({
       return null;
     });
     setIndex(last.index);
-    if (last.dir === "right") {
+    if (last.dir === "right" || last.dir === "up") {
       setTonightSaved((saved) => saved.filter((x) => keyOf(x) !== last.key));
     }
     const u = await last.undo;
@@ -720,6 +776,7 @@ export function Finder({
         </button>
         {tonightItems.length > 0 && (
           <button
+            ref={chipRef}
             type="button"
             className={styles.tonightChip}
             onClick={() => setTonightOpen(true)}
@@ -729,7 +786,7 @@ export function Finder({
         )}
       </div>
 
-      <div className={styles.deck}>
+      <div ref={deckRef} className={styles.deck}>
         {card ? (
           <>
             {next && (
@@ -822,6 +879,18 @@ export function Finder({
       </div>
 
       <Toast key={toast?.id} toast={toast} onClose={closeToast} />
+
+      {flight && (
+        <FlyToTonight
+          key={`fly-${flight.id}`}
+          card={flight.card}
+          from={deckRef}
+          to={chipRef}
+          onDone={() =>
+            setFlight((f) => (f?.id === flight.id ? null : f))
+          }
+        />
+      )}
 
       {seen && (
         <SeenSheet
