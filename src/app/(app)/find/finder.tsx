@@ -885,15 +885,19 @@ export function Finder({
           )
         }
       >
+        {/* The arrow and the group are one back button: the deck is for
+            one group, and switching is done from the start view. */}
         <button
           type="button"
-          className={styles.headBack}
+          className={styles.headBackGroup}
           aria-label="Tillbaka till start"
           onClick={leaveDeck}
         >
-          <BackIcon />
+          <span className={styles.headBackIcon}>
+            <BackIcon />
+          </span>
+          <GroupName group={groups.find((g) => g.id === groupId)} />
         </button>
-        <GroupName group={groups.find((g) => g.id === groupId)} />
       </AppHeader>
 
       <div ref={deckRef} className={styles.deck}>

@@ -368,6 +368,11 @@
 .headBack { flex: none; width: 36px; height: 40px; margin: 0 -2px 0 -10px; border: 0; background: none; color: inherit; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer; }
 .headBack svg { width: 26px; height: 26px; }
 .headBack:active { background: var(--panel); }
+/* The deck's back button: the arrow and the group's name as one target. */
+.headBackGroup { display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 100%; margin-left: -10px; padding: 0 10px 0 0; border: 0; background: none; color: inherit; font: inherit; border-radius: 12px; cursor: pointer; text-align: left; }
+.headBackGroup:active { background: var(--panel); }
+.headBackIcon { flex: none; width: 36px; height: 40px; display: grid; place-items: center; }
+.headBackIcon svg { width: 26px; height: 26px; }
 /* The mood as prompt 1 read it, only when there is one. */
 .moodLine { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (prefers-reduced-motion: reduce) { .picker { transition: none; } }
