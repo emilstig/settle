@@ -344,6 +344,8 @@
 
 
 /* "Med annan grupp" opens from the detail view, so it goes above it. */
+/* The group it is opened from in Att se: chosen and not tappable. */
+.sheetRow .locked { cursor: default; opacity: 0.7; }
 .scrim.overDetail { z-index: 14; }
 .sheet.overDetail { z-index: 15; }
 

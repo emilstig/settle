@@ -369,11 +369,8 @@ export function ListView({
     if (!groupIds) return;
     try {
       await setListGroups({ ref: refOf(item), groupIds });
-      // Off this group's list: it leaves the shelves here too.
-      if (!groupIds.includes(groupId)) {
-        setItems((list) => list.filter((i) => keyOf(i) !== keyOf(item)));
-        setDetail(null);
-      }
+      // This group is locked in the sheet: the title stays here and the
+      // view stays open.
       const names = groups
         .filter((g) => groupIds.includes(g.id))
         .map((g) => g.name);
@@ -659,6 +656,7 @@ export function ListView({
           title={moving.item.title}
           groups={groups}
           savedFor={moving.savedFor}
+          locked={groupId}
           onDone={(ids) => void finishGroups(ids)}
         />
       )}
