@@ -26,6 +26,7 @@ import {
 } from "../find-actions";
 import { ChosenView, TonightSheet } from "./tonight-sheet";
 import { DetailView } from "./detail-view";
+import { FlyToTonight } from "./fly-to-tonight";
 import { GroupSheet } from "./group-sheet";
 import { SeenSheet, type SeenAnswers } from "./seen-sheet";
 import { LoadingLabel, StartView } from "./start-view";
@@ -149,6 +150,15 @@ export function Finder({
   const [choosing, setChoosing] = useState(false);
   const loadingMore = useRef(false);
   const cardRef = useRef<SwipeCardHandle>(null);
+  // A poster flying to "Ikväll · N" after a save.
+  const [flight, setFlight] = useState<{ card: Card; id: number } | null>(
+    null,
+  );
+  const deckRef = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const flightId = useRef(0);
+  const flyToTonight = (c: Card) =>
+    setFlight({ card: c, id: ++flightId.current });
   const toastId = useRef(0);
 
   const showToast = useCallback(
@@ -359,6 +369,7 @@ export function Finder({
         c,
         ...saved.filter((x) => keyOf(x) !== keyOf(c)),
       ]);
+      flyToTonight(c);
     }
   }
 
@@ -539,6 +550,7 @@ export function Finder({
           c,
           ...saved.filter((x) => keyOf(x) !== keyOf(c)),
         ]);
+        flyToTonight(c);
         const group = groups.find((g) => g.id === session.groupId);
         showToast(
           group?.kind === "solo"
@@ -764,6 +776,7 @@ export function Finder({
         </button>
         {tonightItems.length > 0 && (
           <button
+            ref={chipRef}
             type="button"
             className={styles.tonightChip}
             onClick={() => setTonightOpen(true)}
@@ -773,7 +786,7 @@ export function Finder({
         )}
       </div>
 
-      <div className={styles.deck}>
+      <div ref={deckRef} className={styles.deck}>
         {card ? (
           <>
             {next && (
@@ -866,6 +879,18 @@ export function Finder({
       </div>
 
       <Toast key={toast?.id} toast={toast} onClose={closeToast} />
+
+      {flight && (
+        <FlyToTonight
+          key={`fly-${flight.id}`}
+          card={flight.card}
+          from={deckRef}
+          to={chipRef}
+          onDone={() =>
+            setFlight((f) => (f?.id === flight.id ? null : f))
+          }
+        />
+      )}
 
       {seen && (
         <SeenSheet
