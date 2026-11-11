@@ -53,6 +53,12 @@ const SOURCES: { sortBy: string; filters: Record<MediaType, Filters> }[] = [
  * one has seen is a swipe on "Inte sett" instead of a rating.
  */
 const MIN_AGE_YEARS = 2;
+/**
+ * About this share of each round is series. Left to the genre balance alone
+ * a round had 3 series in 20, so the profile was built almost only on films
+ * although people watch at least as many series.
+ */
+const SERIES_SHARE = 0.4;
 /** Release date filters for discover, per media type, from MIN_AGE_YEARS. */
 function oldEnough(): Record<MediaType, Filters> {
   const d = new Date();
@@ -116,11 +122,21 @@ function balanceGenres<
     );
   const left = [...items];
   const out: T[] = [];
+  const isTv = (item: T) => item.media_type === "tv";
+  let tv = placed.filter(isTv).length;
+  const total = placed.length + size;
   while (out.length < size && left.length) {
-    let best = 0;
-    for (let i = 1; i < left.length; i++)
-      if (load(left[i]) < load(left[best])) best = i;
-    const [item] = left.splice(best, 1);
+    // Series take turns with films: when they are behind their share, the
+    // slot goes to a series if there is one left.
+    const shown = placed.length + out.length;
+    const wantTv = tv < Math.round(SERIES_SHARE * total) &&
+      tv < SERIES_SHARE * (shown + 1);
+    const pool = wantTv && left.some(isTv) ? left.filter(isTv) : left;
+    let best = pool[0];
+    for (const item of pool) if (load(item) < load(best)) best = item;
+    left.splice(left.indexOf(best), 1);
+    const item = best;
+    if (isTv(item)) tv++;
     out.push(item);
     for (const g of genresOf(item.genre_ids, item.media_type))
       used.set(g, (used.get(g) ?? 0) + 1);
@@ -233,8 +249,14 @@ export async function getCalibrationCards(
   // One title per reserved genre, the most voted not already chosen.
   const reserved: Title[] = [];
   const taken = new Set<string>();
-  for (const list of reservedHits) {
-    const row = rowsOf(list).find((r) => !taken.has(key(r)));
+  for (const [i, list] of reservedHits.entries()) {
+    // The genre should be what the title is about, not a side note: TMDB
+    // lists a title's main genres first, and Forrest Gump is a romance
+    // third, after comedy and drama.
+    const { genre } = RESERVED[i];
+    const free = rowsOf(list).filter((r) => !taken.has(key(r)));
+    const row =
+      free.find((r) => r.genre_ids.slice(0, 2).includes(genre)) ?? free[0];
     if (!row) continue;
     taken.add(key(row));
     reserved.push(row);
