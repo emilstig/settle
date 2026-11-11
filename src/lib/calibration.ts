@@ -27,7 +27,16 @@ type Filters = Record<string, string | number>;
  * fill the top of both lists. So the profile is not built from blockbusters
  * only, and romance, horror or documentaries get a chance.
  */
-const SOURCES: { sortBy: string; filters: Record<MediaType, Filters> }[] = [
+/**
+ * Series only come from the most voted list (null below). Watching series is
+ * more spread out than watching films, so the best rated and the less
+ * blockbuster series were often ones testers had not seen (La Casa de Papel,
+ * Wednesday, The Good Doctor), while the most voted ones were.
+ */
+const SOURCES: {
+  sortBy: string;
+  filters: Record<MediaType, Filters | null>;
+}[] = [
   { sortBy: "vote_count.desc", filters: { movie: {}, tv: {} } },
   {
     sortBy: "vote_average.desc",
@@ -41,18 +50,14 @@ const SOURCES: { sortBy: string; filters: Record<MediaType, Filters> }[] = [
         without_genres: "10762",
         "primary_release_date.gte": "1980-01-01",
       },
-      tv: {
-        "vote_count.gte": 3000,
-        without_genres: "10762",
-        "first_air_date.gte": "1980-01-01",
-      },
+      tv: null,
     },
   },
   {
     sortBy: "vote_count.desc",
     filters: {
       movie: { without_genres: "28,12,878,14,16" },
-      tv: { without_genres: "10759,10765,16,10762" },
+      tv: null,
     },
   },
 ];
@@ -213,14 +218,17 @@ export async function getCalibrationCards(
       pages.flatMap((page) =>
         SOURCES.map((src) =>
           Promise.all(
-            TYPES.map((t) =>
-              discover(t, {
-                providerIds: "all",
-                page,
-                sortBy: src.sortBy,
-                filters: { ...src.filters[t], ...age[t] },
-              }),
-            ),
+            TYPES.map((t) => {
+              const filters = src.filters[t];
+              return filters
+                ? discover(t, {
+                    providerIds: "all",
+                    page,
+                    sortBy: src.sortBy,
+                    filters: { ...filters, ...age[t] },
+                  })
+                : Promise.resolve({ hits: [], totalPages: 0 });
+            }),
           ),
         ),
       ),
