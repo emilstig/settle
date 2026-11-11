@@ -79,6 +79,16 @@ const RESERVED: { genre: number; types: MediaType[] }[] = [
 ];
 /** TMDB pages looked through for a reserved genre's title. */
 const RESERVED_PAGES = 3;
+/**
+ * A reserved title must be well liked too, not only well known: the most
+ * voted documentary was the Harry Potter reunion, which says more about
+ * Harry Potter than about documentaries. Below the bar only when nothing
+ * known enough clears it.
+ */
+const RESERVED_QUALITY: Filters = {
+  "vote_average.gte": 7.5,
+  "vote_count.gte": 500,
+};
 
 /**
  * Picks `size` titles so genres get about equal room: each slot takes the
@@ -254,25 +264,30 @@ async function reservedCandidates(
   done: Set<string>,
   age: Record<MediaType, Filters>,
 ): Promise<DiscoverHit[][]> {
+  const fetchGenre = (
+    genre: number,
+    types: MediaType[],
+    extra: Filters,
+  ): Promise<DiscoverHit[]> =>
+    Promise.all(
+      Array.from({ length: RESERVED_PAGES }, (_, i) => i + 1).flatMap((page) =>
+        types.map((t) =>
+          discover(t, {
+            providerIds: "all",
+            page,
+            sortBy: "vote_count.desc",
+            filters: { with_genres: genre, ...age[t], ...extra },
+          }),
+        ),
+      ),
+    ).then((pages) => pages.flatMap((p) => p.hits));
   return Promise.all(
     RESERVED.map(async ({ genre, types }) => {
-      const pages = await Promise.all(
-        Array.from({ length: RESERVED_PAGES }, (_, i) => i + 1).flatMap(
-          (page) =>
-            types.map((t) =>
-              discover(t, {
-                providerIds: "all",
-                page,
-                sortBy: "vote_count.desc",
-                filters: { with_genres: genre, ...age[t] },
-              }),
-            ),
-        ),
-      );
-      return pages
-        .flatMap((p) => p.hits)
-        .filter((h) => !done.has(key(h)))
-        .slice(0, 5);
+      const [liked, known] = await Promise.all([
+        fetchGenre(genre, types, RESERVED_QUALITY),
+        fetchGenre(genre, types, {}),
+      ]);
+      return [...liked, ...known].filter((h) => !done.has(key(h))).slice(0, 5);
     }),
   );
 }
