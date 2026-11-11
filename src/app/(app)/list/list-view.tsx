@@ -17,6 +17,7 @@ import {
 } from "../find-actions";
 import { setYoungestAge } from "../actions";
 import { useDeckMemory } from "../find/deck-memory";
+import { BackIcon } from "../find/decision-icons";
 import { DetailView } from "../find/detail-view";
 import { AppHeader, GroupPicker } from "../find/group-picker";
 import { GroupSheet } from "../find/group-sheet";
@@ -537,16 +538,19 @@ export function ListView({
           aria-labelledby="full-title"
         >
           <div className={styles.fullWrap}>
-            <button
-              type="button"
-              className={find.dback}
-              onClick={() => setFull(null)}
-            >
-              ‹ Tillbaka
-            </button>
-            <h2 id="full-title" className="q">
-              {fullShelf.title}
-            </h2>
+            <AppHeader>
+              <button
+                type="button"
+                className={find.headBack}
+                aria-label="Tillbaka"
+                onClick={() => setFull(null)}
+              >
+                <BackIcon />
+              </button>
+              <h2 id="full-title" className="logo">
+                {fullShelf.title}
+              </h2>
+            </AppHeader>
             <div className="chips" role="group" aria-label="Visa">
               {CHIPS.map(([value, label]) => (
                 <button

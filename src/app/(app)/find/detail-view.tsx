@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Card } from "@/lib/deck";
 import {
   DECISION_ORDER,
   DECISION_WORD,
+  BackIcon,
   DecisionIcon,
   HistoryIcon,
   ListIcon,
@@ -93,7 +94,25 @@ export function DetailView({
   groupsRow?: { label: string; onClick: () => void };
 }) {
   const backRef = useRef<HTMLButtonElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  const [past, setPast] = useState(false);
   useEffect(() => backRef.current?.focus(), []);
+  useEffect(() => {
+    // The bar takes the title once the poster's title has gone under it.
+    const hero = heroRef.current?.querySelector("h2");
+    const bar = backRef.current?.parentElement;
+    const layer = layerRef.current;
+    if (!hero || !bar || !layer) return;
+    const update = () =>
+      setPast(
+        hero.getBoundingClientRect().bottom <=
+          bar.getBoundingClientRect().bottom,
+      );
+    update();
+    layer.addEventListener("scroll", update, { passive: true });
+    return () => layer.removeEventListener("scroll", update);
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -109,6 +128,7 @@ export function DetailView({
   return (
     <>
       <div
+        ref={layerRef}
         className={`${styles.overlay} ${
           actions === "deck" || actions === "list" || actions === "history"
             ? styles.withBar
@@ -119,15 +139,23 @@ export function DetailView({
         aria-labelledby="detail-title"
       >
         <div className={styles.dwrap}>
-          <button
-            ref={backRef}
-            type="button"
-            className={styles.dback}
-            onClick={onClose}
-          >
-            ‹ Tillbaka
-          </button>
-          <div className={styles.dhero}>
+          {/* The poster is the title, so the arrow floats over it, and the
+              title shows in the bar once the poster has scrolled past. */}
+          <div className={styles.dbarTop} data-past={past || undefined}>
+            <button
+              ref={backRef}
+              type="button"
+              className={styles.dback}
+              aria-label="Tillbaka"
+              onClick={onClose}
+            >
+              <BackIcon />
+            </button>
+            <span className={styles.dbarTitle} aria-hidden="true">
+              {card.title}
+            </span>
+          </div>
+          <div ref={heroRef} className={styles.dhero}>
             {img && (
               <Image
                 src={img}

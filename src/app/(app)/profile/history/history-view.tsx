@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { HistoryItem, HistoryShelf } from "@/lib/history";
 import { openDetail } from "../../find-actions";
+import { BackIcon } from "../../find/decision-icons";
 import { DetailView } from "../../find/detail-view";
+import { AppHeader } from "../../find/group-picker";
 import { SeenSheet, type SeenAnswers } from "../../find/seen-sheet";
 import { Toast } from "../../find/toast";
 import type { GroupOption, ToastButton, ToastState } from "../../find/types";
@@ -378,14 +380,17 @@ export function HistoryView({
           ref={fullRef}
         >
           <div className={list.fullWrap}>
-            <button
-              type="button"
-              className={find.dback}
-              onClick={() => setFull(null)}
-            >
-              ‹ Tillbaka
-            </button>
-            <h2 className="q">Historik</h2>
+            <AppHeader>
+              <button
+                type="button"
+                className={find.headBack}
+                aria-label="Tillbaka"
+                onClick={() => setFull(null)}
+              >
+                <BackIcon />
+              </button>
+              <h2 className="logo">Historik</h2>
+            </AppHeader>
             {shelves.map((s) => (
               <section
                 key={s.key}
@@ -393,7 +398,7 @@ export function HistoryView({
                 className={styles.group}
                 aria-label={s.title}
               >
-                <h3>
+                <h3 data-subhead>
                   {s.title} <span>{s.items.length}</span>
                 </h3>
                 <ul className={`${find.tonightList} ${list.fullList}`}>

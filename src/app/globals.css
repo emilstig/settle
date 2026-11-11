@@ -11,6 +11,10 @@
   --yes: #2f7d5b;
   --seen: #9a6508;
   --cal: #3b4fb8;
+  /* Frosted bars (header, sticky subheadings, tab bar, the detail view's
+     bar) once content scrolls under them, like the back arrow on posters. */
+  --glass: color-mix(in srgb, var(--bg) 72%, transparent);
+  --glass-blur: saturate(1.6) blur(20px);
   color-scheme: light;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { GroupOption } from "./types";
 import { useBackClose } from "./use-back-close";
 import styles from "./find.module.css";
@@ -118,98 +119,115 @@ export function GroupPicker({
             every card. */}
         <span className={styles.pickerName}>{selected?.name}</span>
         <span className={styles.pickerChev} aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="m6 9 6 6 6-6" />
           </svg>
         </span>
       </button>
-      {open && (
-        <>
-          <div className={styles.scrim} onClick={close} />
-          <div
-            className={`${styles.sheet} ${styles.sheetOpen}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="picker-title"
-          >
-            <div className={styles.sheetHead}>
-              <h3 id="picker-title">{title}</h3>
-              <button
-                type="button"
-                className={styles.sheetClose}
-                aria-label="Stäng"
-                onClick={close}
-              >
-                ✕
-              </button>
-            </div>
-            {/* One choice, so tiles and a radio group rather than pills. */}
+      {/* Out of the header, which is a stacking context of its own (sticky,
+          frosted), so the sheet covers the page and the tab bar. */}
+      {open &&
+        createPortal(
+          <>
+            <div className={styles.scrim} onClick={close} />
             <div
-              className={styles.who}
-              role="radiogroup"
+              className={`${styles.sheet} ${styles.sheetOpen}`}
+              role="dialog"
+              aria-modal="true"
               aria-labelledby="picker-title"
             >
-              {groups.map((g) => {
-                const on = g.id === groupId;
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    className={styles.tile}
-                    onClick={() => pick(g)}
-                  >
-                    <span className={styles.tileName}>{g.name}</span>
-                    <span className={styles.tileSub}>{tileSub(g, on)}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {askAge && family && (
-              <div
-                className={`${styles.age} ${styles.pickerAgeQ}`}
-                role="group"
-                aria-labelledby="age-q"
-              >
-                <p id="age-q" className={styles.ageQ}>
-                  Hur gammal är den yngsta?
-                </p>
-                <p className={styles.ageLead}>
-                  Vi föreslår bara sådant som passar alla i soffan.
-                </p>
-                <div className={styles.ages}>
-                  {AGES.map((age) => (
-                    <button
-                      key={age}
-                      type="button"
-                      className="chip"
-                      aria-pressed={age === family.youngest_age}
-                      onClick={() => pickAge(age)}
-                    >
-                      {age}
-                    </button>
-                  ))}
-                </div>
-                {family.youngest_age === null && (
-                  <button
-                    type="button"
-                    className="link"
-                    onClick={() => pickAge(DEFAULT_AGE)}
-                  >
-                    Hoppa över (7 år)
-                  </button>
-                )}
+              <div className={styles.sheetHead}>
+                <h3 id="picker-title">{title}</h3>
+                <button
+                  type="button"
+                  className={styles.sheetClose}
+                  aria-label="Stäng"
+                  onClick={close}
+                >
+                  ✕
+                </button>
               </div>
-            )}
-          </div>
-        </>
-      )}
+              {/* One choice, so tiles and a radio group rather than pills. */}
+              <div
+                className={styles.who}
+                role="radiogroup"
+                aria-labelledby="picker-title"
+              >
+                {groups.map((g) => {
+                  const on = g.id === groupId;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className={styles.tile}
+                      onClick={() => pick(g)}
+                    >
+                      <span className={styles.tileName}>{g.name}</span>
+                      <span className={styles.tileSub}>{tileSub(g, on)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {askAge && family && (
+                <div
+                  className={`${styles.age} ${styles.pickerAgeQ}`}
+                  role="group"
+                  aria-labelledby="age-q"
+                >
+                  <p id="age-q" className={styles.ageQ}>
+                    Hur gammal är den yngsta?
+                  </p>
+                  <p className={styles.ageLead}>
+                    Vi föreslår bara sådant som passar alla i soffan.
+                  </p>
+                  <div className={styles.ages}>
+                    {AGES.map((age) => (
+                      <button
+                        key={age}
+                        type="button"
+                        className="chip"
+                        aria-pressed={age === family.youngest_age}
+                        onClick={() => pickAge(age)}
+                      >
+                        {age}
+                      </button>
+                    ))}
+                  </div>
+                  {family.youngest_age === null && (
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={() => pickAge(DEFAULT_AGE)}
+                    >
+                      Hoppa över (7 år)
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </>,
+          document.body,
+        )}
     </>
   );
 }
 
-/** The top of Hitta, Att se and Profil: no logo, the left and right sides. */
+/**
+ * The one header of the app: the title (or the group, or a back arrow and
+ * the title) to the left and Ikväll or the clock to the right. It stays at
+ * the top while the page or layer scrolls and gets a line once content is
+ * under it. A sticky subheading (`data-subhead`) that has reached it takes
+ * the line instead, so there are never two.
+ */
 export function AppHeader({
   children,
   right,
@@ -220,8 +238,43 @@ export function AppHeader({
   /** A line under the header, such as the mood in the deck. */
   under?: React.ReactNode;
 }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const header = ref.current;
+    if (!header) return;
+    const scroller = scrollParent(header);
+    const target: HTMLElement | Window = scroller ?? window;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const top = scroller ? scroller.scrollTop : window.scrollY;
+      const bottom = header.getBoundingClientRect().bottom;
+      let stuck = false;
+      (header.parentElement ?? document)
+        .querySelectorAll<HTMLElement>("[data-subhead]")
+        .forEach((el) => {
+          const at =
+            top > 0 && Math.abs(el.getBoundingClientRect().top - bottom) < 1;
+          if (at) stuck = true;
+          el.toggleAttribute("data-stuck", at);
+        });
+      header.toggleAttribute("data-scrolled", top > 0);
+      header.toggleAttribute("data-line", top > 0 && !stuck);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    target.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      target.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
   return (
-    <header className={styles.appHeader}>
+    <header ref={ref} className={styles.appHeader}>
       <div className={styles.appHeaderRow}>
         <div className={styles.appHeaderLeft}>{children}</div>
         {right && <div className={styles.appHeaderRight}>{right}</div>}
@@ -229,4 +282,13 @@ export function AppHeader({
       {under}
     </header>
   );
+}
+
+/** The layer the element scrolls in (Visa alla), or null for the page. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowY;
+    if (o === "auto" || o === "scroll") return p;
+  }
+  return null;
 }

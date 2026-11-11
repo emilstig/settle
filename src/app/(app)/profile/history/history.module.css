@@ -2,22 +2,25 @@
 .group {
   display: grid;
   gap: 8px;
-  scroll-margin-top: 12px;
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 48px);
 }
-/* The shelf's name stays at the top while its rows scroll, until the next
-   shelf pushes it away (sticky within its own section). Under a notch the
-   shadow covers the status bar strip, so no rows show above it. */
+/* The shelf's name stays under the header while its rows scroll, until the
+   next shelf pushes it away (sticky within its own section). Once it has
+   reached the header it takes the header's line (data-stuck). */
 .group h3 {
   font-size: 19px;
   letter-spacing: -0.02em;
   position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 1;
+  top: calc(env(safe-area-inset-top, 0px) + 48px);
+  z-index: 2;
   padding: 8px 0;
-  margin: -8px 0;
-  background: var(--bg);
-  box-shadow: 0 calc(-1 * env(safe-area-inset-top, 0px)) 0 var(--bg);
+  margin: -8px -16px;
+  padding-inline: 16px;
+  transition: background 0.15s, box-shadow 0.15s;
 }
+/* Frosted like the header above it, as one surface. */
+.group h3[data-stuck] { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: 0 1px 0 var(--line); }
+@media (prefers-reduced-motion: reduce) { .group h3 { transition: none; } }
 .group h3 span {
   color: var(--mute);
   font-weight: 400;

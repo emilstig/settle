@@ -100,9 +100,6 @@
   display: grid;
   gap: 12px;
 }
-.fullWrap > button:first-child {
-  justify-self: start;
-}
 /* The rows come from the Ikväll sheet, where they scroll in a box; here the page scrolls. */
 .full .fullList {
   max-height: none;
