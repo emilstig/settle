@@ -1,0 +1,46 @@
+/* The clock in the header: a round button like the picker's chevron. */
+.bell {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex: none;
+}
+.bell svg { width: 20px; height: 20px; }
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--no);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.label { color: var(--mute); font-size: 13px; font-weight: 600; }
+.ask { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+.ask p { margin-bottom: 0; }
+.askText { min-width: 0; }
+.thumb {
+  position: relative;
+  flex: none;
+  width: 64px;
+  height: 96px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--line);
+}
+.thumb img { object-fit: cover; }
+.error { color: var(--no); margin: 10px 0 0; font-size: 14px; }

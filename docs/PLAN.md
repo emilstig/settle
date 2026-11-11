@@ -63,10 +63,10 @@ Tidsplanen fram till Product Hunt finns i projektdokumentet. Funktionerna fryses
 **Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
 
 ## 6. Att se och check-in
-- [x] Fliken Att se: gruppen överst (delad med Hitta), hyllor (Vill gärna, Att se om, Vill se, Inte på dina tjänster) och Visa alla med chips och sortering; detaljvyn med Välj den här, Ta bort och Vill gärna. Fortsätt titta kommer med Efter tittning
+- [x] Fliken Att se: gruppen överst (delad med Hitta), hyllor (Vill gärna, Att se om, Vill se, Inte på dina tjänster) och Visa alla med chips och sortering; detaljvyn med Välj den här, Ta bort och Vill gärna. Fortsätt titta kom med Efter tittning
 - [x] Fliken Profil som meny med Din smak (genrerutor, Fortsätt kalibrera), Historik (hyllor med det man sett, ogillat och sagt Inte min grej om, där betyg, se igen, Inte sett och Inte min grej går att ändra i efterhand) och Tjänster
 - [x] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen (byggt med Toppval ikväll i steg 5)
-- [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
+- [x] Efter tittning: klockan frågar om tidigare kvällars val den senaste veckan (betyg, eller status för serier), och Fortsätt titta i Att se
 - [x] Välj vilka grupper man använder: i onboarding (”Vem brukar du titta med?”, efter tjänsterna) och under Grupper i Profil, med åldern för Familj. Släckta grupper döljs men raderas inte, och med bara Själv finns ingen gruppväljare (undantag från frysningen)
 
 **Klart när:** check-in fyller på betyg utan att du tänker på det.

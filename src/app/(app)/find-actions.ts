@@ -635,6 +635,8 @@ const seenSchema = z.object({
   /** Null leaves se igen as it was (the sheet was closed). */
   rewatchGroupIds: z.array(uuid).max(10).nullable(),
   source,
+  /** The evening it was seen, from Efter tittning; else today when seen again. */
+  seenOn: z.iso.date().optional(),
 });
 
 /** Groups where the title is already on the se igen list, for the sheet. */
@@ -677,7 +679,7 @@ export async function recordSeen(
       .maybeSingle(),
     supabase
       .from("watch_log")
-      .select("times_seen, last_seen, last_seen_approx")
+      .select("times_seen, last_seen, last_seen_approx, status")
       .match(match)
       .maybeSingle(),
   ]);
@@ -705,15 +707,21 @@ export async function recordSeen(
     ? await supabase
         .from("watch_log")
         .update({
+          // A series being watched (Fortsätt titta) is seen for the
+          // first time when it is finished.
           times_seen:
-            prevLog.data.times_seen === null ||
-            prevLog.data.times_seen === "once"
-              ? "few"
-              : "many",
-          last_seen: stockholmDate(),
+            prevLog.data.status === "watching"
+              ? "once"
+              : prevLog.data.times_seen === null ||
+                  prevLog.data.times_seen === "once"
+                ? "few"
+                : "many",
+          last_seen: s.seenOn ?? stockholmDate(),
         })
         .match(match)
-    : await supabase.from("watch_log").insert(match);
+    : await supabase
+        .from("watch_log")
+        .insert({ ...match, last_seen: s.seenOn ?? null });
   if (logError) throw logError;
 
   if (s.rating !== null) {
@@ -938,7 +946,16 @@ export async function addToTonight(input: z.infer<typeof addSchema>) {
     .match({ user_id: user.id, group_id: groupId, ...r })
     .maybeSingle();
   if (error) throw error;
-  if (!onList) throw new Error("Not on the group's list");
+  if (!onList) {
+    // Fortsätt titta is in Att se for every group, without a list row.
+    const { data: watching, error: logError } = await supabase
+      .from("watch_log")
+      .select("tmdb_id")
+      .match({ user_id: user.id, ...r, status: "watching" })
+      .maybeSingle();
+    if (logError) throw logError;
+    if (!watching) throw new Error("Not on the group's list");
+  }
   const sessionId = await tonightSession(user.id, groupId);
   return logInteraction(user.id, sessionId, r, "right");
 }

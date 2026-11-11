@@ -20,6 +20,7 @@ import { useDeckMemory } from "../find/deck-memory";
 import { BackIcon } from "../find/decision-icons";
 import { DetailView } from "../find/detail-view";
 import { AppHeader, GroupPicker } from "../find/group-picker";
+import { CheckInBell } from "../check-in-bell";
 import { GroupSheet } from "../find/group-sheet";
 import { SeenSheet, type SeenAnswers } from "../find/seen-sheet";
 import { Toast } from "../find/toast";
@@ -32,10 +33,11 @@ import {
   setListGroups,
   setListInterest,
 } from "./actions";
+import { setSeriesStatus } from "../check-in-actions";
 import styles from "./list.module.css";
 
 type Size = "s" | "m" | "l";
-type ShelfKey = "want" | "rewatch" | "maybe" | "elsewhere";
+type ShelfKey = "want" | "rewatch" | "maybe" | "watching" | "elsewhere";
 type Shelf = { key: ShelfKey; title: string; size: Size; items: ListItem[] };
 
 /** Cards shown on a shelf before "Visa alla". */
@@ -77,6 +79,13 @@ function shelvesOf(items: ListItem[]): Shelf[] {
       title: "Vill se",
       size: "s",
       items: on.filter((i) => i.interest === "maybe"),
+    },
+    {
+      // Series the user goes on with (Efter tittning), in every group.
+      key: "watching",
+      title: "Fortsätt titta",
+      size: "m",
+      items: on.filter((i) => i.interest === "watching"),
     },
     {
       key: "elsewhere",
@@ -155,6 +164,8 @@ export function ListView({
     item: ListItem;
     rewatch: string[];
   } | null>(null);
+  // "Klar" in Fortsätt titta: "Hur var den?" over the view.
+  const [finishing, setFinishing] = useState<ListItem | null>(null);
   const group = groups.find((g) => g.id === groupId);
   const solo = group?.kind === "solo";
   // What is in Ikväll with the group, so the detail view can say so.
@@ -179,6 +190,7 @@ export function ListView({
   useBackClose(detail !== null, () => setDetail(null));
   useBackClose(moving !== null, () => setMoving(null));
   useBackClose(seen !== null, () => setSeen(null));
+  useBackClose(finishing !== null, () => setFinishing(null));
 
   const showToast = (text: string, buttons: ToastButton[] = [], ms = 2200) => {
     setToast({ id: ++toastId.current, text, buttons, ms });
@@ -368,6 +380,65 @@ export function ListView({
     }
   }
 
+  /**
+   * Klar or Slutade in Fortsätt titta: the series leaves Att se for Profil
+   * and the view closes. Slutade has Ångra; a rating from Klar is changed in
+   * Historik, like any rating.
+   */
+  async function endSeries(
+    item: ListItem,
+    status: "finished" | "dropped",
+    rating: -1 | 1 | 2 | 3 | null,
+  ) {
+    const before = items;
+    const k = keyOf(item);
+    const wasTonight = tonightKeys.has(k);
+    // Out of Att se is out of tonight's candidates too (see getTonight).
+    const setTonight = (on: boolean) =>
+      setTonightKeys((keys) => {
+        const next = new Set(keys);
+        if (on) next.add(k);
+        else next.delete(k);
+        return next;
+      });
+    setItems((list) => list.filter((i) => keyOf(i) !== k));
+    setTonight(false);
+    setDetail(null);
+    const ref = { tmdb_id: item.tmdb_id, media_type: "tv" as const };
+    try {
+      await setSeriesStatus({ ref, status, rating, groupId });
+      showToast(
+        status === "dropped" ? "Markerad som avbruten" : "Markerad som sett",
+        status === "dropped"
+          ? [
+              {
+                label: "Ångra",
+                onClick: () => {
+                  setItems(before);
+                  if (wasTonight) setTonight(true);
+                  setSeriesStatus({
+                    ref,
+                    status: "watching",
+                    rating: null,
+                    groupId,
+                  }).catch((e) => {
+                    console.error(e);
+                    router.refresh();
+                  });
+                },
+              },
+            ]
+          : [],
+        status === "dropped" ? 4000 : 2200,
+      );
+    } catch (e) {
+      console.error(e);
+      setItems(before);
+      if (wasTonight) setTonight(true);
+      showToast("Det gick inte att spara");
+    }
+  }
+
   function openGroups(item: ListItem) {
     listGroupsFor({ ref: refOf(item) })
       .then((savedFor) => setMoving({ item, savedFor }))
@@ -436,19 +507,22 @@ export function ListView({
     <>
       <AppHeader
         right={
-          tonightKeys.size > 0 && (
-            <button
-              type="button"
-              className={find.tonightChip}
-              onClick={() => {
-                // Ikväll lives in Hitta: open it there, over the deck if any.
-                memory.askForTonight();
-                router.push("/");
-              }}
-            >
-              Ikväll · {tonightKeys.size}
-            </button>
-          )
+          <>
+            {tonightKeys.size > 0 && (
+              <button
+                type="button"
+                className={find.tonightChip}
+                onClick={() => {
+                  // Ikväll lives in Hitta: open it there, over the deck if any.
+                  memory.askForTonight();
+                  router.push("/");
+                }}
+              >
+                Ikväll · {tonightKeys.size}
+              </button>
+            )}
+            <CheckInBell />
+          </>
         }
       >
         <GroupPicker
@@ -647,6 +721,15 @@ export function ListView({
           onDecide={() => {}}
           onChoose={() => void choose(detail.item)}
           chosen={chosenKey === keyOf(detail.item)}
+          watching={
+            detail.item.interest === "watching"
+              ? {
+                  onFinished: () => setFinishing(detail.item),
+                  onDropped: () =>
+                    void endSeries(detail.item, "dropped", null),
+                }
+              : undefined
+          }
           list={{
             wanted: detail.item.interest === "want",
             onRemove: () => void remove(detail.item),
@@ -670,6 +753,20 @@ export function ListView({
           groups={groups}
           onDone={(a) => void finishSeen(a)}
           rewatchGroupIds={seen.rewatch}
+        />
+      )}
+
+      {finishing && (
+        <SeenSheet
+          title={finishing.title}
+          groups={groups}
+          only="rating"
+          onDone={(a) => {
+            const item = finishing;
+            setFinishing(null);
+            // Closed without a rating: still watching.
+            if (a.rating !== null) void endSeries(item, "finished", a.rating);
+          }}
         />
       )}
 
