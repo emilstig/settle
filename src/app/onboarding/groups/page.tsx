@@ -24,6 +24,8 @@ export default function GroupsPage() {
   );
 }
 
+const AGES = Array.from({ length: 18 }, (_, i) => i);
+
 /** The line under each name: who it is, since nothing is saved yet. */
 const SUB: Record<string, string> = {
   partner: "Ni två",
@@ -36,6 +38,7 @@ async function Choice() {
   if (user.onboarded) redirect("/profile/groups");
   const groups = await getGroups();
   const solo = groups.find((g) => g.kind === "solo");
+  const family = groups.find((g) => g.kind === "family");
   return (
     <form action={saveGroupChoice} className={styles.form}>
       {/* Several choices, so check boxes with a tick, unlike the picker's
@@ -56,6 +59,7 @@ async function Choice() {
               type="checkbox"
               name="group"
               value={g.id}
+              data-family={g.kind === "family" || undefined}
               // Nothing chosen the first time: a choice is a wish, so it is
               // the user's to make. Back here later, it shows what was saved.
               defaultChecked={user.groupsChosen && !g.hidden}
@@ -66,6 +70,31 @@ async function Choice() {
           </label>
         ))}
       </fieldset>
+      {family && (
+        // Shown while Familj is ticked (CSS). Optional: without an answer
+        // the start view asks the first time Familj is chosen, and 7 applies.
+        <fieldset className={styles.ageQ}>
+          <legend>Hur gammal är den yngsta?</legend>
+          <p className={styles.step}>
+            Vi föreslår bara sådant som passar alla i soffan.
+          </p>
+          <div className={styles.ages}>
+            {AGES.map((age) => (
+              <label key={age}>
+                <input
+                  type="radio"
+                  name="age"
+                  value={age}
+                  defaultChecked={
+                    user.groupsChosen && family.youngest_age === age
+                  }
+                />
+                <span className="chip">{age}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <button className="primary">Fortsätt</button>
     </form>
   );

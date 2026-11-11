@@ -34,7 +34,20 @@ async function setVisible(userId: string, on: Set<string>) {
 export async function saveGroupChoice(formData: FormData) {
   const user = await getCurrentUser();
   const ids = idsSchema.parse(formData.getAll("group"));
-  await setVisible(user.id, new Set(ids));
+  const on = new Set(ids);
+  await setVisible(user.id, on);
+  // The youngest's age, asked when Familj is ticked. Optional.
+  const age = z.coerce.number().int().min(0).max(17).safeParse(formData.get("age"));
+  const family = (await getGroups()).find((g) => g.kind === "family");
+  if (family && on.has(family.id) && age.success && formData.get("age") !== null) {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("groups")
+      .update({ youngest_age: age.data })
+      .eq("id", family.id)
+      .eq("user_id", user.id);
+    if (error) throw error;
+  }
   if (!user.groupsChosen) {
     const supabase = await createClient();
     const { error } = await supabase.auth.updateUser({
