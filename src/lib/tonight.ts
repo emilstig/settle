@@ -50,7 +50,7 @@ export async function getTonight(
       }
     : null;
 
-  const [rights, list] = await Promise.all([
+  const [rights, list, watching] = await Promise.all([
     supabase
       .from("interactions")
       .select("tmdb_id, media_type, action, created_at")
@@ -66,9 +66,15 @@ export async function getTonight(
       .select("tmdb_id, media_type, interest")
       .eq("user_id", userId)
       .eq("group_id", groupId),
+    supabase
+      .from("watch_log")
+      .select("tmdb_id, media_type")
+      .eq("user_id", userId)
+      .eq("status", "watching"),
   ]);
   if (rights.error) throw rights.error;
   if (list.error) throw list.error;
+  if (watching.error) throw watching.error;
 
   // Still saved for the group: a moved or undone title is not a candidate,
   // and neither is one taken off tonight ("undo" after the last right swipe)
@@ -78,6 +84,9 @@ export async function getTonight(
   const interestOf = new Map(
     list.data.map((w) => [key(w), w.interest as string]),
   );
+  // Fortsätt titta is in Att se for every group.
+  for (const w of watching.data)
+    if (!interestOf.has(key(w))) interestOf.set(key(w), "watching");
   const latest = new Map<string, Ref & { action: string }>();
   for (const r of rights.data as (Ref & { action: string })[])
     if (!latest.has(key(r))) latest.set(key(r), r);

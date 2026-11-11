@@ -51,6 +51,7 @@ import {
   UndoIcon,
 } from "./decision-icons";
 import { AppHeader, GroupName, GroupPicker } from "./group-picker";
+import { CheckInBell } from "../check-in-bell";
 import { FIND_AGAIN } from "@/components/tab-bar/tab-bar";
 import { readGroup, rememberGroup } from "@/lib/group-cookie";
 import { eveningStart } from "@/lib/evening";
@@ -818,6 +819,13 @@ export function Finder({
       Ikväll · {tonightItems.length}
     </button>
   );
+  // The tab's header has the clock too; the deck's only Ikväll.
+  const tabRight = (
+    <>
+      {tonightButton}
+      <CheckInBell />
+    </>
+  );
   const picker = (
     <GroupPicker
       groups={groups}
@@ -840,7 +848,7 @@ export function Finder({
   if (phase === "chosen" && tonightChoice) {
     return (
       <>
-        <AppHeader right={tonightButton}>{picker}</AppHeader>
+        <AppHeader right={tabRight}>{picker}</AppHeader>
         <ChosenView
           card={tonightChoice}
           busy={choosing}
@@ -857,7 +865,7 @@ export function Finder({
   if (phase === "start" || !session) {
     return (
       <>
-        <AppHeader right={tonightButton}>{picker}</AppHeader>
+        <AppHeader right={tabRight}>{picker}</AppHeader>
         <StartView
           tonightChoice={tonightChoice}
           onOpenChoice={() => setPhase("chosen")}

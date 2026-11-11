@@ -12,6 +12,7 @@ import { getUserProviderIds } from "@/lib/providers";
 import { getGenreNames } from "@/lib/tmdb/genres";
 import { getSwedishProviders } from "@/lib/tmdb/providers";
 import { signOut } from "../actions";
+import { CheckInBell } from "../check-in-bell";
 import { AppHeader } from "../find/group-picker";
 import home from "../home.module.css";
 import { TOP_GENRES, tasteGenres } from "./genres";
@@ -34,7 +35,7 @@ export default function ProfilePage() {
     <main className={home.main}>
       {/* A tab of its own: no way back needed, and no group, since the
           profile is the user's and not the company's. */}
-      <AppHeader>
+      <AppHeader right={<CheckInBell />}>
         <h1 className="logo">Profil</h1>
       </AppHeader>
       <Suspense fallback={<Menu />}>

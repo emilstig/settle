@@ -31,6 +31,7 @@ export function DetailView({
   onDecide,
   onChoose,
   list,
+  watching,
   history,
   groupsRow,
 }: {
@@ -68,6 +69,11 @@ export function DetailView({
     tonight: boolean;
     onTonight: () => void;
   };
+  /**
+   * A series in Fortsätt titta: its bar is Klar (asks how it was) and
+   * Slutade instead of the list's actions; both take it out of Att se.
+   */
+  watching?: { onFinished: () => void; onDropped: () => void };
   /**
    * From Historik in Profil. A new rating is a state: the view stays. Se
    * igen, Inte sett and lifting "Inte min grej" take the title out of
@@ -319,7 +325,19 @@ export function DetailView({
           ))}
         </div>
       )}
-      {actions === "list" && list && (
+      {actions === "list" && list && watching && (
+        <div className={`${styles.dbar} ${styles.decide}`}>
+          <button type="button" onClick={watching.onFinished}>
+            <ListIcon kind="seen" />
+            <span>Klar</span>
+          </button>
+          <button type="button" onClick={watching.onDropped}>
+            <ListIcon kind="remove" />
+            <span>Slutade</span>
+          </button>
+        </div>
+      )}
+      {actions === "list" && list && !watching && (
         <div className={`${styles.dbar} ${styles.decide}`}>
           <button type="button" onClick={list.onRemove}>
             <ListIcon kind="remove" />

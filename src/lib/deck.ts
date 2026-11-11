@@ -323,7 +323,8 @@ export async function getRestedSeen(
   for (const w of seen.data!) {
     const k = key(w);
     const r = rating.get(k);
-    if (w.status === "dropped" || (r && r.rating < 0)) continue;
+    if (w.status === "dropped" || w.status === "watching" || (r && r.rating < 0))
+      continue;
     const score = r?.rating ?? 0;
     const last = Math.max(
       Date.parse(w.updated_at),

@@ -98,6 +98,11 @@ export async function getHistoryRefs(userId: string): Promise<HistoryRef[]> {
     status: string | null;
     updated_at: string;
   })[]) {
+    // A series being watched is in Att se (Fortsätt titta), not Historik.
+    if (w.status === "watching") {
+      listed.add(key(w));
+      continue;
+    }
     const s = seen.get(key(w));
     seen.set(key(w), {
       ref: { tmdb_id: w.tmdb_id, media_type: w.media_type },
