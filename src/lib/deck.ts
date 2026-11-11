@@ -45,6 +45,8 @@ export const deckFiltersSchema = z.object({
       label: z.string().optional(),
     })
     .optional(),
+  /** The session runs without Claude, for comparison (see no-ai.ts). */
+  noAi: z.boolean().optional(),
 });
 export type DeckFilters = z.infer<typeof deckFiltersSchema>;
 

@@ -66,6 +66,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
 TMDB_TOKEN=
 ANTHROPIC_API_KEY=
+COMPARE_EMAILS=   # valfri: konton som ser reglaget ”Jämför utan AI” i Profil
 ```
 
 ## Datamodell
