@@ -9,6 +9,7 @@ import {
   getTitles,
   type DiscoverHit,
   type MediaType,
+  type Title,
 } from "@/lib/tmdb/titles";
 
 export const CALIBRATION_SIZE = 20;
@@ -31,8 +32,10 @@ const SOURCES: { sortBy: string; filters: Record<MediaType, Filters> }[] = [
   {
     sortBy: "vote_average.desc",
     filters: {
-      movie: { "vote_count.gte": 1000, without_genres: "10762" },
-      tv: { "vote_count.gte": 1000, without_genres: "10762" },
+      // High enough that the list is not just anime and festival films,
+      // which top the averages but few in Sweden have seen.
+      movie: { "vote_count.gte": 5000, without_genres: "10762" },
+      tv: { "vote_count.gte": 3000, without_genres: "10762" },
     },
   },
   {
@@ -45,6 +48,39 @@ const SOURCES: { sortBy: string; filters: Record<MediaType, Filters> }[] = [
 ];
 
 /**
+ * Titles must have been out this long. New titles get high averages and
+ * many votes quickly, but few have seen them yet, and a calibration card no
+ * one has seen is a swipe on "Inte sett" instead of a rating.
+ */
+const MIN_AGE_YEARS = 2;
+/** Release date filters for discover, per media type, from MIN_AGE_YEARS. */
+function oldEnough(): Record<MediaType, Filters> {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - MIN_AGE_YEARS);
+  const before = d.toISOString().slice(0, 10);
+  return {
+    movie: { "primary_release_date.lte": before },
+    tv: { "first_air_date.lte": before },
+  };
+}
+
+/**
+ * Genres that get a place of their own in every round, the most voted title
+ * in each. The three sources fill up with drama, thrillers and blockbusters,
+ * so these never made it into the first 20, and the profile knew nothing of
+ * romance, horror or children's films until days of swiping later.
+ */
+const RESERVED: { genre: number; types: MediaType[] }[] = [
+  { genre: 10749, types: ["movie"] }, // Romantik
+  { genre: 27, types: ["movie"] }, // Skräck
+  { genre: 99, types: ["movie", "tv"] }, // Dokumentär
+  { genre: 10751, types: ["movie"] }, // Familj
+  { genre: 10752, types: ["movie"] }, // Krig
+];
+/** TMDB pages looked through for a reserved genre's title. */
+const RESERVED_PAGES = 3;
+
+/**
  * Picks `size` titles so genres get about equal room: each slot takes the
  * first title whose genres have been used least so far. Series genres count
  * as the film genres they cover, so Action & Adventure and Action are one.
@@ -55,8 +91,13 @@ function balanceGenres<
 >(
   items: T[],
   size: number,
+  /** Titles already placed, whose genres count as used. */
+  placed: T[] = [],
 ): T[] {
   const used = new Map<number, number>();
+  for (const item of placed)
+    for (const g of genresOf(item.genre_ids, item.media_type))
+      used.set(g, (used.get(g) ?? 0) + 1);
   const weight = (g: number) => (g === 18 ? 1 / 3 : 1);
   const load = (item: T) =>
     Math.max(
@@ -125,6 +166,7 @@ export async function getCalibrationCards(
   // more someone has answered, the further down they start: each page of the
   // six lists holds up to 120 titles, and the first pages get used up.
   const startPage = Math.max(1, Math.floor(answered.size / TITLES_PER_PAGE));
+  const age = oldEnough();
   for (
     let first = startPage;
     first < startPage + MAX_PAGES && hits.length < target;
@@ -140,7 +182,7 @@ export async function getCalibrationCards(
                 providerIds: "all",
                 page,
                 sortBy: src.sortBy,
-                filters: src.filters[t],
+                filters: { ...src.filters[t], ...age[t] },
               }),
             ),
           ),
@@ -169,14 +211,68 @@ export async function getCalibrationCards(
       break;
   }
 
+  const reservedHits = await reservedCandidates(done, age);
   const wanted = hits.slice(0, target);
-  const rows = await getTitles(wanted);
+  const rows = await getTitles([...wanted, ...reservedHits.flat()]);
   const none = new Set<number>();
-  const found = wanted.flatMap((h) => {
-    const row = rows.get(key(h));
-    return row ? [row] : [];
-  });
-  return balanceGenres(spread(found), CALIBRATION_SIZE).map((row) =>
-    toCard(row, none, genres),
+  const rowsOf = (list: DiscoverHit[]) =>
+    list.flatMap((h) => {
+      const row = rows.get(key(h));
+      return row ? [row] : [];
+    });
+  // One title per reserved genre, the most voted not already chosen.
+  const reserved: Title[] = [];
+  const taken = new Set<string>();
+  for (const list of reservedHits) {
+    const row = rowsOf(list).find((r) => !taken.has(key(r)));
+    if (!row) continue;
+    taken.add(key(row));
+    reserved.push(row);
+  }
+  const found = rowsOf(wanted).filter((r) => !taken.has(key(r)));
+  const usedCollections = new Set(
+    reserved.flatMap((r) => (r.collection_id ? [r.collection_id] : [])),
+  );
+  const rest = balanceGenres(
+    spread(found, usedCollections),
+    CALIBRATION_SIZE - reserved.length,
+    reserved,
+  );
+  // The reserved titles go in among the others, after a few well-known ones.
+  const out = [...rest];
+  reserved.forEach((row, i) =>
+    out.splice(Math.min(out.length, 2 + i * 4), 0, row),
+  );
+  return out.map((row) => toCard(row, none, genres));
+}
+
+/**
+ * The most voted titles in each reserved genre, per genre in RESERVED's
+ * order, without what was answered.
+ */
+async function reservedCandidates(
+  done: Set<string>,
+  age: Record<MediaType, Filters>,
+): Promise<DiscoverHit[][]> {
+  return Promise.all(
+    RESERVED.map(async ({ genre, types }) => {
+      const pages = await Promise.all(
+        Array.from({ length: RESERVED_PAGES }, (_, i) => i + 1).flatMap(
+          (page) =>
+            types.map((t) =>
+              discover(t, {
+                providerIds: "all",
+                page,
+                sortBy: "vote_count.desc",
+                filters: { with_genres: genre, ...age[t] },
+              }),
+            ),
+        ),
+      );
+      return pages
+        .flatMap((p) => p.hits)
+        .filter((h) => !done.has(key(h)))
+        .slice(0, 5);
+    }),
   );
 }
