@@ -180,6 +180,13 @@ const FILM_AS_TV: Record<number, number> = {
   14: 10765, // Fantasy → Sci-Fi & Fantasy
   10752: 10768, // Krig → War & Politics
 };
+/**
+ * Film genres that do not carry over to series in the taste: Familj on a
+ * series is Barn (see genresOf), and animated series are mostly children's
+ * shows and anime, a different evening from Pixar or Ghibli. A taste for
+ * them asked for Henry Danger, Young Sheldon and Bleach.
+ */
+const FILM_ONLY = new Set([16, 10751]);
 
 /**
  * Without a mood the popular list is the same for everyone with the same
@@ -215,6 +222,7 @@ export async function withTaste(
   const asType = (type: MediaType, ids: number[]) => [
     ...new Set(
       ids
+        .filter((g) => type === "movie" || !FILM_ONLY.has(g))
         .map((g) => (type === "tv" ? (FILM_AS_TV[g] ?? g) : g))
         .filter((g) => valid[type].includes(g)),
     ),
