@@ -32,7 +32,15 @@ const LOW_GENRES = 3;
  * few titles towards zero, so one loved film cannot top the list.
  */
 const GENRE_PRIOR = 3;
-const MIN_GENRE_TITLES = 4;
+/**
+ * Titles a genre needs before it gets a weight. Two for the personal
+ * profile: calibration gives Romantik, Skräck, Dokumentär, Familj and Krig
+ * one place each, and with four needed a no to them did not show until
+ * several rounds later. The prior already keeps two titles from topping
+ * the list. The group's profile, built from swipes, keeps four.
+ */
+const MIN_GENRE_TITLES = 2;
+const MIN_GROUP_GENRE_TITLES = 4;
 /**
  * TMDB has separate genres for series. Each is counted as the film genres it
  * covers, so sci-fi is one genre whether it is a film or a series.
@@ -462,7 +470,7 @@ export async function buildGroupTaste(
   }
 
   const ranked: [number, number][] = [...sum.entries()]
-    .filter(([g]) => genreNames[g] && (count.get(g) ?? 0) >= MIN_GENRE_TITLES)
+    .filter(([g]) => genreNames[g] && (count.get(g) ?? 0) >= MIN_GROUP_GENRE_TITLES)
     .map(([g, total]): [number, number] => [
       g,
       total / ((count.get(g) ?? 0) + GENRE_PRIOR),

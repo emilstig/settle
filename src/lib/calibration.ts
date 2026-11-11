@@ -34,8 +34,18 @@ const SOURCES: { sortBy: string; filters: Record<MediaType, Filters> }[] = [
     filters: {
       // High enough that the list is not just anime and festival films,
       // which top the averages but few in Sweden have seen.
-      movie: { "vote_count.gte": 5000, without_genres: "10762" },
-      tv: { "vote_count.gte": 3000, without_genres: "10762" },
+      // From 1980 on: older classics top the averages too, but younger
+      // testers have rarely seen them (Gökboet, 12 edsvurna män).
+      movie: {
+        "vote_count.gte": 5000,
+        without_genres: "10762",
+        "primary_release_date.gte": "1980-01-01",
+      },
+      tv: {
+        "vote_count.gte": 3000,
+        without_genres: "10762",
+        "first_air_date.gte": "1980-01-01",
+      },
     },
   },
   {
