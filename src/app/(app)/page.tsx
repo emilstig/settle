@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { getChosenGroupId } from "@/lib/group-choice";
-import { countSavedByGroup, getGroups } from "@/lib/groups";
+import { countSavedByGroup, getVisibleGroups } from "@/lib/groups";
 import { countRatings } from "@/lib/profile";
 import { Finder } from "./find/finder";
 import styles from "./home.module.css";
@@ -24,7 +24,7 @@ export default function FindPage() {
 async function Find() {
   const user = await getCurrentUser();
   const [groups, ratings, saved] = await Promise.all([
-    getGroups(),
+    getVisibleGroups(),
     countRatings(user.id),
     countSavedByGroup(user.id),
   ]);

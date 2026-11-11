@@ -19,7 +19,11 @@ function Line({ children }: { children: ReactNode }) {
 }
 
 /** The rows in Profil: Din smak, Historik and Tjänster. */
-export function MenuIcon({ kind }: { kind: "taste" | "history" | "services" }) {
+export function MenuIcon({
+  kind,
+}: {
+  kind: "taste" | "history" | "groups" | "services";
+}) {
   return (
     <Line>
       {kind === "taste" && (
@@ -35,6 +39,13 @@ export function MenuIcon({ kind }: { kind: "taste" | "history" | "services" }) {
           <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" />
           <path d="M3 4v4h4" />
           <path d="M12 8v4l3 2" />
+        </>
+      )}
+      {kind === "groups" && (
+        <>
+          <circle cx="9" cy="8" r="3.5" />
+          <path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" />
+          <path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2" />
         </>
       )}
       {kind === "services" && (

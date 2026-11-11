@@ -67,8 +67,7 @@ Tidsplanen fram till Product Hunt finns i projektdokumentet. Funktionerna fryses
 - [x] Fliken Profil som meny med Din smak (genrerutor, Fortsätt kalibrera), Historik (hyllor med det man sett, ogillat och sagt Inte min grej om, där betyg, se igen, Inte sett och Inte min grej går att ändra i efterhand) och Tjänster
 - [x] ”Välj den här” i detaljvyn sätter `picked_tmdb_id` på sessionen (byggt med Toppval ikväll i steg 5)
 - [ ] Efter tittning: klockan frågar om gårdagens val (betyg, eller status för serier)
-- [ ] Grupper med filter i stället för typer: `kind` blir `solo`/`group`, `youngest_age` flyttas till `filters.max_age`, `filters` får `without_genres`, `services`, `max_runtime` och `audio`, och `groups` får `hidden` och `archived_at`. Filtren läggs på servern som hårda gränser och promptarna utgår från dem
-- [ ] Välj vilka grupper man använder: i onboarding (”Vem brukar du titta med?”) och i Profil. Släckta grupper döljs men raderas inte, och med bara Själv hoppas ”Vem tittar ikväll?” över (undantag från frysningen)
+- [x] Välj vilka grupper man använder: i onboarding (”Vem brukar du titta med?”, efter tjänsterna) och under Grupper i Profil, med åldern för Familj. Släckta grupper döljs men raderas inte, och med bara Själv finns ingen gruppväljare (undantag från frysningen)
 
 **Klart när:** check-in fyller på betyg utan att du tänker på det.
 
@@ -100,4 +99,4 @@ En egen fas efter steg 8 och före den slutna betan (vecka 6–7 i Tidsplanen). 
 
 Byggs inte utan ett beslut som först förts in i Beslutsloggen i projektdokumentet.
 
-Gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, rader i Att se som Claude sätter ihop, inställningar per grupp (till exempel inga barnfilmer med Själv eller Vänner), notiser om nytt och kommande, fri sökning på alla tjänster, att visa var titlar finns på tjänster användaren saknar, native app. Underlag för det som kommer efter MVP (grupper, notiser, Settle Plus, AI-kostnad) finns i projektdokumentet.
+Grupper med filter i stället för typer (kommer med inställningar per grupp), gruppmedlemmar och kopplade konton, inbjudningar, egna grupper och namnbyte, parläge och matchning, push-notiser, Liknande (`/recommendations`), stegen ”Hur många gånger?” och ”När senast?” i sett-sheet, rader i Att se som Claude sätter ihop, inställningar per grupp (till exempel inga barnfilmer med Själv eller Vänner), notiser om nytt och kommande, fri sökning på alla tjänster, att visa var titlar finns på tjänster användaren saknar, native app. Underlag för det som kommer efter MVP (grupper, notiser, Settle Plus, AI-kostnad) finns i projektdokumentet.

@@ -730,9 +730,14 @@ export async function recordSeen(
   // The answer is the full set of groups: chosen ones get se igen, and
   // groups that had it but were deselected lose it.
   if (s.rewatchGroupIds !== null) {
-    const owned = new Set((await getGroups()).map((g) => g.id));
+    const groups = await getGroups();
+    const owned = new Set(groups.map((g) => g.id));
     const chosen = new Set(s.rewatchGroupIds.filter((g) => owned.has(g)));
-    const before = await rewatchGroupsFor(s.ref);
+    // Switched-off groups are not in the sheet, so their se igen stays.
+    const hidden = new Set(groups.filter((g) => g.hidden).map((g) => g.id));
+    const before = (await rewatchGroupsFor(s.ref)).filter(
+      (g) => !hidden.has(g),
+    );
     for (const groupId of new Set([...chosen, ...before])) {
       const prev = await currentInterest(user.id, groupId, s.ref);
       if (chosen.has(groupId)) {

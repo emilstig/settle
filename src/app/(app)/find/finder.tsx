@@ -833,6 +833,7 @@ export function Finder({
         });
       }}
       title="Vem tittar ikväll?"
+      soloTitle="Hitta"
     />
   );
 
@@ -905,7 +906,10 @@ export function Finder({
           <span className={styles.headBackIcon}>
             <BackIcon />
           </span>
-          <GroupName group={groups.find((g) => g.id === groupId)} />
+          <GroupName
+            group={groups.find((g) => g.id === groupId)}
+            alone={groups.length > 1 ? undefined : "Hitta"}
+          />
         </button>
       </AppHeader>
 

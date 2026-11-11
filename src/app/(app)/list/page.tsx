@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { getChosenGroupId } from "@/lib/group-choice";
-import { countSavedByGroup, getGroups } from "@/lib/groups";
+import { countSavedByGroup, getVisibleGroups } from "@/lib/groups";
 import { getList } from "@/lib/list";
 import { getUserProviderIds } from "@/lib/providers";
 import home from "../home.module.css";
@@ -24,7 +24,7 @@ export default function ListPage() {
 async function List() {
   const user = await getCurrentUser();
   const [groups, providerIds, saved] = await Promise.all([
-    getGroups(),
+    getVisibleGroups(),
     getUserProviderIds(),
     countSavedByGroup(user.id),
   ]);

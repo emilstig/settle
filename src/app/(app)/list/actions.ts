@@ -102,10 +102,15 @@ const groupsInput = z.object({
 export async function setListGroups(data: z.infer<typeof groupsInput>) {
   const user = await getCurrentUser();
   const { ref: r, groupIds } = groupsInput.parse(data);
-  const owned = new Set((await getGroups()).map((g) => g.id));
+  const groups = await getGroups();
+  const owned = new Set(groups.map((g) => g.id));
   const chosen = new Set(groupIds.filter((id) => owned.has(id)));
   if (chosen.size === 0) throw new Error("No groups");
-  const before = new Set(await listGroupsFor({ ref: r }));
+  // Switched-off groups are not shown in the sheet, so their lists stay.
+  const hidden = new Set(groups.filter((g) => g.hidden).map((g) => g.id));
+  const before = new Set(
+    (await listGroupsFor({ ref: r })).filter((id) => !hidden.has(id)),
+  );
   const supabase = await createClient();
   const added = [...chosen].filter((id) => !before.has(id));
   const removed = [...before].filter((id) => !chosen.has(id));

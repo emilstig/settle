@@ -7,6 +7,8 @@ export type CurrentUser = {
   id: string;
   email: string | null;
   onboarded: boolean;
+  /** Answered "Vem brukar du titta med?" in onboarding. */
+  groupsChosen: boolean;
 };
 
 /** Reads and verifies the session. Redirects to /login when signed out. */
@@ -21,6 +23,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
     id: claims.sub,
     email: typeof claims.email === "string" ? claims.email : null,
     onboarded: meta.onboarded === true,
+    groupsChosen: meta.groups_chosen === true,
   };
 });
 

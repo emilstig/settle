@@ -11,3 +11,46 @@
 .step { color: var(--mute); font-size: 15px; }
 .lead { color: var(--mute); line-height: 1.45; font-size: 17px; }
 .placeholder { height: 220px; }
+.form { display: flex; flex-direction: column; gap: 16px; }
+
+/* Who the user watches with: the picker's tiles, as check boxes. */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border: 0; padding: 0; margin: 0; }
+.tile {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  cursor: pointer;
+}
+.tile input { position: absolute; opacity: 0; pointer-events: none; }
+.tile:has(input:checked) { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tile:has(input:disabled) { cursor: default; }
+.tile:has(input:focus-visible) { outline: 3px solid var(--cal); outline-offset: 2px; }
+.tileName { font-size: 17px; font-weight: 700; padding-right: 24px; }
+.tileSub { font-size: 13px; opacity: 0.7; }
+.tick {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  display: grid;
+  place-items: center;
+}
+.tick svg { width: 14px; height: 14px; opacity: 0; }
+.tile:has(input:checked) .tick { background: var(--bg); border-color: var(--bg); color: var(--ink); }
+.tile:has(input:checked) .tick svg { opacity: 1; }
+
+/* The youngest's age, while Familj is ticked. */
+.ageQ { display: none; gap: 8px; border: 0; padding: 0; margin: 0; }
+.form:has(input[data-family]:checked) .ageQ { display: grid; }
+.ageQ legend { font-weight: 700; font-size: 17px; margin-bottom: 4px; }
+.ages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.ages label { display: grid; cursor: pointer; }
+.ages input { position: absolute; opacity: 0; pointer-events: none; }
+.ages :global(.chip) { height: 40px; padding: 0; display: grid; place-items: center; }

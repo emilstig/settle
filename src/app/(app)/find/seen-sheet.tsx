@@ -58,9 +58,13 @@ export function SeenSheet({
   // Nothing chosen from the start: "se igen" is a wish that weighs heavily
   // later, so it must not be saved by tapping past the question.
   // A preselection only shows what is already saved, never a new wish.
+  // Only the groups shown: a switched-off group's se igen is left alone.
   const [again, setAgain] = useState<Set<string>>(
-    () => new Set(rewatchGroupIds),
+    () =>
+      new Set(rewatchGroupIds.filter((id) => groups.some((g) => g.id === id))),
   );
+  // With Själv as the only group, se igen is a yes or a no.
+  const alone = groups.length === 1 ? groups[0] : null;
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -155,9 +159,19 @@ export function SeenSheet({
           </>
         ) : (
           <>
-            <p>Vill du se den igen? Med vem?</p>
+            <p>{alone ? "Vill du se den igen?" : "Vill du se den igen? Med vem?"}</p>
             <div className={styles.sheetRow} ref={rowRef}>
-              {groups.map((g) => {
+              {alone && (
+                <button
+                  type="button"
+                  className={again.has(alone.id) ? styles.on : undefined}
+                  aria-pressed={again.has(alone.id)}
+                  onClick={() => finish([alone.id])}
+                >
+                  Ja
+                </button>
+              )}
+              {!alone && groups.map((g) => {
                 const on = again.has(g.id);
                 return (
                   <button
@@ -178,14 +192,16 @@ export function SeenSheet({
                   </button>
                 );
               })}
-              <button
-                type="button"
-                className={styles.ok}
-                disabled={again.size === 0}
-                onClick={() => finish([...again])}
-              >
-                Klar
-              </button>
+              {!alone && (
+                <button
+                  type="button"
+                  className={styles.ok}
+                  disabled={again.size === 0}
+                  onClick={() => finish([...again])}
+                >
+                  Klar
+                </button>
+              )}
             </div>
             <button
               type="button"

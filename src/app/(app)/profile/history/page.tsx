@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
-import { countSavedByGroup, getGroups } from "@/lib/groups";
+import { countSavedByGroup, getVisibleGroups } from "@/lib/groups";
 import { getHistory } from "@/lib/history";
 import { getUserProviderIds } from "@/lib/providers";
 import home from "../../home.module.css";
@@ -28,7 +28,7 @@ export default function HistoryPage() {
 async function History() {
   const user = await getCurrentUser();
   const [groups, providerIds, saved] = await Promise.all([
-    getGroups(),
+    getVisibleGroups(),
     getUserProviderIds(),
     countSavedByGroup(user.id),
   ]);

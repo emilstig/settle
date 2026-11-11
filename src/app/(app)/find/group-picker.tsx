@@ -32,8 +32,15 @@ function tileSub(g: GroupOption, on: boolean): string {
  * The deck is already suggestions for one group, so it shows the name
  * without a way to switch; the cards already say the age limit.
  */
-export function GroupName({ group }: { group: GroupOption | undefined }) {
-  return <span className={styles.groupName}>{group?.name}</span>;
+export function GroupName({
+  group,
+  alone,
+}: {
+  group: GroupOption | undefined;
+  /** With Själv as the only group, the tab's name instead. */
+  alone?: string;
+}) {
+  return <span className={styles.groupName}>{alone ?? group?.name}</span>;
 }
 
 export function GroupPicker({
@@ -42,6 +49,7 @@ export function GroupPicker({
   onGroup,
   onAge,
   title,
+  soloTitle,
 }: {
   groups: GroupOption[];
   groupId: string;
@@ -49,6 +57,11 @@ export function GroupPicker({
   onAge?: (groupId: string, age: number) => void;
   /** "Vem tittar ikväll?" in Hitta, "Vem tittar?" in Att se. */
   title: string;
+  /**
+   * The tab's name, shown instead when Själv is the only group: there is
+   * nothing to choose, so the header reads like Profil's.
+   */
+  soloTitle: string;
 }) {
   const [open, setOpen] = useState(false);
   const [editingAge, setEditingAge] = useState(false);
@@ -89,6 +102,8 @@ export function GroupPicker({
     close();
   }
 
+  if (groups.length <= 1) return <h1 className="logo">{soloTitle}</h1>;
+
   return (
     <>
       <button
@@ -99,10 +114,9 @@ export function GroupPicker({
         aria-label={`Vem tittar: ${selected?.name ?? ""}. Byt`}
         onClick={() => setOpen(true)}
       >
+        {/* The name only, as in the deck: the age is in the sheet and on
+            every card. */}
         <span className={styles.pickerName}>{selected?.name}</span>
-        {family?.youngest_age != null && (
-          <span className={styles.pickerAge}>{family.youngest_age}+</span>
-        )}
         <span className={styles.pickerChev} aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
             <path d="m6 9 6 6 6-6" />

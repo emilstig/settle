@@ -463,6 +463,7 @@ export function ListView({
               });
           }}
           title="Vem tittar?"
+          soloTitle="Att se"
         />
       </AppHeader>
 
@@ -650,7 +651,9 @@ export function ListView({
                 ? undefined
                 : () => void toggleWant(detail.item),
             onSeen: () => openSeen(detail.item),
-            onGroups: () => openGroups(detail.item),
+            // With Själv only there is no other list to put it on.
+            onGroups:
+              groups.length > 1 ? () => openGroups(detail.item) : undefined,
             tonight: tonightKeys.has(keyOf(detail.item)),
             onTonight: () => void saveTonight(detail.item),
           }}
