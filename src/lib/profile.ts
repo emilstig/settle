@@ -41,10 +41,21 @@ const TV_GENRE_AS: Record<number, number[]> = {
   10765: [878, 14], // Sci-Fi & Fantasy → Science Fiction, Fantasy
   10759: [28, 12], // Action & Adventure → Action, Äventyr
   10768: [10752], // War & Politics → Krig
-  10762: [10751], // Kids → Familj
 };
-export const genresOf = (ids: number[]) => [
-  ...new Set(ids.flatMap((g) => TV_GENRE_AS[g] ?? [g])),
+/**
+ * Barn (TMDB's Kids) stays a genre of its own, and Familj on a series counts
+ * as Barn: children's series and family films are different evenings. Counted
+ * as one genre, a yes to Pixar cancelled a no to Greta Gris, so neither showed
+ * in the profile and children's series kept coming in the deck.
+ */
+export const KIDS = 10762;
+const FAMILY = 10751;
+export const genresOf = (ids: number[], mediaType?: "movie" | "tv") => [
+  ...new Set(
+    ids.flatMap((g) =>
+      mediaType === "tv" && g === FAMILY ? [KIDS] : (TV_GENRE_AS[g] ?? [g]),
+    ),
+  ),
 ];
 
 type Ref = { tmdb_id: number; media_type: "movie" | "tv" };
@@ -197,7 +208,10 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
   const sum = new Map<number, number>();
   const count = new Map<number, number>();
   const add = (r: Ref, weight: number, at: string) => {
-    for (const g of genresOf(titles.get(keyOf(r))?.genre_ids ?? [])) {
+    for (const g of genresOf(
+      titles.get(keyOf(r))?.genre_ids ?? [],
+      r.media_type,
+    )) {
       sum.set(g, (sum.get(g) ?? 0) + weight * decay(at, now));
       count.set(g, (count.get(g) ?? 0) + 1);
     }
@@ -436,7 +450,10 @@ export async function buildGroupTaste(
   const bump = (m: Map<number, number>, g: number, by = 1) =>
     m.set(g, (m.get(g) ?? 0) + by);
   for (const { ref, weight, at } of latest.values()) {
-    for (const g of genresOf(genreIds.get(keyOf(ref)) ?? [])) {
+    for (const g of genresOf(
+      genreIds.get(keyOf(ref)) ?? [],
+      ref.media_type,
+    )) {
       bump(sum, g, weight * decay(at, now));
       bump(count, g);
       if (weight > 0) bump(wanted, g);

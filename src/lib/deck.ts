@@ -159,7 +159,7 @@ const TV_COVERS: Record<number, number[]> = {
   10759: [28, 12], // Action & Adventure
   10765: [878, 14], // Sci-Fi & Fantasy
   10768: [10752], // War & Politics
-  10762: [10751], // Kids
+  10751: [10762], // Family on a series counts as Barn (see genresOf)
 };
 
 /**
@@ -734,7 +734,7 @@ export async function loadDeckPage({
   // Average, not sum: a title with five genres (often a children's film:
   // animation, family, comedy, adventure, fantasy) must not win on count.
   const score = (row: Title) => {
-    const gs = genresOf(row.genre_ids);
+    const gs = genresOf(row.genre_ids, row.media_type);
     if (gs.length === 0) return 0;
     return gs.reduce((sum, g) => sum + (affinity[g] ?? 0), 0) / gs.length;
   };

@@ -121,7 +121,7 @@ export async function getSimilar({
       const k = keyOf(r);
       if (seedKeys.has(k)) continue;
       if (r.vote_count < MIN_VOTES[r.media_type]) continue;
-      if (genresOf(r.genre_ids).some((g) => avoided.has(g))) continue;
+      if (genresOf(r.genre_ids, r.media_type).some((g) => avoided.has(g))) continue;
       const hit = hits.get(k);
       if (hit) hit.votes += 1;
       else hits.set(k, { ...r, votes: 1 });
