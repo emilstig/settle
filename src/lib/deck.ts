@@ -209,9 +209,12 @@ export async function withTaste(
   filters: DeckFilters,
   affinity: Record<number, number>,
   seed: string,
+  /** Genres with enough titles to steer the fetch (TasteProfile.established). */
+  established: ReadonlySet<number>,
 ): Promise<DeckFilters> {
   const ranked = Object.entries(affinity)
     .map(([g, w]) => [Number(g), w] as const)
+    .filter(([g]) => established.has(g))
     .sort((a, b) => b[1] - a[1]);
   // Drama is on most titles, so on its own it is close to the popular list:
   // it is used only when there is little else to go on.
