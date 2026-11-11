@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { GroupOption } from "./types";
 import { useBackClose } from "./use-back-close";
 import styles from "./find.module.css";
@@ -118,93 +119,104 @@ export function GroupPicker({
             every card. */}
         <span className={styles.pickerName}>{selected?.name}</span>
         <span className={styles.pickerChev} aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="m6 9 6 6 6-6" />
           </svg>
         </span>
       </button>
-      {open && (
-        <>
-          <div className={styles.scrim} onClick={close} />
-          <div
-            className={`${styles.sheet} ${styles.sheetOpen}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="picker-title"
-          >
-            <div className={styles.sheetHead}>
-              <h3 id="picker-title">{title}</h3>
-              <button
-                type="button"
-                className={styles.sheetClose}
-                aria-label="Stäng"
-                onClick={close}
-              >
-                ✕
-              </button>
-            </div>
-            {/* One choice, so tiles and a radio group rather than pills. */}
+      {/* Out of the header, which is a stacking context of its own (sticky,
+          frosted), so the sheet covers the page and the tab bar. */}
+      {open &&
+        createPortal(
+          <>
+            <div className={styles.scrim} onClick={close} />
             <div
-              className={styles.who}
-              role="radiogroup"
+              className={`${styles.sheet} ${styles.sheetOpen}`}
+              role="dialog"
+              aria-modal="true"
               aria-labelledby="picker-title"
             >
-              {groups.map((g) => {
-                const on = g.id === groupId;
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    className={styles.tile}
-                    onClick={() => pick(g)}
-                  >
-                    <span className={styles.tileName}>{g.name}</span>
-                    <span className={styles.tileSub}>{tileSub(g, on)}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {askAge && family && (
-              <div
-                className={`${styles.age} ${styles.pickerAgeQ}`}
-                role="group"
-                aria-labelledby="age-q"
-              >
-                <p id="age-q" className={styles.ageQ}>
-                  Hur gammal är den yngsta?
-                </p>
-                <p className={styles.ageLead}>
-                  Vi föreslår bara sådant som passar alla i soffan.
-                </p>
-                <div className={styles.ages}>
-                  {AGES.map((age) => (
-                    <button
-                      key={age}
-                      type="button"
-                      className="chip"
-                      aria-pressed={age === family.youngest_age}
-                      onClick={() => pickAge(age)}
-                    >
-                      {age}
-                    </button>
-                  ))}
-                </div>
-                {family.youngest_age === null && (
-                  <button
-                    type="button"
-                    className="link"
-                    onClick={() => pickAge(DEFAULT_AGE)}
-                  >
-                    Hoppa över (7 år)
-                  </button>
-                )}
+              <div className={styles.sheetHead}>
+                <h3 id="picker-title">{title}</h3>
+                <button
+                  type="button"
+                  className={styles.sheetClose}
+                  aria-label="Stäng"
+                  onClick={close}
+                >
+                  ✕
+                </button>
               </div>
-            )}
-          </div>
-        </>
-      )}
+              {/* One choice, so tiles and a radio group rather than pills. */}
+              <div
+                className={styles.who}
+                role="radiogroup"
+                aria-labelledby="picker-title"
+              >
+                {groups.map((g) => {
+                  const on = g.id === groupId;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className={styles.tile}
+                      onClick={() => pick(g)}
+                    >
+                      <span className={styles.tileName}>{g.name}</span>
+                      <span className={styles.tileSub}>{tileSub(g, on)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {askAge && family && (
+                <div
+                  className={`${styles.age} ${styles.pickerAgeQ}`}
+                  role="group"
+                  aria-labelledby="age-q"
+                >
+                  <p id="age-q" className={styles.ageQ}>
+                    Hur gammal är den yngsta?
+                  </p>
+                  <p className={styles.ageLead}>
+                    Vi föreslår bara sådant som passar alla i soffan.
+                  </p>
+                  <div className={styles.ages}>
+                    {AGES.map((age) => (
+                      <button
+                        key={age}
+                        type="button"
+                        className="chip"
+                        aria-pressed={age === family.youngest_age}
+                        onClick={() => pickAge(age)}
+                      >
+                        {age}
+                      </button>
+                    ))}
+                  </div>
+                  {family.youngest_age === null && (
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={() => pickAge(DEFAULT_AGE)}
+                    >
+                      Hoppa över (7 år)
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </>,
+          document.body,
+        )}
     </>
   );
 }
@@ -241,10 +253,12 @@ export function AppHeader({
       (header.parentElement ?? document)
         .querySelectorAll<HTMLElement>("[data-subhead]")
         .forEach((el) => {
-          const at = top > 0 && Math.abs(el.getBoundingClientRect().top - bottom) < 1;
+          const at =
+            top > 0 && Math.abs(el.getBoundingClientRect().top - bottom) < 1;
           if (at) stuck = true;
           el.toggleAttribute("data-stuck", at);
         });
+      header.toggleAttribute("data-scrolled", top > 0);
       header.toggleAttribute("data-line", top > 0 && !stuck);
     };
     const onScroll = () => {

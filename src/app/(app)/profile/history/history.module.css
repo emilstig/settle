@@ -16,10 +16,10 @@
   padding: 8px 0;
   margin: -8px -16px;
   padding-inline: 16px;
-  background: var(--bg);
-  transition: box-shadow 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
 }
-.group h3[data-stuck] { box-shadow: 0 1px 0 var(--line); }
+/* Frosted like the header above it, as one surface. */
+.group h3[data-stuck] { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: 0 1px 0 var(--line); }
 @media (prefers-reduced-motion: reduce) { .group h3 { transition: none; } }
 .group h3 span {
   color: var(--mute);
