@@ -1,4 +1,5 @@
 import "server-only";
+import { runCost, type RunCost } from "./cost";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import {
@@ -72,6 +73,7 @@ export async function askStyleTitles(input: {
   for (let attempt = 1; attempt <= 2; attempt++) {
     const started = Date.now();
     let output: object;
+    let cost: RunCost | null = null;
     let result: StyleTitle[] | null = null;
     try {
       const response = await anthropic().messages.create({
@@ -88,6 +90,7 @@ export async function askStyleTitles(input: {
         },
         messages: [{ role: "user", content: prompt }],
       });
+      cost = runCost(response.model, response.usage);
       const text = response.content
         .flatMap((b) => (b.type === "text" ? [b.text] : []))
         .join("");
@@ -121,6 +124,7 @@ export async function askStyleTitles(input: {
       output,
       model: STYLE_MODEL,
       latency_ms: Date.now() - started,
+      ...cost,
     });
     if (error) console.error("suggest_runs insert failed", error);
     if (result) return result;

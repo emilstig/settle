@@ -58,7 +58,7 @@ Tidsplanen fram till Product Hunt finns i projektdokumentet. Funktionerna fryses
 - [x] Se igen: gruppens `rewatch`-titlar och, vid tryggt humör, älskade sedda titlar läggs till som kandidater, med etiketten ”Se igen” på kortet
 - [x] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
 - [x] Tillfällig växel för jämförelse: ”Jämför utan AI” i Profil kör nya lekar utan prompt 1, Titlar i stilen och prompt 2. Syns bara för konton i `COMPARE_EMAILS` (och för alla i dev)
-- [ ] `suggest_runs` loggar input_tokens, output_tokens och beräknad kostnad (mål under 0,50 kr per aktiv användare och månad)
+- [x] `suggest_runs` loggar input_tokens, output_tokens och beräknad kostnad (`cost_usd`, listpris för modellen som svarade) (mål under 0,50 kr per aktiv användare och månad)
 - [ ] Testa Haiku för prompt 2 i `scripts/eval` och jämför Toppvalen med Sonnets
 
 **Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
