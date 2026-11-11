@@ -4,9 +4,19 @@
   gap: 8px;
   scroll-margin-top: 12px;
 }
+/* The shelf's name stays at the top while its rows scroll, until the next
+   shelf pushes it away (sticky within its own section). Under a notch the
+   shadow covers the status bar strip, so no rows show above it. */
 .group h3 {
   font-size: 19px;
   letter-spacing: -0.02em;
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 1;
+  padding: 8px 0;
+  margin: -8px 0;
+  background: var(--bg);
+  box-shadow: 0 calc(-1 * env(safe-area-inset-top, 0px)) 0 var(--bg);
 }
 .group h3 span {
   color: var(--mute);
