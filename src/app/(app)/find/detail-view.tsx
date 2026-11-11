@@ -79,6 +79,8 @@ export function DetailView({
         /** The word on the rating button: "Älskar", or "Betyg" when unrated. */
         ratingWord: string;
         rated: boolean;
+        /** The group the rating was made with, when it is not Själv. */
+        ratedWith?: string | null;
         onRate: () => void;
         onRewatch: () => void;
         onUnseen: () => void;
@@ -259,6 +261,13 @@ export function DetailView({
               </button>
             </div>
           )}
+          {actions === "history" &&
+            history?.kind === "seen" &&
+            history.ratedWith && (
+              <p className={`${styles.dstate} ${styles.dnote}`}>
+                Betyg gjort med {history.ratedWith}
+              </p>
+            )}
           {actions === "deck" && groupsRow && (
             <button
               type="button"
