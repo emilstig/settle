@@ -187,6 +187,14 @@ const FILM_AS_TV: Record<number, number> = {
  * them asked for Henry Danger, Young Sheldon and Bleach.
  */
 const FILM_ONLY = new Set([16, 10751]);
+/**
+ * Formats rather than genres: Dokumentär, Reality, Nyheter and Talkshow cut
+ * across what a title is about. A liking for documentaries is not a wish
+ * for a documentary evening, so they never choose the fetch, and they are
+ * left out of it so Kriminal does not fill up with true crime. They still
+ * come through Toppval, the lane, rested titles and a mood that asks.
+ */
+const FORMATS = [99, 10764, 10763, 10767];
 
 /**
  * Without a mood the popular list is the same for everyone with the same
@@ -211,7 +219,7 @@ export async function withTaste(
   // Drama is on most titles, so on its own it is close to the popular list:
   // it is used only when there is little else to go on.
   const liked = ranked
-    .filter(([, w]) => w >= TASTE_LIKED)
+    .filter(([g, w]) => w >= TASTE_LIKED && !FORMATS.includes(g))
     .map(([g]) => g)
     .sort((a, b) => Number(a === DRAMA) - Number(b === DRAMA))
     .slice(0, TASTE_POOL);
@@ -237,7 +245,12 @@ export async function withTaste(
     const want = asType(type, chosen);
     if (want.length === 0) continue;
     // A series genre covering a liked film genre is not left out.
-    const without = asType(type, avoided).filter((g) => !want.includes(g));
+    const without = [
+      ...new Set([
+        ...asType(type, avoided),
+        ...FORMATS.filter((g) => valid[type].includes(g)),
+      ]),
+    ].filter((g) => !want.includes(g));
     taste[type] = {
       with_genres: want.join("|"),
       ...(without.length ? { without_genres: without.join(",") } : {}),
