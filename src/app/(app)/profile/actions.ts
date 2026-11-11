@@ -1,7 +1,10 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { canCompare, NO_AI_COOKIE } from "@/lib/no-ai";
 import { getGroups } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 
@@ -223,4 +226,19 @@ export async function restoreNotForMe(data: { ids: number[] }) {
   const ids = z.array(z.number().int()).max(500).parse(data.ids);
   // RLS keeps this to the user's own rows.
   await setReason(ids, "not_for_me");
+}
+
+/** The temporary switch to run new sessions without Claude (see no-ai.ts). */
+export async function setNoAi(off: boolean) {
+  const user = await getCurrentUser();
+  if (!canCompare(user.email)) throw new Error("Not allowed");
+  const jar = await cookies();
+  if (off)
+    jar.set(NO_AI_COOKIE, "1", {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  else jar.delete(NO_AI_COOKIE);
+  revalidatePath("/profile");
 }

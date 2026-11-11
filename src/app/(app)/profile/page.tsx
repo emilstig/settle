@@ -5,6 +5,7 @@ import { Suspense, type ReactNode } from "react";
 import { Attribution } from "@/components/attribution";
 import { getCurrentUser } from "@/lib/auth";
 import { countHistory, getHistoryRefs } from "@/lib/history";
+import { canCompare, isNoAi } from "@/lib/no-ai";
 import { buildProfile } from "@/lib/profile";
 import { getUserProviderIds } from "@/lib/providers";
 import { getGenreNames } from "@/lib/tmdb/genres";
@@ -14,6 +15,7 @@ import { AppHeader } from "../find/group-picker";
 import home from "../home.module.css";
 import { TOP_GENRES, tasteGenres } from "./genres";
 import { Chevron, MenuIcon } from "./icons";
+import { NoAiSwitch } from "./no-ai-switch";
 import styles from "./profile.module.css";
 
 export const metadata: Metadata = { title: "Profil" };
@@ -36,6 +38,9 @@ export default function ProfilePage() {
       </AppHeader>
       <Suspense fallback={<Menu />}>
         <MenuWithData />
+      </Suspense>
+      <Suspense>
+        <Compare />
       </Suspense>
       <footer className={styles.footer}>
         <form action={signOut}>
@@ -109,6 +114,13 @@ async function MenuWithData() {
       }
     />
   );
+}
+
+/** The temporary switch for step 5, only for the accounts that compare. */
+async function Compare() {
+  const user = await getCurrentUser();
+  if (!canCompare(user.email)) return null;
+  return <NoAiSwitch off={await isNoAi(user.email)} />;
 }
 
 /** The rows; without data while it loads, so the page does not jump. */

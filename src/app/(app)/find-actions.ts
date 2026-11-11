@@ -12,10 +12,12 @@ import {
   withoutGroupGenres,
   type Card,
   type CardSource,
+  type DeckFilters,
 } from "@/lib/deck";
 import { getGroups } from "@/lib/groups";
 import { blendAffinity, buildGroupTaste, buildProfile } from "@/lib/profile";
 import { getSimilar } from "@/lib/similar";
+import { isNoAi } from "@/lib/no-ai";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
@@ -89,7 +91,13 @@ export async function startSession(
   const group = groups.find((g) => g.id === groupId);
   if (!group) throw new Error("Unknown group");
 
-  let filters = buildFilters(group, quickPicks);
+  // Without Claude (a temporary switch for comparison) the mood is read by
+  // the rules alone, and there are no titles in the style and no Toppval.
+  const noAi = await isNoAi(user.email);
+  let filters: DeckFilters = {
+    ...buildFilters(group, quickPicks),
+    ...(noAi ? { noAi: true } : {}),
+  };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sessions")
@@ -106,11 +114,11 @@ export async function startSession(
 
   // Prompt 1 turns the mood into filters. Without a mood it is skipped, and
   // if it fails the rule-based filters stay.
-  const hasMood = moodText.trim() !== "" || quickPicks.length > 0;
+  const hasMood = !noAi && (moodText.trim() !== "" || quickPicks.length > 0);
   // Titles in the style: only for free text, and next to prompt 1 so the
   // start button does not wait for both in turn.
   const askingStyle =
-    moodText.trim() !== ""
+    !noAi && moodText.trim() !== ""
       ? askStyleTitles({
           sessionId: data.id,
           userId: user.id,
@@ -205,19 +213,21 @@ export async function startSession(
   cards = withStyle(style, cards);
 
   // Claude's three picks first, with a reason each.
-  const deck = await withPicks({
-    sessionId: data.id,
-    userId: user.id,
-    group,
-    groups,
-    providerIds,
-    filters,
-    profile: { ...profile, affinity },
-    groupTaste,
-    moodText,
-    quickPicks,
-    deck: cards,
-  });
+  const deck = noAi
+    ? cards
+    : await withPicks({
+      sessionId: data.id,
+      userId: user.id,
+      group,
+      groups,
+      providerIds,
+      filters,
+      profile: { ...profile, affinity },
+      groupTaste,
+      moodText,
+      quickPicks,
+      deck: cards,
+    });
   return {
     sessionId: data.id,
     cards: deck,
@@ -382,6 +392,7 @@ export async function loadMore(
   // enough of the last picks. A page fetched ahead of time right after the
   // start would otherwise run Claude for cards nobody reaches.
   const deck =
+    !filters.noAi &&
     (await swipedSinceLastPicks(sessionId)) >= SWIPES_BETWEEN_PICKS
       ? await withPicks({
           sessionId,

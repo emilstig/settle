@@ -15,7 +15,7 @@ Svara ENDAST med giltig JSON, ingen annan text.
 Genrer (id: namn):
 {{GENRES}}
 
-Grupp: {{GROUP}}  (kind och, för familj, youngest_age)
+Grupp: {{GROUP}}  (namn och filter, till exempel max_age)
 Snabbval: {{QUICK_PICKS}}
 Fritext: {{MOOD_TEXT}}
 
@@ -47,7 +47,7 @@ Regler:
 - Ordning: "klassiker", "största", "mest kända" → sort "votes"; "högst betyg",
   "bästa" → "rating"; "nytt", "senaste" → "newest". Annars "popularity".
 - Serier: "avslutad" → tv_ended: true; "miniserie" → tv_miniseries: true.
-- Grupp "family" → without_genres ska innehålla skräck och thriller.
+- Gruppens filter läggs på servern. Sätt inget som strider mot dem.
 - vibe: 3–8 ord som fångar stämningen, används i nästa steg.
 - label: 2–5 ord som rubrik i leken, på svenska i sentence case, till
   användaren. Inga ord om användaren eller gruppen.
@@ -82,12 +82,12 @@ Modell: `claude-sonnet-5-5`. Körs bara när fritext finns, parallellt med promp
 Användaren letar efter något att titta på och skrev:
 "{{MOOD_TEXT}}"
 Snabbval: {{QUICK_PICKS}}
-Grupp: {{GROUP}}  (kind och, för familj, youngest_age)
+Grupp: {{GROUP}}  (namn och filter, till exempel max_age)
 
 Nämn 20 verkliga titlar (filmer eller serier, som fritexten säger) som passar
 det användaren menar: stilen, tonen, nivån och tiden, inte bara genren. Ber hen
 om något smalare, smartare eller mindre känt, välj så. Ber hen om de största
-eller mest kända, välj så. Grupp "family": bara sådant som passar barnet och
+eller mest kända, välj så. Har gruppen max_age: bara sådant som passar den åldern och
 helst de vuxna också. Bara titlar du är säker på finns, med rätt år.
 Om fritexten bara gäller sådant som filter klarar (längd, betyg, land, en
 person, ett bolag) och inget om stil eller känsla: svara med tom lista.
@@ -129,7 +129,7 @@ Regler:
    - föredra my_rating 3 som inte setts de senaste 6 månaderna
 3. Watchlist för aktuell grupp väger tyngst: "want" först,
    "maybe" därefter.
-4. Grupp "family": titeln ska vara lämplig för youngest_age och
+4. Har gruppen max_age: titeln ska vara lämplig för den åldern och
    helst fungera för de vuxna också. Gruppens historik väger
    tyngre än den personliga profilen.
 5. Variera: ett säkert kort, ett från listan eller nära
