@@ -445,6 +445,29 @@ async function currentInterest(userId: string, groupId: string, r: Ref) {
   return (data?.interest as z.infer<typeof interest> | undefined) ?? null;
 }
 
+/** Whether the user has seen the title (calibration, Sett or a check-in). */
+async function hasSeen(userId: string, r: Ref): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("watch_log")
+    .select("tmdb_id")
+    .match({ user_id: userId, ...r })
+    .maybeSingle();
+  if (error) throw error;
+  return data !== null;
+}
+
+/**
+ * What saving a title from the deck puts on a list: a seen title is
+ * "se igen", anything else "vill se".
+ */
+async function savedInterest(
+  userId: string,
+  r: Ref,
+): Promise<z.infer<typeof interest>> {
+  return (await hasSeen(userId, r)) ? "rewatch" : "maybe";
+}
+
 async function upsertWatchlist(
   userId: string,
   groupId: string,
@@ -480,19 +503,13 @@ export async function swipeRight(
   );
   // A title already on the list as "vill gärna" or "se igen" keeps that. A
   // seen title wanted again is "se igen" for the group.
-  const { data: seen, error: seenError } = await (
-    await createClient()
-  )
-    .from("watch_log")
-    .select("tmdb_id")
-    .match({ user_id: user.id, ...r })
-    .maybeSingle();
-  if (seenError) throw seenError;
   await upsertWatchlist(
     user.id,
     groupId,
     r,
-    prev === "want" || prev === "rewatch" ? prev : seen ? "rewatch" : "maybe",
+    prev === "want" || prev === "rewatch"
+      ? prev
+      : await savedInterest(user.id, r),
   );
   return {
     ref: r,
@@ -524,7 +541,8 @@ export async function swipeLeft(input: {
 
 /**
  * Down: "Kanske". Interesting, but not tonight: lands on the group's list as
- * "maybe" without joining Ikväll, and rests in the deck for 7 days.
+ * "maybe" ("rewatch" when seen) without joining Ikväll, and rests in the
+ * deck for 7 days.
  */
 export async function swipeDown(
   input: z.infer<typeof swipeSchema>,
@@ -540,7 +558,9 @@ export async function swipeDown(
     null,
     from ?? null,
   );
-  if (!prev) await upsertWatchlist(user.id, groupId, r, "maybe");
+  // A seen title lands on "se igen", like a right swipe.
+  if (!prev)
+    await upsertWatchlist(user.id, groupId, r, await savedInterest(user.id, r));
   return {
     ref: r,
     sessionId,
@@ -559,8 +579,8 @@ const groupsSchema = z.object({
 
 /**
  * "Spara för annan grupp" in the deck's detail view: the title goes on the
- * chosen groups' lists as "maybe" (a title already there keeps its interest)
- * and leaves the deck. With the group swiped with among them it is a right
+ * chosen groups' lists as "maybe", or "rewatch" when seen (a title already
+ * there keeps its interest), and leaves the deck. With the group swiped with among them it is a right
  * swipe and joins Ikväll; without it, it is logged as left with the reason
  * "other_group", which rests it in this group's deck and says nothing about
  * the group's taste.
@@ -589,11 +609,12 @@ export async function saveForGroups(
     from ?? null,
   );
   const watchlist: Undo["watchlist"] = [];
+  const value = await savedInterest(user.id, r);
   for (const g of chosen) {
     const prev = await currentInterest(user.id, g, r);
     if (prev) continue;
     watchlist.push({ group_id: g, prev });
-    await upsertWatchlist(user.id, g, r, "maybe");
+    await upsertWatchlist(user.id, g, r, value);
   }
   return { ref: r, sessionId, interactionIds: [id], watchlist };
 }
