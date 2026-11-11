@@ -22,7 +22,7 @@ import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
 import { askStyleTitles, styleCards, withStyle } from "@/lib/suggest/style";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
-import { getImdbId } from "@/lib/tmdb/external";
+import { getExternalLinks } from "@/lib/tmdb/external";
 import { getTrailerKey } from "@/lib/tmdb/videos";
 
 // ---------------------------------------------------------------------------
@@ -1019,22 +1019,22 @@ export async function clearTonight(input: { groupId: string }) {
 }
 
 /**
- * Logs that the card was opened and returns the trailer and IMDb id, fetched
- * on demand. From Ikväll on the start view there may be no session yet.
+ * Logs that the card was opened and returns the trailer and the ids for the
+ * IMDb and Rotten Tomatoes links, fetched on demand. From Ikväll on the start view there may be no session yet.
  */
 export async function openDetail(input: {
   sessionId: string | null;
   ref: Ref;
   source?: CardSource | null;
-}): Promise<{ trailerKey: string | null; imdbId: string | null }> {
+}): Promise<{ trailerKey: string | null; imdbId: string | null; rtPath: string | null }> {
   const user = await getCurrentUser();
   const sessionId = uuid.nullable().parse(input.sessionId);
   const r = ref.parse(input.ref);
   const from = source.parse(input.source) ?? null;
-  const [trailerKey, imdbId] = await Promise.all([
+  const [trailerKey, links] = await Promise.all([
     getTrailerKey(r.media_type, r.tmdb_id).catch(() => null),
-    getImdbId(r.media_type, r.tmdb_id).catch(() => null),
+    getExternalLinks(r.media_type, r.tmdb_id).catch(() => ({ imdbId: null, rtPath: null })),
     logInteraction(user.id, sessionId, r, "open_detail", null, from),
   ]);
-  return { trailerKey, imdbId };
+  return { trailerKey, ...links };
 }
