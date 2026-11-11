@@ -23,7 +23,10 @@ export type HistoryRef = {
   dropped: boolean;
   /** The latest stand on the title, for newest first. */
   at: string;
-  /** For "Inte min grej": the group it was said with. */
+  /**
+   * The group it was said with ("Inte min grej"), or the group the rating
+   * was made with (null for the calibration and titles without a rating).
+   */
   groupId: string | null;
 };
 
@@ -44,7 +47,7 @@ export async function getHistoryRefs(userId: string): Promise<HistoryRef[]> {
   const [ratingsRes, logRes, notForMeRes, listRes] = await Promise.all([
     supabase
       .from("ratings")
-      .select("tmdb_id, media_type, rating, updated_at")
+      .select("tmdb_id, media_type, rating, group_id, updated_at")
       .eq("user_id", userId),
     supabase
       .from("watch_log")
@@ -68,17 +71,25 @@ export async function getHistoryRefs(userId: string): Promise<HistoryRef[]> {
   const listed = new Set((listRes.data as Ref[]).map(key));
   const seen = new Map<
     string,
-    { ref: Ref; rating: HistoryRef["rating"]; dropped: boolean; at: string }
+    {
+      ref: Ref;
+      rating: HistoryRef["rating"];
+      groupId: string | null;
+      dropped: boolean;
+      at: string;
+    }
   >();
   const later = (a: string, b: string) =>
     Date.parse(a) > Date.parse(b) ? a : b;
   for (const r of ratingsRes.data as (Ref & {
     rating: number;
+    group_id: string | null;
     updated_at: string;
   })[]) {
     seen.set(key(r), {
       ref: { tmdb_id: r.tmdb_id, media_type: r.media_type },
       rating: r.rating as HistoryRef["rating"],
+      groupId: r.group_id,
       dropped: false,
       at: r.updated_at,
     });
@@ -91,6 +102,7 @@ export async function getHistoryRefs(userId: string): Promise<HistoryRef[]> {
     seen.set(key(w), {
       ref: { tmdb_id: w.tmdb_id, media_type: w.media_type },
       rating: s?.rating ?? null,
+      groupId: s?.groupId ?? null,
       dropped: w.status === "dropped",
       at: s ? later(s.at, w.updated_at) : w.updated_at,
     });
@@ -105,7 +117,7 @@ export async function getHistoryRefs(userId: string): Promise<HistoryRef[]> {
       rating: s.rating,
       dropped: s.dropped,
       at: s.at,
-      groupId: null,
+      groupId: s.groupId,
     });
   }
 

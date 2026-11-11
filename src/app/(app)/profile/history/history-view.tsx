@@ -29,18 +29,19 @@ type Rating = HistoryItem["rating"];
 const ON_SHELF = 12;
 /**
  * Every shelf has small cards: Historik is a record to look things up in,
- * not a shelf to tempt, so no shelf weighs more than another.
+ * not a shelf to tempt, so no shelf weighs more than another. What was
+ * seen and how it was holds in every group; "Inte min grej" is a decision
+ * about the company, so it gets one shelf per group after these.
  */
-const SHELVES: { key: HistoryShelf; title: string }[] = [
+const SHELVES: { key: Exclude<HistoryShelf, "notForMe">; title: string }[] = [
   { key: "love", title: "Älskar" },
   { key: "like", title: "Gillar" },
   { key: "seen", title: "Sett utan betyg" },
   { key: "disliked", title: "Ogillade" },
-  { key: "notForMe", title: "Inte min grej" },
 ];
 const SHELF_TITLE = Object.fromEntries(
   SHELVES.map((s) => [s.key, s.title]),
-) as Record<HistoryShelf, string>;
+) as Record<Exclude<HistoryShelf, "notForMe">, string>;
 
 const RATING_WORD: Record<number, string> = {
   3: "Älskar",
@@ -59,7 +60,10 @@ function shelfOf(rating: Rating, dropped: boolean): HistoryShelf {
 
 /** A title can be on "Inte min grej" once per group. */
 const keyOf = (i: HistoryItem) =>
-  `${i.media_type}:${i.tmdb_id}:${i.groupId ?? ""}`;
+  `${i.media_type}:${i.tmdb_id}:${i.shelf === "notForMe" ? i.groupId : ""}`;
+/** The shelf a title is on: "Inte min grej" is one shelf per group. */
+const shelfKey = (i: HistoryItem) =>
+  i.shelf === "notForMe" ? `notForMe:${i.groupId}` : i.shelf;
 const refOf = (i: HistoryItem) => ({
   tmdb_id: i.tmdb_id,
   media_type: i.media_type,
@@ -75,7 +79,7 @@ export function HistoryView({
 }) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
-  const [full, setFull] = useState<HistoryShelf | null>(null);
+  const [full, setFull] = useState<string | null>(null);
   const [detail, setDetail] = useState<{
     item: HistoryItem;
     trailer: string | null;
@@ -110,15 +114,30 @@ export function HistoryView({
   /** "Inte min grej" with Själv, "Inte vår grej" with the others. */
   const notForMeWord = (i: HistoryItem) =>
     isSolo(i.groupId) ? "Inte min grej" : "Inte vår grej";
-  /** The line under a title: how it was, or who it was said with. */
-  const note = (i: HistoryItem) =>
-    i.shelf === "notForMe"
-      ? groupName(i.groupId)
-      : i.dropped
-        ? "Avbruten"
-        : i.rating !== null
-          ? RATING_WORD[i.rating]
-          : null;
+  /**
+   * A rating made with another group than Själv: it is that group's
+   * history, not the user's own taste. Null for the user's own, and for a
+   * group that is turned off.
+   */
+  const ratedWith = (i: HistoryItem) =>
+    i.shelf !== "notForMe" && i.groupId && !isSolo(i.groupId)
+      ? groupName(i.groupId) || null
+      : null;
+  /**
+   * The line under a title: only what sets it apart on its shelf, since
+   * the shelf already says the rest. "Gillar mycket" among Gillar,
+   * "Avbruten" among Ogillade, and the group a rating was made with.
+   */
+  const note = (i: HistoryItem) => {
+    const word = i.dropped
+      ? "Avbruten"
+      : i.rating === 2
+        ? RATING_WORD[2]
+        : null;
+    const group = ratedWith(i);
+    if (!group) return word;
+    return `${word ?? (i.rating !== null ? RATING_WORD[i.rating] : "Sett")} med ${group}`;
+  };
 
   const showToast = (text: string, buttons: ToastButton[] = [], ms = 2200) => {
     setToast({ id: ++toastId.current, text, buttons, ms });
@@ -169,7 +188,7 @@ export function HistoryView({
     const updated = { ...item, rating, shelf };
     replace(item, updated);
     showToast(
-      shelf !== item.shelf
+      shelf !== item.shelf && shelf !== "notForMe"
         ? `Flyttad till ${SHELF_TITLE[shelf]}`
         : `Ändrat till ${RATING_WORD[rating].toLowerCase()}`,
     );
@@ -288,10 +307,17 @@ export function HistoryView({
       void rewatch(item, answers.rewatchGroupIds);
   }
 
-  const shelves = SHELVES.map((s) => ({
-    ...s,
-    items: items.filter((i) => i.shelf === s.key),
-  })).filter((s) => s.items.length > 0);
+  // A group that is turned off keeps its "Inte vår grej", out of sight.
+  const shelves = [
+    ...SHELVES,
+    ...groups.map((g) => ({
+      key: `notForMe:${g.id}`,
+      title:
+        g.kind === "solo" ? "Inte min grej" : `Inte vår grej med ${g.name}`,
+    })),
+  ]
+    .map((s) => ({ ...s, items: items.filter((i) => shelfKey(i) === s.key) }))
+    .filter((s) => s.items.length > 0);
 
   return (
     <>
@@ -334,7 +360,7 @@ export function HistoryView({
                     <span className={list.noPoster}>{i.title}</span>
                   )}
                 </button>
-                {(s.key === "notForMe" || s.key === "like" || i.dropped) && (
+                {note(i) && (
                   <span className={list.elsewhere}>{note(i)}</span>
                 )}
               </li>
@@ -437,6 +463,7 @@ export function HistoryView({
                       ? RATING_WORD[detail.item.rating]
                       : "Betyg",
                   rated: detail.item.rating !== null,
+                  ratedWith: ratedWith(detail.item),
                   onRate: () => setSheet({ item: detail.item, only: "rating" }),
                   onRewatch: () =>
                     setSheet({ item: detail.item, only: "rewatch" }),
