@@ -22,6 +22,7 @@ export function DetailView({
   card,
   trailerKey,
   imdbId,
+  rtPath,
   trailerLoading,
   actions,
   chosen = false,
@@ -36,6 +37,8 @@ export function DetailView({
   trailerKey: string | null;
   /** IMDb id (tt…) for a plain link out, no IMDb data is shown in the app. */
   imdbId: string | null;
+  /** Rotten Tomatoes path (m/… or tv/…) for a plain link out to its reviews. */
+  rtPath: string | null;
   trailerLoading: boolean;
   /**
    * The decisions that fit where it was opened: the deck its four, Ikväll
@@ -205,6 +208,18 @@ export function DetailView({
                 }
                 label="Betyg och rollista"
                 source="IMDb"
+              />
+            )}
+            {rtPath && (
+              <LinkRow
+                href={`https://www.rottentomatoes.com/${rtPath}`}
+                icon={
+                  <span className={styles.dicon} aria-hidden="true">
+                    ❝
+                  </span>
+                }
+                label="Recensioner"
+                source="Rotten Tomatoes"
               />
             )}
           </ul>

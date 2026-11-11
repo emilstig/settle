@@ -139,6 +139,7 @@ export function ListView({
     item: ListItem;
     trailer: string | null;
     imdbId: string | null;
+    rtPath: string | null;
     loading: boolean;
   } | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -189,12 +190,18 @@ export function ListView({
   };
 
   function open(item: ListItem) {
-    setDetail({ item, trailer: null, imdbId: null, loading: true });
+    setDetail({ item, trailer: null, imdbId: null, rtPath: null, loading: true });
     openDetail({ sessionId: null, ref: refOf(item), source: null })
       .then((r) =>
         setDetail((d) =>
           d && d.item === item
-            ? { ...d, trailer: r.trailerKey, imdbId: r.imdbId, loading: false }
+            ? {
+                ...d,
+                trailer: r.trailerKey,
+                imdbId: r.imdbId,
+                rtPath: r.rtPath,
+                loading: false,
+              }
             : d,
         ),
       )
@@ -628,6 +635,7 @@ export function ListView({
           card={detail.item}
           trailerKey={detail.trailer}
           imdbId={detail.imdbId}
+          rtPath={detail.rtPath}
           trailerLoading={detail.loading}
           actions="list"
           onClose={() => setDetail(null)}

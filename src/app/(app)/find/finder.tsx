@@ -167,6 +167,7 @@ export function Finder({
     from: "deck" | "tonight" | "chosen";
     trailer: string | null;
     imdbId: string | null;
+    rtPath: string | null;
     loading: boolean;
   } | null>(null);
   // Tonight belongs to the evening and the group: saved titles and the choice
@@ -715,6 +716,7 @@ export function Finder({
       from,
       trailer: null,
       imdbId: null,
+      rtPath: null,
       loading: true,
     });
     // Only cards in the deck have a source; opening it from Ikväll is not
@@ -730,7 +732,13 @@ export function Finder({
       .then((r) =>
         setDetail((d) =>
           d && d.card === c
-            ? { ...d, trailer: r.trailerKey, imdbId: r.imdbId, loading: false }
+            ? {
+                ...d,
+                trailer: r.trailerKey,
+                imdbId: r.imdbId,
+                rtPath: r.rtPath,
+                loading: false,
+              }
             : d,
         ),
       )
@@ -756,6 +764,7 @@ export function Finder({
       card={detail.card}
       trailerKey={detail.trailer}
       imdbId={detail.imdbId}
+      rtPath={detail.rtPath}
       trailerLoading={detail.loading}
       actions={
         detail.from === "deck"
