@@ -249,9 +249,9 @@ const PAGES_PER_BATCH = 3;
 /**
  * Loads deck pages from `firstPage` until there are enough cards. The first
  * page is loaded alone; if it is short, the next ones come in parallel
- * batches. The lane "Liknar det ni gillat" goes with the first page of each
- * batch only, so parallel pages do not get the same lane titles. A page
- * that fails ends the scan: what was loaded before it is returned, and the
+ * batches. The lane "Liknar det ni gillat" and the rested seen titles go
+ * with the first page of each batch only, so parallel pages do not get the
+ * same ones. A page that fails ends the scan: what was loaded before it is returned, and the
  * next call starts on that page again. Only a failure with nothing to show
  * is thrown.
  */
@@ -282,6 +282,7 @@ async function loadEnough(
         loadDeckPage({
           ...base,
           similar: i === 0 ? base.similar : [],
+          addRested: i === 0,
           page,
           skip: skipNow,
           context,
