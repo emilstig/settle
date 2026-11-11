@@ -361,7 +361,6 @@
 /* The deck's header: the group as text, sized like the picker. */
 .groupName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
 .pickerName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pickerAge { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--mute); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
 .pickerChev { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; }
 .pickerChev svg { width: 14px; height: 14px; }
 .pickerAgeQ { margin-top: 12px; }
