@@ -42,6 +42,12 @@ const GENRE_PRIOR = 3;
 const MIN_GENRE_TITLES = 2;
 const MIN_GROUP_GENRE_TITLES = 4;
 /**
+ * Titles a genre needs before it may choose what the deck fetches. Sorting
+ * can go on two titles, but choosing the list is a bigger step: Insidan ut
+ * and Spirited Away alone made a deck of family films and children's series.
+ */
+const STEER_GENRE_TITLES = 4;
+/**
  * TMDB has separate genres for series. Each is counted as the film genres it
  * covers, so sci-fi is one genre whether it is a film or a series.
  */
@@ -77,6 +83,11 @@ export type TasteProfile = {
   groupRatingCount: number;
   /** Average weight per genre (film genre ids), for sorting the deck. */
   affinity: Record<number, number>;
+  /**
+   * Genres in `affinity` with enough titles to steer what the deck fetches
+   * (see withTaste), not only how it is sorted.
+   */
+  established: number[];
 };
 
 export async function countRatings(userId: string): Promise<number> {
@@ -150,6 +161,7 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
       ratingCount: 0,
       groupRatingCount,
       affinity: {},
+      established: [],
     };
   }
 
@@ -251,6 +263,9 @@ export async function buildProfile(userId: string): Promise<TasteProfile> {
     ratingCount: ratings.length,
     groupRatingCount,
     affinity: Object.fromEntries(ranked),
+    established: ranked
+      .filter(([g]) => (count.get(g) ?? 0) >= STEER_GENRE_TITLES)
+      .map(([g]) => g),
   };
 }
 

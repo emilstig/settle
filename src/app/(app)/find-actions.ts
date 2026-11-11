@@ -157,7 +157,12 @@ export async function startSession(
   // not the same list for everyone (see withTaste).
   const noMood = moodText.trim() === "" && quickPicks.length === 0;
   if (noMood && group.kind !== "family") {
-    filters = await withTaste(filters, affinity, data.id);
+    // The group's own genres already need four titles (buildGroupTaste).
+    const established = new Set([
+      ...profile.established,
+      ...Object.keys(groupTaste.affinity).map(Number),
+    ]);
+    filters = await withTaste(filters, affinity, data.id, established);
     if (filters.taste) {
       const { error: tasteError } = await supabase
         .from("sessions")
