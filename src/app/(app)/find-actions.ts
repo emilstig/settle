@@ -10,6 +10,7 @@ import {
   key,
   loadDeckPage,
   withoutGroupGenres,
+  withTaste,
   type Card,
   type CardSource,
   type DeckFilters,
@@ -152,6 +153,19 @@ export async function startSession(
     if (updateError) throw updateError;
   }
   const affinity = blendAffinity(profile.affinity, groupTaste, group.kind);
+  // Without a mood the popular list is fetched within the taste, so it is
+  // not the same list for everyone (see withTaste).
+  const noMood = moodText.trim() === "" && quickPicks.length === 0;
+  if (noMood && group.kind !== "family") {
+    filters = await withTaste(filters, affinity, data.id);
+    if (filters.taste) {
+      const { error: tasteError } = await supabase
+        .from("sessions")
+        .update({ filters })
+        .eq("id", data.id);
+      if (tasteError) throw tasteError;
+    }
+  }
   // "Liknar det ni gillat": recommendations for what the group already liked.
   const similar = await getSimilar({
     userId: user.id,

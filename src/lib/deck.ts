@@ -47,6 +47,17 @@ export const deckFiltersSchema = z.object({
     .optional(),
   /** The session runs without Claude, for comparison (see no-ai.ts). */
   noAi: z.boolean().optional(),
+  /**
+   * Genres from the taste profile for the popular list, when there is no
+   * mood (see withTaste). Kept apart from movie/tv so the lane and the
+   * candidates for Toppval are not narrowed by them.
+   */
+  taste: z
+    .object({
+      movie: z.record(z.string(), z.union([z.string(), z.number()])),
+      tv: z.record(z.string(), z.union([z.string(), z.number()])),
+    })
+    .optional(),
 });
 export type DeckFilters = z.infer<typeof deckFiltersSchema>;
 
@@ -152,6 +163,125 @@ export function buildFilters(group: Group, quickPicks: string[]): DeckFilters {
     tv.with_genres = tvGenres.join("|");
 
   return { mediaTypes: ["movie", "tv"], movie, tv, sortBy, firstPage, maxCert };
+}
+
+/** Liked genres to pick from per session, and how many to use at once. */
+const TASTE_POOL = 6;
+const TASTE_PER_SESSION = 3;
+/** Weights that count as liked, and as clearly turned down. */
+const TASTE_LIKED = 0.2;
+const TASTE_AVOIDED = -0.5;
+const DRAMA = 18;
+/** Film genres as TMDB's series genres, for discover on /tv. */
+const FILM_AS_TV: Record<number, number> = {
+  28: 10759, // Action → Action & Adventure
+  12: 10759, // Äventyr → Action & Adventure
+  878: 10765, // Science Fiction → Sci-Fi & Fantasy
+  14: 10765, // Fantasy → Sci-Fi & Fantasy
+  10752: 10768, // Krig → War & Politics
+};
+/**
+ * Film genres that do not carry over to series in the taste: Familj on a
+ * series is Barn (see genresOf), and animated series are mostly children's
+ * shows and anime, a different evening from Pixar or Ghibli. A taste for
+ * them asked for Henry Danger, Young Sheldon and Bleach.
+ */
+const FILM_ONLY = new Set([16, 10751]);
+/**
+ * Formats rather than genres: Dokumentär, Reality, Nyheter and Talkshow cut
+ * across what a title is about. A liking for documentaries is not a wish
+ * for a documentary evening, so they never choose the fetch, and they are
+ * left out of it so Kriminal does not fill up with true crime. They still
+ * come through Toppval, the lane, rested titles and a mood that asks.
+ */
+const FORMATS = [99, 10764, 10763, 10767];
+
+/**
+ * Without a mood the popular list is the same for everyone with the same
+ * services, and the taste profile could only reorder it. Here the list is
+ * fetched within a few of the user's liked genres instead, a different few
+ * each session so the evenings vary, and without the genres they clearly
+ * turned down. With too little taste to go on (a new account), nothing
+ * changes. Only for a deck without mood and outside Familj, whose filters
+ * already narrow the list.
+ */
+export async function withTaste(
+  filters: DeckFilters,
+  affinity: Record<number, number>,
+  seed: string,
+): Promise<DeckFilters> {
+  const ranked = Object.entries(affinity)
+    .map(([g, w]) => [Number(g), w] as const)
+    .sort((a, b) => b[1] - a[1]);
+  // Drama is on most titles, so on its own it is close to the popular list:
+  // it is used only when there is little else to go on.
+  const liked = ranked
+    .filter(([g, w]) => w >= TASTE_LIKED && !FORMATS.includes(g))
+    .map(([g]) => g)
+    .sort((a, b) => Number(a === DRAMA) - Number(b === DRAMA))
+    .slice(0, TASTE_POOL);
+  if (liked.length < 2) return filters;
+  const pool = liked.filter((g) => g !== DRAMA).length >= 2
+    ? liked.filter((g) => g !== DRAMA)
+    : liked;
+  const chosen = shuffle(pool, `${seed}:taste`).slice(0, TASTE_PER_SESSION);
+  const avoided = ranked.filter(([, w]) => w <= TASTE_AVOIDED).map(([g]) => g);
+  const valid = await getGenreIds();
+  const asType = (type: MediaType, ids: number[]) => [
+    ...new Set(
+      ids
+        .filter((g) => type === "movie" || !FILM_ONLY.has(g))
+        .map((g) => (type === "tv" ? (FILM_AS_TV[g] ?? g) : g))
+        .filter((g) => valid[type].includes(g)),
+    ),
+  ];
+  const taste = { movie: {}, tv: {} } as NonNullable<DeckFilters["taste"]>;
+  for (const type of filters.mediaTypes) {
+    // A genre the mood or the group already set is left as it is.
+    if (filters[type].with_genres) continue;
+    const want = asType(type, chosen);
+    if (want.length === 0) continue;
+    // A series genre covering a liked film genre is not left out.
+    const without = [
+      ...new Set([
+        ...asType(type, avoided),
+        ...FORMATS.filter((g) => valid[type].includes(g)),
+      ]),
+    ].filter((g) => !want.includes(g));
+    taste[type] = {
+      with_genres: want.join("|"),
+      ...(without.length ? { without_genres: without.join(",") } : {}),
+    };
+  }
+  return { ...filters, taste };
+}
+
+/**
+ * The discover queries for a media type: one, or with taste genres one per
+ * genre, so each liked genre brings its own popular titles instead of all of
+ * them meeting in the same few that are popular everywhere.
+ */
+function discoverQueries(
+  filters: DeckFilters,
+  type: MediaType,
+): Record<string, string | number>[] {
+  const base = filters[type];
+  const taste = filters.taste?.[type];
+  if (!taste?.with_genres) return [base];
+  const without = [
+    ...new Set(
+      [base.without_genres, taste.without_genres]
+        .filter(Boolean)
+        .flatMap((v) => String(v).split(",")),
+    ),
+  ];
+  return String(taste.with_genres)
+    .split("|")
+    .map((g) => ({
+      ...base,
+      with_genres: g,
+      ...(without.length ? { without_genres: without.join(",") } : {}),
+    }));
 }
 
 /** TMDB series genres that cover several film genres. */
@@ -615,21 +745,27 @@ export async function loadDeckPage({
 }): Promise<{ cards: Card[]; hasMore: boolean }> {
   const tmdbPage = filters.firstPage + page - 1;
   const results = await Promise.all(
-    filters.mediaTypes.map((t) =>
-      discover(t, {
-        providerIds,
-        page: tmdbPage,
-        sortBy: filters.sortBy,
-        filters: filters[t],
-      }),
+    filters.mediaTypes.flatMap((t) =>
+      discoverQueries(filters, t).map((q) =>
+        discover(t, {
+          providerIds,
+          page: tmdbPage,
+          sortBy: filters.sortBy,
+          filters: q,
+        }),
+      ),
     ),
   );
   const longest = Math.max(0, ...results.map((r) => r.hits.length));
-  const hits: DiscoverHit[] = Array.from({ length: longest }, (_, i) =>
-    results.map((r) => r.hits[i]),
-  )
-    .flat()
-    .filter((h) => h !== undefined);
+  // A title can come from more than one taste genre: it is kept once.
+  const hits: DiscoverHit[] = [
+    ...new Map(
+      Array.from({ length: longest }, (_, i) => results.map((r) => r.hits[i]))
+        .flat()
+        .filter((h) => h !== undefined)
+        .map((h) => [key(h), h] as const),
+    ).values(),
+  ];
 
   const [{ excluded, rested, restedRatings, other }, rows, genres] =
     await Promise.all([
