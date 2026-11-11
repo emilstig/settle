@@ -50,7 +50,9 @@ const SOURCES: { sortBy: string; filters: Record<MediaType, Filters> }[] = [
  * as the film genres they cover, so Action & Adventure and Action are one.
  * Drama is on most titles and counts a third, or it would block the rest.
  */
-function balanceGenres<T extends { genre_ids: number[] }>(
+function balanceGenres<
+  T extends { genre_ids: number[]; media_type?: "movie" | "tv" },
+>(
   items: T[],
   size: number,
 ): T[] {
@@ -59,7 +61,7 @@ function balanceGenres<T extends { genre_ids: number[] }>(
   const load = (item: T) =>
     Math.max(
       0,
-      ...genresOf(item.genre_ids).map((g) => (used.get(g) ?? 0) * weight(g)),
+      ...genresOf(item.genre_ids, item.media_type).map((g) => (used.get(g) ?? 0) * weight(g)),
     );
   const left = [...items];
   const out: T[] = [];
@@ -69,7 +71,7 @@ function balanceGenres<T extends { genre_ids: number[] }>(
       if (load(left[i]) < load(left[best])) best = i;
     const [item] = left.splice(best, 1);
     out.push(item);
-    for (const g of genresOf(item.genre_ids))
+    for (const g of genresOf(item.genre_ids, item.media_type))
       used.set(g, (used.get(g) ?? 0) + 1);
   }
   return out;

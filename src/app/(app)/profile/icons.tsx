@@ -67,8 +67,9 @@ export function Chevron() {
 }
 
 /**
- * One icon per film genre (series genres are counted as film genres, see
- * genresOf). Genres without one of their own get a film frame.
+ * One icon per film genre (series genres are counted as film genres, and
+ * children's series as Barn, see genresOf). Genres without one of their own
+ * get a film frame.
  */
 const GENRE: Record<number, ReactNode> = {
   // Action: a bolt
@@ -115,6 +116,13 @@ const GENRE: Record<number, ReactNode> = {
     <>
       <path d="M3.5 11 12 4l8.5 7" />
       <path d="M5.5 9.5V20h13V9.5M10 20v-5h4v5" />
+    </>
+  ),
+  // Barn (children's series, see genresOf): a balloon
+  10762: (
+    <>
+      <path d="M12 3a6 6 0 0 0-6 6c0 3.6 3 6.6 6 7.2 3-.6 6-3.6 6-7.2a6 6 0 0 0-6-6z" />
+      <path d="M12 16.2c0 2-2 2.3-2 4.8" />
     </>
   ),
   // Fantasy: a wand
