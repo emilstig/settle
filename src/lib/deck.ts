@@ -13,7 +13,7 @@ import {
   type Title,
 } from "@/lib/tmdb/titles";
 import { getGenreIds, getGenreNames } from "@/lib/tmdb/genres";
-import { seededRandom, spread } from "@/lib/spread";
+import { seededRandom, shuffle, spread } from "@/lib/spread";
 import { genresOf } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { laneFits, matchesFilters, type SimilarHit } from "@/lib/similar";
@@ -524,6 +524,8 @@ export type DeckContext = {
   excluded: Set<string>;
   /** Seen titles whose rest is over; not in `excluded`, but capped per page. */
   rested: Set<string>;
+  /** The same titles with their rating (0 when unrated), for adding them. */
+  restedRatings: Map<string, number>;
   other: Awaited<ReturnType<typeof getOtherGroups>>;
 };
 
@@ -531,13 +533,15 @@ export async function getDeckContext(
   userId: string,
   groupId: string,
 ): Promise<DeckContext> {
-  const [rested, other] = await Promise.all([
-    getRestedSeen(userId).then((m) => new Set(m.keys())),
+  const [restedRatings, other] = await Promise.all([
+    getRestedSeen(userId),
     getOtherGroups(userId, groupId),
   ]);
+  const rested = new Set(restedRatings.keys());
   return {
     excluded: await getExcluded(userId, groupId, rested),
     rested,
+    restedRatings,
     other,
   };
 }
@@ -549,6 +553,24 @@ export async function getDeckContext(
 export function restedPerPage(filters: DeckFilters): number {
   if (filters.parsed?.novelty === "high") return 0;
   return filters.parsed?.comfort ? 4 : 2;
+}
+
+/**
+ * Rested titles looked up per page when adding them, since some are not on
+ * the user's services, and how many stale ones to fetch again from TMDB.
+ */
+const RESTED_LOOKUP = 30;
+const RESTED_REFRESH = 10;
+
+/**
+ * Rested seen titles in the order the deck adds them: loved first, then by
+ * rating, shuffled per session within each rating so the same few do not
+ * open every evening.
+ */
+function restedOrder(ratings: Map<string, number>, seed: string): string[] {
+  return shuffle([...ratings.keys()], `${seed}:rested`).sort(
+    (a, b) => (ratings.get(b) ?? 0) - (ratings.get(a) ?? 0),
+  );
 }
 
 /** One page of cards for a session: discover, refresh the cache, apply the rules. */
@@ -563,6 +585,7 @@ export async function loadDeckPage({
   affinity = {},
   similar = [],
   context,
+  addRested = true,
 }: {
   userId: string;
   groupId: string;
@@ -578,6 +601,11 @@ export async function loadDeckPage({
   similar?: SimilarHit[];
   /** Read once by the caller when it loads several pages (see getDeckContext). */
   context?: DeckContext;
+  /**
+   * Whether this page adds rested seen titles that discover did not bring.
+   * Off for pages loaded side by side with it, so they do not add the same.
+   */
+  addRested?: boolean;
 }): Promise<{ cards: Card[]; hasMore: boolean }> {
   const tmdbPage = filters.firstPage + page - 1;
   const results = await Promise.all(
@@ -597,11 +625,12 @@ export async function loadDeckPage({
     .flat()
     .filter((h) => h !== undefined);
 
-  const [{ excluded, rested, other }, rows, genres] = await Promise.all([
-    context ?? getDeckContext(userId, groupId),
-    getTitles(hits),
-    getGenreNames(),
-  ]);
+  const [{ excluded, rested, restedRatings, other }, rows, genres] =
+    await Promise.all([
+      context ?? getDeckContext(userId, groupId),
+      getTitles(hits),
+      getGenreNames(),
+    ]);
   const skipSet = new Set(skip);
   const mine = new Set(providerIds);
 
@@ -656,6 +685,42 @@ export async function loadDeckPage({
     }
     return [row];
   });
+  // Discover sorts by popularity, so older favourites rarely come up on
+  // their own: the rest of the page's share is added explicitly, loved
+  // first, with the same rules as the lane.
+  const restedHits =
+    addRested && restedLeft > 0
+      ? restedOrder(restedRatings, seed)
+          .filter(
+            (k) =>
+              !hitKeys.has(k) &&
+              !excluded.has(k) &&
+              !skipSet.has(k) &&
+              laneTypes.has(k.split(":")[0] as MediaType),
+          )
+          .slice(0, RESTED_LOOKUP)
+          .map((k) => {
+            const [media_type, id] = k.split(":");
+            return { tmdb_id: Number(id), media_type: media_type as MediaType };
+          })
+      : [];
+  const restedRowsByKey = restedHits.length
+    ? await getTitles(restedHits, { maxRefresh: RESTED_REFRESH })
+    : new Map<string, Title>();
+  const restedRows = restedHits
+    .map((h) => restedRowsByKey.get(key(h)))
+    .filter((row): row is Title => {
+      if (!row) return false;
+      if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
+        return false;
+      if (filters.maxCert !== null) {
+        const cert = certNumber(row.certification_se);
+        if (cert !== null && cert > filters.maxCert) return false;
+      }
+      return matchesFilters(row, filters[row.media_type]);
+    })
+    .slice(0, restedLeft);
+  kept.push(...restedRows);
   // One film per series at a time, genres taking turns. Series already shown
   // earlier in the session stay out of this page.
   // Titles already handled in another group come after the new ones.
