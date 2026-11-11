@@ -1,4 +1,5 @@
 import "server-only";
+import { runCost, type RunCost } from "./cost";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -138,6 +139,7 @@ async function logRun(
   payload: object,
   output: object,
   latency: number,
+  cost: RunCost | null = null,
 ) {
   const supabase = await createClient();
   const { error } = await supabase.from("suggest_runs").insert({
@@ -148,6 +150,7 @@ async function logRun(
     output,
     model: PICK_MODEL,
     latency_ms: latency,
+    ...cost,
   });
   if (error) console.error("suggest_runs insert failed", error);
 }
@@ -205,6 +208,8 @@ export async function pickThree(
         messages: [{ role: "user", content: prompt }],
       });
       const latency = Date.now() - started;
+      // A fallback can serve the answer: price it by the model that did.
+      const cost = runCost(response.model, response.usage);
       const text = response.content
         .flatMap((b) => (b.type === "text" ? [b.text] : []))
         .join("");
@@ -218,6 +223,7 @@ export async function pickThree(
           payload,
           { attempt, error: response.stop_reason, raw: text },
           latency,
+          cost,
         );
         continue;
       }
@@ -235,6 +241,7 @@ export async function pickThree(
             }
           : { attempt, error: "invalid", raw: text },
         latency,
+        cost,
       );
       if (valid) {
         return valid.picks.map((p) => ({

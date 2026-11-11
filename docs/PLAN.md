@@ -58,8 +58,7 @@ Tidsplanen fram till Product Hunt finns i projektdokumentet. Funktionerna fryses
 - [x] Se igen: gruppens `rewatch`-titlar och, vid tryggt humör, älskade sedda titlar läggs till som kandidater, med etiketten ”Se igen” på kortet
 - [x] Toppval ikväll överst i svepvyn: Claudes tre val plus det som svepas höger under sessionen, med ”Välj” på varje titel och ”Välj för ikväll” i toasten
 - [x] Tillfällig växel för jämförelse: ”Jämför utan AI” i Profil kör nya lekar utan prompt 1, Titlar i stilen och prompt 2. Syns bara för konton i `COMPARE_EMAILS` (och för alla i dev)
-- [ ] `suggest_runs` loggar input_tokens, output_tokens och beräknad kostnad (mål under 0,50 kr per aktiv användare och månad)
-- [ ] Testa Haiku för prompt 2 i `scripts/eval` och jämför Toppvalen med Sonnets
+- [x] `suggest_runs` loggar input_tokens, output_tokens och beräknad kostnad (`cost_usd`, listpris för modellen som svarade) (mål under 0,50 kr per aktiv användare och månad)
 
 **Klart när:** Claude-förslagen känns tydligt bättre än TMDB-sorteringen under en vecka.
 
@@ -85,6 +84,17 @@ Tidsplanen fram till Product Hunt finns i projektdokumentet. Funktionerna fryses
 - [ ] Kort intervju efter två veckor
 
 **Klart när:** du kan svara på MVP-hypotesen med siffror och intervjuerna.
+
+## Efter testet: AI-kostnad
+
+En egen fas efter steg 8 och före den slutna betan (vecka 6–7 i Tidsplanen). Utgångsläget den 11 nov är cirka 0,023 dollar per lek med fritext, varav prompt 2 står för två tredjedelar; målet är under 0,50 kr per aktiv användare och månad. Varje steg prövas i `scripts/eval` före och efter, och kostnaden följs i `suggest_runs.cost_usd`.
+
+- [ ] Haiku för prompt 2, jämfört med Sonnets Toppval
+- [ ] Kortare kandidatlista: färre kandidater och kortare beskrivningar
+- [ ] Titlar i stilen på Haiku, eller samma fritext återanvänd i ett dygn
+- [ ] Räkna i förväg med Batch API och cacha den fasta delen av promptarna
+
+**Klart när:** kostnaden per aktiv användare och månad ligger under målet utan att Toppvalen blir sämre.
 
 ## Inte i MVP
 

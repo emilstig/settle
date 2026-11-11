@@ -81,7 +81,7 @@ Alla användartabeller har `user_id` (uuid, refererar `auth.users`) och RLS där
 - `watchlist`: user_id, tmdb_id, media_type, group_id, interest (`maybe`/`want`/`rewatch`), added_at. En rad per grupp.
 - `interactions`: user_id, tmdb_id, media_type, action (`right`/`left`/`seen`/`open_detail`/`undo`/`not_seen`/`unsure`/`maybe`, där `not_seen` är ”Inte sett” i kalibreringen, `maybe` är ”Kanske” i Hitta och `unsure` är det tidigare ”Vet inte”), reason (`not_now`/`not_for_me`/`seen`/`other_group`, null tillåtet), source (`popular`/`similar`/`pick`/`mood`: populärlistan, spåret ”Liknar det ni gillat”, Toppval eller Titlar i stilen, null tillåtet), session_id, created_at
 - `sessions`: id, user_id, group_id, mood_text, quick_picks (text[]), filters (jsonb), started_at, picked_tmdb_id, picked_at
-- `suggest_runs`: id, session_id, prompt (`parse`/`pick`/`style`), input (jsonb), output (jsonb), model, latency_ms, input_tokens, output_tokens, cost (beräknad kostnad), created_at
+- `suggest_runs`: id, session_id, prompt (`parse`/`pick`/`style`), input (jsonb), output (jsonb), model, latency_ms, input_tokens (all input, även cachad), output_tokens, cost_usd (beräknad kostnad i dollar efter listpris, se `src/lib/suggest/cost.ts`), created_at
 
 **Grupper i stället för fasta kategorier.** Allt som beror på sällskap pekar på `group_id`. I MVP:n visar UI:t bara de fyra förvalda grupperna. Medlemmar (kopplade konton och profiler utan konto), inbjudningar och egna grupper kommer senare, men datamodellen ska klara dem utan migrering av befintliga rader. Appen ska vara fullt användbar även om bara en person i gruppen använder den.
 
