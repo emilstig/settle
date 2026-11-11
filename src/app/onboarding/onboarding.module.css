@@ -11,3 +11,6 @@
 .step { color: var(--mute); font-size: 15px; }
 .lead { color: var(--mute); line-height: 1.45; font-size: 17px; }
 .placeholder { height: 220px; }
+.form { display: flex; flex-direction: column; gap: 16px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; }
+.choices label { cursor: pointer; }

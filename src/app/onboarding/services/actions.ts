@@ -33,5 +33,6 @@ export async function saveServices(_: ServicesState, formData: FormData): Promis
     .insert(ids.map((provider_id) => ({ user_id: user.id, provider_id, region: REGION })));
   if (error) return { error: "Det gick inte att spara. Prova igen." };
 
-  redirect(user.onboarded ? "/" : "/onboarding");
+  // Next in onboarding: who the user watches with, then calibration.
+  redirect(user.onboarded ? "/" : "/onboarding/groups");
 }

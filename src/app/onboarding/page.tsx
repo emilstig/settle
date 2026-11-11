@@ -27,6 +27,7 @@ async function Calibration() {
   // Services come first: the deck in Hitta needs them, even though
   // calibration itself shows titles from every service.
   if ((await getUserProviderIds()).length === 0) redirect("/onboarding/services");
+  if (!user.groupsChosen) redirect("/onboarding/groups");
 
   const cards = await getCalibrationCards(user.id);
   return <Calibrator cards={cards} mode="onboarding" />;

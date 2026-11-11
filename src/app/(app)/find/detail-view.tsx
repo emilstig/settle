@@ -62,7 +62,8 @@ export function DetailView({
     onRemove: () => void;
     onWant?: () => void;
     onSeen: () => void;
-    onGroups: () => void;
+    /** Absent with Själv as the only group. */
+    onGroups?: () => void;
     tonight: boolean;
     onTonight: () => void;
   };
@@ -302,10 +303,12 @@ export function DetailView({
             <ListIcon kind="seen" />
             <span>Sett</span>
           </button>
-          <button type="button" onClick={list.onGroups}>
-            <ListIcon kind="groups" />
-            <span>Grupper</span>
-          </button>
+          {list.onGroups && (
+            <button type="button" onClick={list.onGroups}>
+              <ListIcon kind="groups" />
+              <span>Grupper</span>
+            </button>
+          )}
         </div>
       )}
       {actions === "history" && history?.kind === "seen" && (

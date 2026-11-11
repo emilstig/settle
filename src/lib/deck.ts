@@ -477,7 +477,10 @@ async function getOtherGroups(
   if (interactions.error) throw interactions.error;
   if (listed.error) throw listed.error;
 
-  const names = new Map(groups.map((g) => [g.id, g.name]));
+  // "Sparad för Partner" only for groups the user uses.
+  const names = new Map(
+    groups.filter((g) => g.kind === "solo" || !g.hidden).map((g) => [g.id, g.name]),
+  );
   const savedFor = new Map<string, string[]>();
   for (const w of listed.data) {
     const name = names.get(w.group_id);

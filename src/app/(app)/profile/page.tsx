@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { Attribution } from "@/components/attribution";
 import { getCurrentUser } from "@/lib/auth";
+import { getVisibleGroups } from "@/lib/groups";
 import { countHistory, getHistoryRefs } from "@/lib/history";
 import { canCompare, isNoAi } from "@/lib/no-ai";
 import { buildProfile } from "@/lib/profile";
@@ -57,13 +58,15 @@ export default function ProfilePage() {
 
 async function MenuWithData() {
   const user = await getCurrentUser();
-  const [profile, names, refs, providerIds, providers] = await Promise.all([
-    buildProfile(user.id),
-    getGenreNames(),
-    getHistoryRefs(user.id),
-    getUserProviderIds(),
-    getSwedishProviders(),
-  ]);
+  const [profile, names, refs, providerIds, providers, groups] =
+    await Promise.all([
+      buildProfile(user.id),
+      getGenreNames(),
+      getHistoryRefs(user.id),
+      getUserProviderIds(),
+      getSwedishProviders(),
+      getVisibleGroups(),
+    ]);
   const liked = tasteGenres(profile.affinity, names)
     .filter((g) => g.value > 0)
     .slice(0, TOP_GENRES)
@@ -80,6 +83,11 @@ async function MenuWithData() {
           : profile.ratingCount
             ? "Betygsätt fler för att se din smak"
             : "Inga betyg än"
+      }
+      groups={
+        groups.length > 1
+          ? listSv.format(groups.map((g) => g.name))
+          : "Bara du"
       }
       history={
         seen + disliked > 0
@@ -127,10 +135,12 @@ async function Compare() {
 function Menu({
   taste,
   history,
+  groups,
   services,
 }: {
   taste?: ReactNode;
   history?: ReactNode;
+  groups?: ReactNode;
   services?: ReactNode;
 }) {
   return (
@@ -142,6 +152,12 @@ function Menu({
           icon="history"
           title="Historik"
           sub={history}
+        />
+        <Row
+          href="/profile/groups"
+          icon="groups"
+          title="Grupper"
+          sub={groups}
         />
         <Row
           href="/onboarding/services"
@@ -161,7 +177,7 @@ function Row({
   sub,
 }: {
   href: string;
-  icon: "taste" | "history" | "services";
+  icon: "taste" | "history" | "groups" | "services";
   title: string;
   sub?: ReactNode;
 }) {
