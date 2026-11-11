@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GroupOption } from "./types";
 import { useBackClose } from "./use-back-close";
 import styles from "./find.module.css";
@@ -209,7 +209,13 @@ export function GroupPicker({
   );
 }
 
-/** The top of Hitta, Att se and Profil: no logo, the left and right sides. */
+/**
+ * The one header of the app: the title (or the group, or a back arrow and
+ * the title) to the left and Ikväll or the clock to the right. It stays at
+ * the top while the page or layer scrolls and gets a line once content is
+ * under it. A sticky subheading (`data-subhead`) that has reached it takes
+ * the line instead, so there are never two.
+ */
 export function AppHeader({
   children,
   right,
@@ -220,8 +226,41 @@ export function AppHeader({
   /** A line under the header, such as the mood in the deck. */
   under?: React.ReactNode;
 }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const header = ref.current;
+    if (!header) return;
+    const scroller = scrollParent(header);
+    const target: HTMLElement | Window = scroller ?? window;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const top = scroller ? scroller.scrollTop : window.scrollY;
+      const bottom = header.getBoundingClientRect().bottom;
+      let stuck = false;
+      (header.parentElement ?? document)
+        .querySelectorAll<HTMLElement>("[data-subhead]")
+        .forEach((el) => {
+          const at = top > 0 && Math.abs(el.getBoundingClientRect().top - bottom) < 1;
+          if (at) stuck = true;
+          el.toggleAttribute("data-stuck", at);
+        });
+      header.toggleAttribute("data-line", top > 0 && !stuck);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    target.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      target.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
   return (
-    <header className={styles.appHeader}>
+    <header ref={ref} className={styles.appHeader}>
       <div className={styles.appHeaderRow}>
         <div className={styles.appHeaderLeft}>{children}</div>
         {right && <div className={styles.appHeaderRight}>{right}</div>}
@@ -229,4 +268,13 @@ export function AppHeader({
       {under}
     </header>
   );
+}
+
+/** The layer the element scrolls in (Visa alla), or null for the page. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowY;
+    if (o === "auto" || o === "scroll") return p;
+  }
+  return null;
 }

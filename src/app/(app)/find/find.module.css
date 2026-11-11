@@ -231,7 +231,29 @@
   padding-top: env(safe-area-inset-top);
 }
 .dwrap { max-width: 420px; margin: 0 auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 16px; }
-.dback { align-self: flex-start; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 8px 14px; font-size: 15px; }
+/* The detail view's bar: the arrow floats over the poster and goes with
+   the scroll; once the poster is past, the bar gets the background and the
+   title. It takes the 12px above the content and the status bar strip into
+   itself (like the header), and pulls the poster up under itself. */
+.dbarTop {
+  position: sticky;
+  top: -16px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  margin: calc(-12px - env(safe-area-inset-top, 0px)) -16px -76px;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 28px 8px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.dbarTop[data-past] { background: var(--bg); box-shadow: 0 1px 0 var(--line); }
+.dback { width: 40px; height: 40px; border: 0; border-radius: 50%; padding: 0; display: grid; place-items: center; background: rgba(16, 14, 28, 0.5); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); color: #fff; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.dback svg { width: 24px; height: 24px; }
+.dbarTop[data-past] .dback { background: var(--panel); color: var(--ink); }
+.dbarTitle { grid-column: 2; min-width: 0; text-align: center; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity 0.15s; }
+.dbarTop[data-past] .dbarTitle { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .dbarTop, .dback, .dbarTitle { transition: none; } }
 .dhero { position: relative; border-radius: 22px; overflow: hidden; min-height: 300px; color: #fff; background: #2a2740; display: flex; flex-direction: column; justify-content: flex-end; }
 .heroImg { object-fit: cover; }
 .heroText {
@@ -354,9 +376,28 @@
 .sheet.overDetail { z-index: 15; }
 
 /* The header: who is watching on the left, Ikväll on the right. */
-.appHeader { display: grid; gap: 2px; }
+/* Sticky on the page and in the Visa alla layers, which both have 12px
+   above and 16px beside the content under the status bar: the header takes
+   that room into itself so its background reaches the edges and covers the
+   status bar strip, and only the 12px scrolls away. */
+.appHeader {
+  --head-h: 48px;
+  display: grid;
+  gap: 2px;
+  position: sticky;
+  top: -12px;
+  z-index: 3;
+  margin: calc(-12px - env(safe-area-inset-top, 0px)) -16px 0;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 0;
+  background: var(--bg);
+  transition: box-shadow 0.15s;
+}
+.appHeader[data-line] { box-shadow: 0 1px 0 var(--line); }
+@media (prefers-reduced-motion: reduce) { .appHeader { transition: none; } }
 .appHeaderRow { display: flex; align-items: center; gap: 8px; min-height: 48px; }
 .appHeaderLeft { flex: 1; min-width: 0; display: flex; align-items: center; }
+/* One line, like the group's name, so the header keeps its height. */
+.appHeaderLeft > :global(.logo) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .appHeaderRight { display: flex; align-items: center; gap: 8px; flex: none; }
 .picker { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; border: 0; background: none; color: inherit; margin-left: -8px; padding: 4px 8px; border-radius: 12px; font: inherit; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; cursor: pointer; transition: background 0.15s; }
 .picker:active, .picker[aria-expanded="true"] { background: var(--panel); }
