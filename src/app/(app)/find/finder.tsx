@@ -118,7 +118,15 @@ export function Finder({
   const memory = useDeckMemory();
   const [restored] = useState(() => {
     const deck = memory.read();
-    return deck && deck.evening === eveningStart() ? deck : null;
+    // Group ids are the account's own: a deck with other groups was left by
+    // another account in this browser and is dropped.
+    const mine = (id: string) => initialGroups.some((g) => g.id === id);
+    return deck &&
+      deck.evening === eveningStart() &&
+      mine(deck.groupId) &&
+      (!deck.session || mine(deck.session.groupId))
+      ? deck
+      : null;
   });
   const [phase, setPhase] = useState<"start" | "deck" | "chosen">(
     restored?.phase ?? "start",

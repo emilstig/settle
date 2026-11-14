@@ -32,6 +32,9 @@ async function Find() {
 
   return (
     <Finder
+      // Another account is another Hitta: the router keeps this page (and its
+      // state) through logging out and in with a code, so start over.
+      key={user.id}
       initialGroupId={groupId}
       groups={groups.map(({ id, name, kind, youngest_age }) => ({
         id,
