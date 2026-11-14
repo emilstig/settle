@@ -16,6 +16,7 @@ import { getGenreIds, getGenreNames } from "@/lib/tmdb/genres";
 import { seededRandom, shuffle, spread } from "@/lib/spread";
 import { genresOf } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAll } from "@/lib/supabase/all";
 import { laneFits, matchesFilters, type SimilarHit } from "@/lib/similar";
 
 export const QUICK_PICKS = [
@@ -359,13 +360,18 @@ export async function getDeclined(
   const supabase = await createClient();
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const [notNow, notForUs, savedTonight, otherGroup] = await Promise.all([
-    supabase
-      .from("interactions")
-      .select("tmdb_id, media_type")
-      .eq("user_id", userId)
-      .in("action", ["left", "unsure", "maybe"])
-      .or("reason.is.null,reason.not.in.(not_for_me,other_group)")
-      .gte("created_at", weekAgo),
+    // A week of swipes can pass 1000 rows, so every page is read.
+    fetchAll((from, to) =>
+      supabase
+        .from("interactions")
+        .select("tmdb_id, media_type")
+        .eq("user_id", userId)
+        .in("action", ["left", "unsure", "maybe"])
+        .or("reason.is.null,reason.not.in.(not_for_me,other_group)")
+        .gte("created_at", weekAgo)
+        .order("id")
+        .range(from, to),
+    ),
     // The session tells which group "inte min grej" was said in.
     supabase
       .from("interactions")
@@ -395,13 +401,12 @@ export async function getDeclined(
       .eq("sessions.group_id", groupId)
       .gte("created_at", weekAgo),
   ]);
-  if (notNow.error) throw notNow.error;
   if (notForUs.error) throw notForUs.error;
   if (savedTonight.error) throw savedTonight.error;
   if (otherGroup.error) throw otherGroup.error;
   return new Set(
     [
-      ...notNow.data,
+      ...notNow,
       ...notForUs.data,
       ...savedTonight.data,
       ...otherGroup.data,
@@ -434,20 +439,24 @@ export async function getRestedSeen(
       .from("ratings")
       .select("tmdb_id, media_type, rating, updated_at")
       .eq("user_id", userId),
-    supabase
-      .from("interactions")
-      .select("tmdb_id, media_type, created_at")
-      .eq("user_id", userId)
-      .in("action", ["right", "left", "seen", "maybe", "unsure"])
-      .gte("created_at", since),
+    fetchAll((from, to) =>
+      supabase
+        .from("interactions")
+        .select("tmdb_id, media_type, created_at")
+        .eq("user_id", userId)
+        .in("action", ["right", "left", "seen", "maybe", "unsure"])
+        .gte("created_at", since)
+        .order("id")
+        .range(from, to),
+    ),
   ]);
-  for (const r of [seen, ratings, stands]) if (r.error) throw r.error;
+  for (const r of [seen, ratings]) if (r.error) throw r.error;
 
   const rating = new Map<string, { rating: number; at: number }>();
   for (const r of ratings.data!)
     rating.set(key(r), { rating: r.rating, at: Date.parse(r.updated_at) });
   const lastStand = new Map<string, number>();
-  for (const i of stands.data!) {
+  for (const i of stands) {
     const at = Date.parse(i.created_at);
     if (at > (lastStand.get(key(i)) ?? 0)) lastStand.set(key(i), at);
   }
@@ -594,13 +603,17 @@ async function getOtherGroups(
     Date.now() - OTHER_GROUP_DAYS * 24 * 3600 * 1000,
   ).toISOString();
   const [interactions, listed, groups] = await Promise.all([
-    supabase
-      .from("interactions")
-      .select("tmdb_id, media_type, sessions!inner(group_id)")
-      .eq("user_id", userId)
-      .in("action", ["right", "left", "unsure", "maybe"])
-      .neq("sessions.group_id", groupId)
-      .gte("created_at", since),
+    fetchAll((from, to) =>
+      supabase
+        .from("interactions")
+        .select("tmdb_id, media_type, sessions!inner(group_id)")
+        .eq("user_id", userId)
+        .in("action", ["right", "left", "unsure", "maybe"])
+        .neq("sessions.group_id", groupId)
+        .gte("created_at", since)
+        .order("id")
+        .range(from, to),
+    ),
     supabase
       .from("watchlist")
       .select("tmdb_id, media_type, group_id")
@@ -608,7 +621,6 @@ async function getOtherGroups(
       .neq("group_id", groupId),
     getGroups(),
   ]);
-  if (interactions.error) throw interactions.error;
   if (listed.error) throw listed.error;
 
   // "Sparad för Partner" only for groups the user uses.
@@ -622,7 +634,7 @@ async function getOtherGroups(
     const k = key(w);
     savedFor.set(k, [...(savedFor.get(k) ?? []), name]);
   }
-  const reacted = new Set(interactions.data.map(key));
+  const reacted = new Set(interactions.map(key));
   for (const k of savedFor.keys()) reacted.add(k);
   return { reacted, savedFor };
 }
