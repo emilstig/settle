@@ -99,6 +99,11 @@ export type Card = {
   source: CardSource | null;
   /** Seen before and rested (see getRestedSeen): the card says "Se igen". */
   seen?: boolean;
+  /**
+   * Show the source on the card. Temporary, while the lanes are compared:
+   * only for the accounts that may compare (see no-ai.ts).
+   */
+  showSource?: boolean;
 };
 /** "mood": named by Claude for the free text (see suggest/style.ts). */
 /**
@@ -626,7 +631,7 @@ const LANE_LOOKUP = 60;
  * had the median year 2008, the deck's cards 2018. This lane asks discover
  * for the same genres sorted by rating instead, with a floor of votes so a
  * handful of 9s does not lead. Only without a mood, whose filters already
- * say what to fetch and how to sort.
+ * say what to fetch and how to sort, and not for Familj.
  */
 const RATED_PER_PAGE = 15;
 const RATED_FLOOR = {
@@ -818,7 +823,9 @@ export async function loadDeckPage({
   const tmdbPage = filters.firstPage + page - 1;
   // The well-rated lane asks the same queries sorted by rating. A failure
   // there only costs the lane, not the page.
-  const withRated = !filters.parsed;
+  // Not for Familj: series have no age filter in discover, and sorted by
+  // rating its genres lead with animation for adults (Arcane, Evangelion).
+  const withRated = !filters.parsed && filters.maxCert === null;
   const [results, ratedResults] = await Promise.all([
     Promise.all(
       filters.mediaTypes.flatMap((t) =>

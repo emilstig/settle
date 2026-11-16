@@ -18,7 +18,7 @@ import {
 import { getGroups } from "@/lib/groups";
 import { blendAffinity, buildGroupTaste, buildProfile } from "@/lib/profile";
 import { getSimilar } from "@/lib/similar";
-import { isNoAi } from "@/lib/no-ai";
+import { canCompare, isNoAi } from "@/lib/no-ai";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import {
@@ -283,7 +283,9 @@ export async function startSession(
     });
   return {
     sessionId: data.id,
-    cards: deck,
+    cards: canCompare(user.email)
+      ? deck.map((c) => ({ ...c, showSource: true }))
+      : deck,
     page,
     hasMore,
     label: filters.parsed?.label || null,
@@ -509,7 +511,9 @@ export async function loadMore(
       : cards;
   return {
     sessionId,
-    cards: deck,
+    cards: canCompare(user.email)
+      ? deck.map((c) => ({ ...c, showSource: true }))
+      : deck,
     page: loaded.page,
     hasMore,
     widen:

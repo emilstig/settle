@@ -80,6 +80,8 @@
   padding: 3px 9px;
   border-radius: 999px;
 }
+/* Temporary: the card's source, for accounts comparing the lanes. */
+.src { position: absolute; top: 18px; right: 18px; font-size: 14px; background: rgba(10, 8, 20, 0.55); padding: 3px 9px; border-radius: 999px; }
 .cardText { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px; display: grid; gap: 8px; }
 .cardText h2 {
   font-size: clamp(32px, 10vw, 46px);

@@ -16,6 +16,14 @@ const FIND_STAMPS: Stamps = {
   up: ["Sett", "var(--seen)"],
   down: ["Senare", "#555"],
 };
+/** Where a card came from, shown while the lanes are compared. */
+const SOURCE_LABEL: Record<NonNullable<Card["source"]>, string> = {
+  popular: "Populär",
+  similar: "Liknar",
+  rated: "Betyg",
+  pick: "Toppval",
+  mood: "I stilen",
+};
 const FLY: Record<Dir, string> = {
   right: "translate(600px,0) rotate(24deg)",
   left: "translate(-600px,0) rotate(-24deg)",
@@ -66,6 +74,10 @@ export function CardFace({
       )}
       <div className={styles.cardShade} />
       {card.year && <span className={styles.yr}>{card.year}</span>}
+      {/* Temporary, for the accounts comparing the lanes. */}
+      {card.showSource && card.source && (
+        <span className={styles.src}>{SOURCE_LABEL[card.source]}</span>
+      )}
       <div className={styles.cardText}>
         {(card.slot !== null || card.seen || card.savedFor.length > 0) && (
           <div className={styles.tags}>
