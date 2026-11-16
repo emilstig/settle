@@ -44,8 +44,15 @@ export const deckFiltersSchema = z.object({
       vibe: z.string(),
       /** Prompt 1's heading for the deck; older sessions lack it. */
       label: z.string().optional(),
+      /**
+       * The mood asked for something the group's own limits leave out, such
+       * as murder mysteries with Familj: the deck says so.
+       */
+      unfit: z.boolean().optional(),
     })
     .optional(),
+  /** How far prompt 1's filters were loosened to fill the deck (see relax). */
+  relaxed: z.number().int().min(1).max(3).optional(),
   /** The session runs without Claude, for comparison (see no-ai.ts). */
   noAi: z.boolean().optional(),
   /**

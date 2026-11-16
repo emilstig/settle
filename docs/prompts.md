@@ -72,7 +72,7 @@ Regler:
 
 Om varken snabbval eller fritext finns hoppar du över prompt 1 och använder standardfilter.
 
-Namn på personer, bolag och nyckelord slås upp i TMDB på servern (bolag med samma namn: det med flest filmer). Sorteras det på betyg krävs minst 1 000 röster för film och 300 för serier. Ger filtren för få titlar lättas de i två steg: först lägre betygskrav och inga personer, bolag eller nyckelord, sedan inga genrer. Språk och land behålls.
+Namn på personer, bolag och nyckelord slås upp i TMDB på servern (bolag med samma namn: det med flest filmer). Sorteras det på betyg krävs minst 1 000 röster för film och 300 för serier. Ger filtren för få titlar lättas de i tre steg: först lägre betygskrav (vid sortering på betyg 300 röster för film och 100 för serier) och inga nyckelord, sedan inga genrer, sist inga personer eller bolag. Språk och land behålls, och det de striktare filtren hittade visas först.
 
 ## Titlar i stilen
 

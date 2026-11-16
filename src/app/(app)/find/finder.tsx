@@ -346,6 +346,7 @@ export function Finder({
         hasMore: res.hasMore,
         loadFailedAt: null,
         label: res.label || moodLabel(picks, text),
+        note: res.note ?? null,
       });
       setIndex(0);
       setHistory([]);
@@ -907,7 +908,12 @@ export function Finder({
         right={tonightButton}
         under={
           session.label && (
-            <p className={styles.moodLine}>{session.label}</p>
+            <>
+              <p className={styles.moodLine}>{session.label}</p>
+              {session.note && (
+                <p className={styles.moodNote}>{session.note}</p>
+              )}
+            </>
           )
         }
       >

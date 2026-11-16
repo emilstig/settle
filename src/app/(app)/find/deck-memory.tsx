@@ -13,6 +13,8 @@ export type DeckSession = {
   hasMore: boolean;
   /** The line under the header: prompt 1's heading, or the mood as given. */
   label: string | null;
+  /** A smaller line under it when the deck is wider than the mood asked. */
+  note: string | null;
   /** Set when loading more failed: the index it failed at. */
   loadFailedAt: number | null;
 };

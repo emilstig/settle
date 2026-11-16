@@ -230,26 +230,47 @@ export async function applyParsed(
   else if (parsed.sort === "votes") out.sortBy = "vote_count.desc";
   else if (parsed.sort === "rating") out.sortBy = "vote_average.desc";
 
+  // Types where the mood's genres are all ruled out by the group's own
+  // limits, such as crime series with Familj.
+  const unfit = new Set<"movie" | "tv">();
   for (const type of ["movie", "tv"] as const) {
     const f = out[type];
     const familyTv = group.kind === "family" && type === "tv";
-    const required = forType(parsed.required_genres, type);
-    if (required.length && !familyTv) {
-      // Comma means and: every required genre.
-      f.with_genres = required.join(",");
-    } else if (parsed.with_genres.length && !familyTv) {
-      const genres = forType(parsed.with_genres, type);
-      // Nothing in this genre for series (or films): leave that type out.
-      if (genres.length === 0) types = types.filter((t) => t !== type);
-      else f.with_genres = genres.join("|");
-    }
+    // The group's exclusions always win; prompt 1's own only over its
+    // wishes, so a genre both wanted and left out is left out.
+    const groupWithout = String(base[type].without_genres ?? "")
+      .split(",")
+      .filter(Boolean)
+      .map(Number);
     const without = uniq([
-      ...String(f.without_genres ?? "")
-        .split(",")
-        .filter(Boolean)
-        .map(Number),
+      ...groupWithout,
       ...forType(parsed.without_genres, type),
     ]);
+    const allowed = (ids: number[]) => ids.filter((g) => !without.includes(g));
+    const askedRequired = forType(parsed.required_genres, type);
+    const asked = forType(parsed.with_genres, type);
+    const required = allowed(askedRequired);
+    const genres = allowed(asked);
+    if (familyTv) {
+      // Series for Familj stay within its own genres, which stand in for an
+      // age limit. They have their share of comedy, adventure and fantasy,
+      // but a mood for westerns or murder mysteries is met by the films
+      // instead, or, asked as series only, said not to fit.
+      const wish = [...askedRequired, ...asked];
+      if (wish.length && !wish.some((g) => FAMILY_TV_FITS.has(g))) unfit.add(type);
+    } else if (required.length) {
+      // Comma means and: every required genre.
+      f.with_genres = required.join(",");
+    } else if (askedRequired.length || asked.length) {
+      if (genres.length) f.with_genres = genres.join("|");
+      // Everything asked for is ruled out by the group.
+      else if ([...askedRequired, ...asked].some((g) => groupWithout.includes(g)))
+        unfit.add(type);
+      // Nothing in this genre for series (or films): leave that type out.
+      else types = types.filter((t) => t !== type);
+    } else if (parsed.with_genres.length || parsed.required_genres.length) {
+      types = types.filter((t) => t !== type);
+    }
     if (without.length) f.without_genres = without.join(",");
     if (parsed.languages.length)
       f.with_original_language = parsed.languages.join("|");
@@ -282,6 +303,12 @@ export async function applyParsed(
     if (type === "tv" && parsed.tv_miniseries) f.with_type = TV_MINISERIES;
   }
 
+  // A type that cannot meet the mood within the group's limits gives way to
+  // one that can. With none left, the deck keeps to the group's limits and
+  // says that the mood does not fit.
+  const fitting = types.filter((t) => !unfit.has(t));
+  if (fitting.length) types = fitting;
+  else if (types.length) out.parsed = { ...out.parsed!, unfit: true };
   out.mediaTypes = types.length ? types : base.mediaTypes;
   // "Senaste": newest first, per type (the sort key differs).
   if (parsed.sort === "newest" && !parsed.comfort) {
@@ -293,35 +320,59 @@ export async function applyParsed(
   return out;
 }
 
+/** Familj's own series genres (see buildFilters): they never fall away. */
+const FAMILY_TV_GENRES = "10751|10762|16";
 /**
- * Loosens prompt 1's filters when they leave too few titles: first a lower
- * rating bar and fewer votes and no people, companies or keywords, then no
- * genres. The language and country stay, since they are usually the clearest
- * thing the user asked for.
+ * Series genres a mood can ask for that Familj's series meet: its own, and
+ * comedy, Action & Adventure and Sci-Fi & Fantasy, which children's series
+ * are full of.
  */
-export function relax(filters: DeckFilters, level: 1 | 2): DeckFilters {
+const FAMILY_TV_FITS = new Set([10751, 10762, 16, 35, 10759, 10765]);
+
+/**
+ * Loosens prompt 1's filters when they leave too few titles, in the order the
+ * user is least likely to miss: first a lower rating bar, fewer votes and no
+ * keywords; then no genres; last no people or companies, since a named studio
+ * or actor ("Disneyklassiker") is the clearest thing asked for after the
+ * language and country, which always stay. Familj keeps its age limit and
+ * its genres for series, which stand in for an age limit there.
+ */
+export function relax(filters: DeckFilters, level: 1 | 2 | 3): DeckFilters {
   const out: DeckFilters = {
     ...filters,
     movie: { ...filters.movie },
     tv: { ...filters.tv },
+    relaxed: level,
   };
+  const family = filters.maxCert !== null;
   for (const type of ["movie", "tv"] as const) {
     const f = out[type];
     if (f["vote_average.gte"] !== undefined) {
       f["vote_average.gte"] = Math.min(Number(f["vote_average.gte"]), 7);
-      // Sorted by rating, the floor of votes stays, or the top fills up
-      // with new titles that have a handful of votes.
+    }
+    if (f["vote_average.gte"] !== undefined || filters.sortBy === "vote_average.desc") {
+      // Sorted by rating, some floor of votes stays, or the top fills up
+      // with new titles that have a handful of votes; the full floor left
+      // too few westerns with a high rating.
       f["vote_count.gte"] =
         filters.sortBy === "vote_average.desc"
-          ? RATING_SORT_VOTES[type]
+          ? RELAXED_RATING_SORT_VOTES[type]
           : type === "movie"
             ? 50
             : 20;
     }
-    delete f.with_people;
-    delete f.with_companies;
     delete f.with_keywords;
-    if (level === 2) delete f.with_genres;
+    if (level >= 2) {
+      if (family && type === "tv") f.with_genres = FAMILY_TV_GENRES;
+      else delete f.with_genres;
+    }
+    if (level >= 3) {
+      delete f.with_people;
+      delete f.with_companies;
+    }
   }
   return out;
 }
+
+/** The floor of votes for rating sort once the filters are loosened. */
+const RELAXED_RATING_SORT_VOTES = { movie: 300, tv: 100 };

@@ -71,6 +71,8 @@ export type DeckResult = {
   hasMore: boolean;
   /** Prompt 1's heading for the deck, when there was a mood to read. */
   label?: string | null;
+  /** When the deck is wider than the mood: it did not fit, or found few. */
+  note?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -196,10 +198,13 @@ export async function startSession(
   );
   // Prompt 1's filters can be too narrow. Loosen them step by step until
   // there is enough to show, and keep what was used on the session.
-  for (const level of [1, 2] as const) {
+  // What the stricter filters found stays first, so a search for westerns
+  // shows the westerns there are before anything wider.
+  for (const level of [1, 2, 3] as const) {
     if (!parsed || cards.length >= MIN_START_CARDS) break;
     filters = relax(filters, level);
-    ({ cards, page, hasMore } = await loadEnough(
+    const found = cards;
+    const more = await loadEnough(
       {
         userId: user.id,
         groupId,
@@ -210,9 +215,11 @@ export async function startSession(
         similar,
       },
       1,
-      [],
-      MIN_START_CARDS,
-    ));
+      found.map(key),
+      MIN_START_CARDS - found.length,
+    );
+    cards = [...found, ...more.cards];
+    ({ page, hasMore } = more);
     const { error: relaxError } = await supabase
       .from("sessions")
       .update({ filters })
@@ -253,6 +260,11 @@ export async function startSession(
     page,
     hasMore,
     label: filters.parsed?.label || null,
+    note: filters.parsed?.unfit
+      ? `Passar inte ${group.name}, så förslagen är bredare`
+      : (filters.relaxed ?? 0) >= 2
+        ? "Få träffar, sedan bredare förslag"
+        : null,
   };
 }
 
