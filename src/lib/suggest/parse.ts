@@ -2,7 +2,12 @@ import "server-only";
 import { runCost, type RunCost } from "./cost";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { DeckFilters } from "@/lib/deck";
+import {
+  forKids,
+  KIDS_FILM_GENRES,
+  KIDS_TV_GENRES,
+  type DeckFilters,
+} from "@/lib/deck";
 import type { Group } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 import { getGenreIds, getGenreNames } from "@/lib/tmdb/genres";
@@ -236,6 +241,8 @@ export async function applyParsed(
   for (const type of ["movie", "tv"] as const) {
     const f = out[type];
     const familyTv = group.kind === "family" && type === "tv";
+    // With young children films keep to family and animation too.
+    const kidsFilm = type === "movie" && forKids(base.maxCert);
     // The group's exclusions always win; prompt 1's own only over its
     // wishes, so a genre both wanted and left out is left out.
     const groupWithout = String(base[type].without_genres ?? "")
@@ -251,13 +258,15 @@ export async function applyParsed(
     const asked = forType(parsed.with_genres, type);
     const required = allowed(askedRequired);
     const genres = allowed(asked);
-    if (familyTv) {
+    if (familyTv || kidsFilm) {
       // Series for Familj stay within its own genres, which stand in for an
-      // age limit. They have their share of comedy, adventure and fantasy,
-      // but a mood for westerns or murder mysteries is met by the films
-      // instead, or, asked as series only, said not to fit.
+      // age limit, and so do films when the children are young. They have
+      // their share of comedy, adventure and fantasy, but a mood for
+      // westerns or murder mysteries is met by the other type, or said not
+      // to fit.
       const wish = [...askedRequired, ...asked];
-      if (wish.length && !wish.some((g) => FAMILY_TV_FITS.has(g))) unfit.add(type);
+      const fits = familyTv ? FAMILY_TV_FITS : KIDS_FILM_FITS;
+      if (wish.length && !wish.some((g) => fits.has(g))) unfit.add(type);
     } else if (required.length) {
       // Comma means and: every required genre.
       f.with_genres = required.join(",");
@@ -328,6 +337,8 @@ const FAMILY_TV_GENRES = "10751|10762|16";
  * are full of.
  */
 const FAMILY_TV_FITS = new Set([10751, 10762, 16, 35, 10759, 10765]);
+/** The same for films with young children: comedy, adventure, fantasy. */
+const KIDS_FILM_FITS = new Set([10751, 16, 35, 12, 14]);
 
 /**
  * Loosens prompt 1's filters when they leave too few titles, in the order the
@@ -363,7 +374,12 @@ export function relax(filters: DeckFilters, level: 1 | 2 | 3): DeckFilters {
     }
     delete f.with_keywords;
     if (level >= 2) {
-      if (family && type === "tv") f.with_genres = FAMILY_TV_GENRES;
+      if (family && type === "tv")
+        f.with_genres = forKids(filters.maxCert)
+          ? KIDS_TV_GENRES.join("|")
+          : FAMILY_TV_GENRES;
+      else if (type === "movie" && forKids(filters.maxCert))
+        f.with_genres = KIDS_FILM_GENRES.join("|");
       else delete f.with_genres;
     }
     if (level >= 3) {

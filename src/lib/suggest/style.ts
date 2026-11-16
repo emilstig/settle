@@ -3,7 +3,7 @@ import { runCost, type RunCost } from "./cost";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import {
-  certNumber,
+  fitsAge,
   key,
   toCard,
   type Card,
@@ -179,10 +179,7 @@ export async function styleCards({
     if (!row) continue;
     if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
       continue;
-    if (filters.maxCert !== null) {
-      const cert = certNumber(row.certification_se);
-      if (cert !== null && cert > filters.maxCert) continue;
-    }
+    if (!fitsAge(row, filters.maxCert)) continue;
     // Genres the mood merely suggested ("any of") are left to Claude's
     // judgement; genres it requires ("all of") and rules out still apply.
     const f = { ...filters[row.media_type] };

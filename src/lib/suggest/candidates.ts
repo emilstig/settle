@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import {
-  certNumber,
+  fitsAge,
   getDeclined,
   getExcluded,
   getRestedSeen,
@@ -51,11 +51,7 @@ function usable(
   if (!row) return false;
   if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
     return false;
-  if (maxCert !== null) {
-    const cert = certNumber(row.certification_se);
-    if (cert !== null && cert > maxCert) return false;
-  }
-  return true;
+  return fitsAge(row, maxCert);
 }
 
 /**
