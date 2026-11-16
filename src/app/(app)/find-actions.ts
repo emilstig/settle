@@ -44,7 +44,7 @@ const ref = z.object({
 type Ref = z.infer<typeof ref>;
 const uuid = z.uuid();
 /** Where the swiped card came from in the deck (see Card.source). */
-const source = z.enum(["popular", "similar", "pick", "mood"]).nullish();
+const source = z.enum(["popular", "similar", "pick", "mood", "rated"]).nullish();
 
 const interest = z.enum(["maybe", "want", "rewatch"]);
 const ratingRow = z.object({
