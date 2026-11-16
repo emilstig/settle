@@ -170,12 +170,16 @@ export function buildFilters(group: Group, quickPicks: string[]): DeckFilters {
     movie["certification.lte"] = CERT_LABEL[maxCert];
     movie.without_genres = [G.horror, G.thriller].join(",");
     // TV has no certification filter in discover, so stick to family genres.
-    tv.with_genres = [G.family, G.kids, G.animation].join("|");
+    tv.with_genres = (
+      forKids(maxCert) ? KIDS_TV_GENRES : [G.family, G.kids, G.animation]
+    ).join("|");
     tv.without_genres = [G.crime, G.mystery].join(",");
     picks.delete("Spännande");
   }
 
-  if (movieGenres.length) movie.with_genres = movieGenres.join("|");
+  // With young children films keep to family and animation (see fitsAge).
+  if (forKids(maxCert)) movie.with_genres = KIDS_FILM_GENRES.join("|");
+  else if (movieGenres.length) movie.with_genres = movieGenres.join("|");
   if (tvGenres.length && group.kind !== "family")
     tv.with_genres = tvGenres.join("|");
 
@@ -570,6 +574,38 @@ export function certNumber(cert: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Whether a title fits a group with an age limit (Familj). The Swedish
+ * rating says a film does no harm to a child, not that it is for children:
+ * The 40 Year-Old Virgin, Ocean's 8 and Bohemian Rhapsody are all "Btl". So
+ * with children under 11 a film must also be a family or animated film,
+ * and a series a family or children's series.
+ */
+export function fitsAge(
+  row: Pick<Title, "certification_se" | "media_type" | "genre_ids">,
+  maxCert: number | null,
+): boolean {
+  if (maxCert === null) return true;
+  const cert = certNumber(row.certification_se);
+  if (cert !== null && cert > maxCert) return false;
+  if (!forKids(maxCert)) return true;
+  const genres: readonly number[] =
+    row.media_type === "movie" ? KIDS_FILM_GENRES : KIDS_TV_GENRES;
+  return row.genre_ids.some((g) => genres.includes(g));
+}
+
+/** Familj with a child under 11 (age limit Btl or 7). */
+export const forKids = (maxCert: number | null) =>
+  maxCert !== null && maxCert <= 7;
+/** Familj and Animerat: what a film must be when the youngest is under 11. */
+export const KIDS_FILM_GENRES = [10751, 16];
+/**
+ * Series have no age filter in discover and seldom a Swedish rating, and
+ * Animerat alone brings Rick and Morty, Big Mouth and Arcane: with young
+ * children a series must be tagged Familj or Barn.
+ */
+export const KIDS_TV_GENRES = [10751, 10762];
+
 export function toCard(
   t: Title,
   mine: Set<number>,
@@ -899,10 +935,7 @@ export async function loadDeckPage({
       if (!row || excluded.has(k) || rested.has(k) || skipSet.has(k)) return [];
       if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
         return [];
-      if (filters.maxCert !== null) {
-        const cert = certNumber(row.certification_se);
-        if (cert !== null && cert > filters.maxCert) return [];
-      }
+      if (!fitsAge(row, filters.maxCert)) return [];
       return [row];
     })
     .slice(0, RATED_PER_PAGE);
@@ -932,10 +965,7 @@ export async function loadDeckPage({
       if (!row) return false;
       if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
         return false;
-      if (filters.maxCert !== null) {
-        const cert = certNumber(row.certification_se);
-        if (cert !== null && cert > filters.maxCert) return false;
-      }
+      if (!fitsAge(row, filters.maxCert)) return false;
       return matchesFilters(row, filters[row.media_type]);
     })
     .slice(0, LANE_PER_PAGE);
@@ -949,10 +979,7 @@ export async function loadDeckPage({
     if (!row || excluded.has(k) || skipSet.has(k)) return [];
     if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
       return [];
-    if (filters.maxCert !== null) {
-      const cert = certNumber(row.certification_se);
-      if (cert !== null && cert > filters.maxCert) return [];
-    }
+    if (!fitsAge(row, filters.maxCert)) return [];
     if (rested.has(k)) {
       if (restedLeft === 0) return [];
       restedLeft--;
@@ -988,10 +1015,7 @@ export async function loadDeckPage({
       if (!row) return false;
       if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
         return false;
-      if (filters.maxCert !== null) {
-        const cert = certNumber(row.certification_se);
-        if (cert !== null && cert > filters.maxCert) return false;
-      }
+      if (!fitsAge(row, filters.maxCert)) return false;
       return matchesFilters(row, filters[row.media_type]);
     })
     .slice(0, restedLeft);
