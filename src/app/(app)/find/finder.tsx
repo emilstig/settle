@@ -183,7 +183,7 @@ export function Finder({
     resolve: (u: Undo | null) => void;
     rewatch: string[];
   } | null>(null);
-  // "Spara för annan grupp" from the deck's detail view.
+  // "Passar bättre med en annan grupp" from the deck's detail view.
   const [moving, setMoving] = useState<Card | null>(null);
   const [detail, setDetail] = useState<{
     card: Card;
@@ -525,6 +525,53 @@ export function Finder({
     );
   }
 
+  /**
+   * "Inte min grej" on the toast after a left swipe: the swipe's reason
+   * changes, and the title leaves the lists where the no holds. "Ångra"
+   * (on the toast or the deck's button) puts it all back.
+   */
+  async function notForMe(
+    at: number,
+    swiped: Promise<Undo | null>,
+    group: (typeof groups)[number] | undefined,
+  ) {
+    const u = await swiped;
+    if (!u) return;
+    const removing = setLeftReason({
+      interactionId: u.interactionIds[0],
+      reason: "not_for_me",
+    });
+    // The swipe's own undo now also restores the lists.
+    setHistory((h) =>
+      h.map((e) =>
+        e.index === at
+          ? {
+              ...e,
+              undo: Promise.all([e.undo, removing.catch(() => [])]).then(
+                ([x, removed]) =>
+                  x ? { ...x, watchlist: [...x.watchlist, ...removed] } : x,
+              ),
+            }
+          : e,
+      ),
+    );
+    try {
+      const removed = await removing;
+      const said =
+        group?.kind === "solo"
+          ? "Visas inte mer"
+          : `Visas inte mer med ${group?.name}`;
+      showToast(
+        removed.length ? `${said}, borttagen från listan` : said,
+        removed.length ? [{ label: "Ångra", onClick: () => void undo() }] : [],
+        removed.length ? 3000 : 2000,
+      );
+    } catch (e) {
+      console.error(e);
+      showToast("Det gick inte att spara. Prova igen.", [], 2500);
+    }
+  }
+
   function openSeen(c: Card): Promise<Undo | null> {
     return new Promise((resolve) => {
       // Show where it is already on the se igen list before asking.
@@ -582,20 +629,16 @@ export function Finder({
         source: c.source,
       }).catch(() => null);
       push({ index: at, undo }, dir, c);
-      // "Inte nu" is the default. The chip applies in this group only, so the
-      // words follow the company. "Sett" is the up swipe, so it has no chip.
-      showToast("Inte nu", [
+      // "Hoppa över" hides it for a week; the toast says so, and that a
+      // saved title stays in Att se. The chip is a no for good: in Själv
+      // about the user (every group), else about the company (this group).
+      // "Sett" is the up swipe, so it has no chip.
+      const onList =
+        c.slot === "watchlist" || c.slot === "rewatch" || c.savedFor.length > 0;
+      showToast(onList ? "Döljs en vecka, ligger kvar i Att se" : "Döljs en vecka", [
         {
           label: group?.kind === "solo" ? "Inte min grej" : "Inte vår grej",
-          onClick: () =>
-            void undo.then(
-              (u) =>
-                u &&
-                setLeftReason({
-                  interactionId: u.interactionIds[0],
-                  reason: "not_for_me",
-                }),
-            ),
+          onClick: () => void notForMe(at, undo, group),
         },
       ]);
     } else if (dir === "down") {
@@ -640,7 +683,7 @@ export function Finder({
             : `Sparad att se om med ${group?.name}`,
           [
             {
-              label: "Vill se",
+              label: "Se ikväll",
               onClick: () => {
                 setTonightSaved((saved) => [
                   c,
@@ -697,7 +740,7 @@ export function Finder({
   }
 
   /**
-   * "Spara för annan grupp": the card leaves the deck as if swiped, onto the
+   * "Passar bättre med en annan grupp": the card leaves the deck as if swiped, onto the
    * chosen groups' lists. With this group among them it is a right swipe and
    * joins Ikväll.
    */
@@ -850,7 +893,7 @@ export function Finder({
       groupsRow={
         detail.from === "deck" && detail.card === card && groups.length > 1
           ? {
-              label: "Spara för en annan grupp",
+              label: "Passar bättre med en annan grupp",
               onClick: () => setMoving(detail.card),
             }
           : undefined
@@ -1051,7 +1094,7 @@ export function Finder({
 
       {swipes < HINT_SWIPES && (
         <p className={styles.hint}>
-          Höger: vill se · Vänster: inte nu · Upp: sett · Ner: kanske
+          → se ikväll · ← hoppa över · ↑ sett · ↓ senare
         </p>
       )}
       <div className={styles.actions}>
@@ -1100,6 +1143,9 @@ export function Finder({
         <SeenSheet
           title={seen.card.title}
           groups={groups}
+          together={
+            groups.find((g) => g.id === session?.groupId)?.kind !== "solo"
+          }
           onDone={finishSeen}
           rewatchGroupIds={seen.rewatch}
         />

@@ -5,7 +5,7 @@ import type { GroupOption } from "./types";
 import styles from "./find.module.css";
 
 /**
- * Grupper in Att se, and "Spara för en annan grupp" in the deck: choose
+ * Grupper in Att se, and "Passar bättre med en annan grupp" in the deck: choose
  * whose lists a title belongs on.
  */
 export function GroupSheet({

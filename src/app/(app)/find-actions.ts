@@ -674,7 +674,7 @@ const groupsSchema = z.object({
 });
 
 /**
- * "Spara för annan grupp" in the deck's detail view: the title goes on the
+ * "Passar bättre med en annan grupp" in the deck's detail view: the title goes on the
  * chosen groups' lists as "maybe" (a title already there keeps its interest)
  * and leaves the deck. With the group swiped with among them it is a right
  * swipe and joins Ikväll; without it, it is logged as left with the reason
@@ -714,19 +714,51 @@ export async function saveForGroups(
   return { ref: r, sessionId, interactionIds: [id], watchlist };
 }
 
+/**
+ * The reason chip after a left swipe. "Inte min grej" is a no for good where
+ * it holds (every group when said in Själv, else the group), so the title
+ * also leaves those groups' lists; hidden groups are left as they are. What
+ * was taken off is returned, for "Ångra" to put back.
+ */
 export async function setLeftReason(input: {
   interactionId: number;
   reason: "not_now" | "not_for_me" | "seen";
-}) {
-  await getCurrentUser();
+}): Promise<Undo["watchlist"]> {
+  const user = await getCurrentUser();
   const id = z.number().int().parse(input.interactionId);
   const reason = z.enum(["not_now", "not_for_me", "seen"]).parse(input.reason);
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: row, error } = await supabase
     .from("interactions")
     .update({ reason })
-    .eq("id", id);
+    .eq("id", id)
+    .select("tmdb_id, media_type, sessions(group_id)")
+    .single();
   if (error) throw error;
+  if (reason !== "not_for_me") return [];
+
+  const saidIn = (row.sessions as unknown as { group_id: string } | null)
+    ?.group_id;
+  const groups = await getGroups();
+  const said = groups.find((g) => g.id === saidIn);
+  if (!said) return [];
+  const holds =
+    said.kind === "solo"
+      ? groups.filter((g) => g.kind === "solo" || !g.hidden).map((g) => g.id)
+      : [said.id];
+  const { data: listed, error: listError } = await supabase
+    .from("watchlist")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("tmdb_id", row.tmdb_id)
+    .eq("media_type", row.media_type)
+    .in("group_id", holds)
+    .select("group_id, interest");
+  if (listError) throw listError;
+  return listed.map((w) => ({
+    group_id: w.group_id as string,
+    prev: w.interest as "maybe" | "want" | "rewatch",
+  }));
 }
 
 const seenSchema = z.object({

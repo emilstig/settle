@@ -206,11 +206,16 @@ export function CheckInBell() {
                         <h3 id="checkin-title">
                           Såg du {current.title} {current.when}?
                         </h3>
-                        <p>Hur var den?</p>
+                        <p>
+                          {current.together ? "Hur var den för er?" : "Hur var den?"}
+                        </p>
                       </>
                     ) : finishing ? (
                       <>
-                        <h3 id="checkin-title">Hur var {current.title}?</h3>
+                        <h3 id="checkin-title">
+                          Hur var {current.title}
+                          {current.together ? " för er" : ""}?
+                        </h3>
                         <p>Den hamnar i din historik.</p>
                       </>
                     ) : (

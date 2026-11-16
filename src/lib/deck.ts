@@ -357,7 +357,8 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  */
 /**
  * Titles the user turned down for now: "inte nu" and "kanske" anywhere in
- * the last 7 days, "inte min grej" in this group, and what was swiped right
+ * the last 7 days, "inte vår grej" in this group and "inte min grej" in
+ * Själv (which holds in every group), and what was swiped right
  * with this group tonight. Applies to every candidate, se igen titles included.
  */
 export async function getDeclined(
@@ -366,6 +367,7 @@ export async function getDeclined(
 ): Promise<Set<string>> {
   const supabase = await createClient();
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const speaking = await groupsSpeakingFor(groupId);
   const [notNow, notForUs, savedTonight, otherGroup] = await Promise.all([
     // A week of swipes can pass 1000 rows, so every page is read.
     fetchAll((from, to) =>
@@ -379,14 +381,19 @@ export async function getDeclined(
         .order("id")
         .range(from, to),
     ),
-    // The session tells which group "inte min grej" was said in.
-    supabase
-      .from("interactions")
-      .select("tmdb_id, media_type, sessions!inner(group_id)")
-      .eq("user_id", userId)
-      .eq("action", "left")
-      .eq("reason", "not_for_me")
-      .eq("sessions.group_id", groupId),
+    // The session tells which group "inte min grej" was said in. It never
+    // runs out, so it can pass 1000 rows too.
+    fetchAll((from, to) =>
+      supabase
+        .from("interactions")
+        .select("tmdb_id, media_type, sessions!inner(group_id)")
+        .eq("user_id", userId)
+        .eq("action", "left")
+        .eq("reason", "not_for_me")
+        .in("sessions.group_id", speaking)
+        .order("id")
+        .range(from, to),
+    ),
     // Swiped right tonight with the group: it is in Ikväll already, so it
     // does not come back (not even as a top pick) until the next evening,
     // also if it was moved to another group or taken off Ikväll.
@@ -408,17 +415,30 @@ export async function getDeclined(
       .eq("sessions.group_id", groupId)
       .gte("created_at", weekAgo),
   ]);
-  if (notForUs.error) throw notForUs.error;
   if (savedTonight.error) throw savedTonight.error;
   if (otherGroup.error) throw otherGroup.error;
   return new Set(
     [
       ...notNow,
-      ...notForUs.data,
+      ...notForUs,
       ...savedTonight.data,
       ...otherGroup.data,
     ].map(key),
   );
+}
+
+/**
+ * The groups whose no's apply in this one: what is said in Själv is about the
+ * user and applies everywhere; what is said in a group stays in it.
+ */
+export async function groupsSpeakingFor(groupId: string): Promise<string[]> {
+  const solo = (await getGroups()).find((g) => g.kind === "solo")?.id;
+  return solo && solo !== groupId ? [groupId, solo] : [groupId];
+}
+
+/** Whether a rating made with `ratedWith` holds in `groupId` (see groupsSpeakingFor). */
+function holdsIn(ratedWith: string | null, speaking: readonly string[]) {
+  return ratedWith === null || speaking.includes(ratedWith);
 }
 
 /** How long a seen title rests before the deck shows it again, by rating. */
@@ -433,18 +453,20 @@ const DAY_MS = 24 * 3600 * 1000;
  */
 export async function getRestedSeen(
   userId: string,
+  /** The deck's group: a dislike made with another group does not hold here. */
+  groupId: string,
   now = Date.now(),
 ): Promise<Map<string, number>> {
   const supabase = await createClient();
   const since = new Date(now - REST_DAYS[0] * DAY_MS).toISOString();
-  const [seen, ratings, stands] = await Promise.all([
+  const [seen, ratings, stands, speaking] = await Promise.all([
     supabase
       .from("watch_log")
       .select("tmdb_id, media_type, status, updated_at")
       .eq("user_id", userId),
     supabase
       .from("ratings")
-      .select("tmdb_id, media_type, rating, updated_at")
+      .select("tmdb_id, media_type, rating, updated_at, group_id")
       .eq("user_id", userId),
     fetchAll((from, to) =>
       supabase
@@ -456,12 +478,17 @@ export async function getRestedSeen(
         .order("id")
         .range(from, to),
     ),
+    groupsSpeakingFor(groupId),
   ]);
   for (const r of [seen, ratings]) if (r.error) throw r.error;
 
   const rating = new Map<string, { rating: number; at: number }>();
   for (const r of ratings.data!)
-    rating.set(key(r), { rating: r.rating, at: Date.parse(r.updated_at) });
+    rating.set(key(r), {
+      // A no from another group is theirs: here the title counts as unrated.
+      rating: r.rating < 0 && !holdsIn(r.group_id, speaking) ? 0 : r.rating,
+      at: Date.parse(r.updated_at),
+    });
   const lastStand = new Map<string, number>();
   for (const i of stands) {
     const at = Date.parse(i.created_at);
@@ -497,10 +524,10 @@ export async function getExcluded(
   rested: ReadonlySet<string> = new Set(),
 ): Promise<Set<string>> {
   const supabase = await createClient();
-  const [ratings, seen, declined, listed] = await Promise.all([
+  const [ratings, seen, declined, listed, speaking] = await Promise.all([
     supabase
       .from("ratings")
-      .select("tmdb_id, media_type")
+      .select("tmdb_id, media_type, group_id")
       .eq("user_id", userId)
       .eq("rating", -1),
     supabase
@@ -513,11 +540,16 @@ export async function getExcluded(
       .select("tmdb_id, media_type")
       .eq("user_id", userId)
       .eq("group_id", groupId),
+    groupsSpeakingFor(groupId),
   ]);
   for (const r of [ratings, seen, listed]) if (r.error) throw r.error;
 
   const out = new Set<string>(declined);
-  for (const r of [...ratings.data!, ...listed.data!]) out.add(key(r));
+  // A dislike holds where it was said: in Själv (or calibration) everywhere,
+  // with a group only there.
+  for (const r of ratings.data!)
+    if (holdsIn(r.group_id, speaking)) out.add(key(r));
+  for (const r of listed.data!) out.add(key(r));
   for (const r of seen.data!) if (!rested.has(key(r))) out.add(key(r));
   return out;
 }
@@ -692,7 +724,7 @@ export async function getDeckContext(
   groupId: string,
 ): Promise<DeckContext> {
   const [restedRatings, other] = await Promise.all([
-    getRestedSeen(userId),
+    getRestedSeen(userId, groupId),
     getOtherGroups(userId, groupId),
   ]);
   const rested = new Set(restedRatings.keys());

@@ -751,6 +751,7 @@ export function ListView({
         <SeenSheet
           title={seen.item.title}
           groups={groups}
+          together={!solo}
           onDone={(a) => void finishSeen(a)}
           rewatchGroupIds={seen.rewatch}
         />
@@ -761,6 +762,7 @@ export function ListView({
           title={finishing.title}
           groups={groups}
           only="rating"
+          together={!solo}
           onDone={(a) => {
             const item = finishing;
             setFinishing(null);

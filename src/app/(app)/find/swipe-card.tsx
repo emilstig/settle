@@ -11,10 +11,10 @@ export type SwipeCardHandle = { fly: (dir: Dir) => Promise<void> };
 export type Stamps = Partial<Record<Dir, [string, string]>>;
 
 const FIND_STAMPS: Stamps = {
-  right: ["Vill se", "var(--yes)"],
-  left: ["Inte nu", "var(--no)"],
+  right: ["Se ikväll", "var(--yes)"],
+  left: ["Hoppa över", "var(--no)"],
   up: ["Sett", "var(--seen)"],
-  down: ["Kanske", "#555"],
+  down: ["Senare", "#555"],
 };
 const FLY: Record<Dir, string> = {
   right: "translate(600px,0) rotate(24deg)",

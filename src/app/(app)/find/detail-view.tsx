@@ -94,7 +94,7 @@ export function DetailView({
       }
     | { kind: "notForMe"; label: string; onLift: () => void };
   /**
-   * The deck's "Spara för en annan grupp": a text link where the primary
+   * The deck's "Passar bättre med en annan grupp": a text link where the primary
    * button would be, since ♥ Vill se is the deck's step towards tonight.
    */
   groupsRow?: { label: string; onClick: () => void };

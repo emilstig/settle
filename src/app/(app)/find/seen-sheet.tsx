@@ -36,6 +36,7 @@ export function SeenSheet({
   rewatchGroupIds = [],
   only,
   rating,
+  together = false,
 }: {
   title: string;
   groups: GroupOption[];
@@ -49,6 +50,11 @@ export function SeenSheet({
   only?: "rating" | "rewatch";
   /** The rating it has now, shown as chosen when `only` is "rating". */
   rating?: number | null;
+  /**
+   * Rated with a group other than Själv: the rating is the group's (its
+   * history), not the user's own taste, and the question says so.
+   */
+  together?: boolean;
 }) {
   const [step, setStep] = useState(only === "rewatch" ? STEPS.length : 0);
   const [answers, setAnswers] = useState<SeenAnswers>({
@@ -120,7 +126,11 @@ export function SeenSheet({
 
         {current ? (
           <>
-            <p>{current.q}</p>
+            <p>
+              {current.key === "rating" && together
+                ? "Hur var den för er?"
+                : current.q}
+            </p>
             <div className={styles.sheetRow} ref={rowRef}>
               {current.options.map(([label, value]) => (
                 <button
