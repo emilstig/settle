@@ -1,6 +1,7 @@
 import "server-only";
 import { key } from "@/lib/deck";
 import { eveningStart } from "@/lib/evening";
+import { getGroups } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 import { getTitles, type MediaType } from "@/lib/tmdb/titles";
 
@@ -22,6 +23,8 @@ export type CheckIn = {
   sessionIds: string[];
   /** The group it was chosen with, which a rating is made with. */
   groupId: string | null;
+  /** Chosen with a group other than Själv: the rating is theirs together. */
+  together: boolean;
   tmdb_id: number;
   media_type: MediaType;
   title: string;
@@ -104,7 +107,8 @@ export async function getCheckIns(
     (p) => (answered.get(key(p)) ?? 0) < Date.parse(p.pickedAt),
   );
   if (open.length === 0) return [];
-  const rows = await getTitles(open);
+  const [rows, groups] = await Promise.all([getTitles(open), getGroups()]);
+  const soloId = groups.find((g) => g.kind === "solo")?.id;
   const yesterday = new Date(Date.parse(tonight) - DAY_MS).toISOString();
   return open.flatMap((p) => {
     const row = rows.get(key(p));
@@ -114,6 +118,7 @@ export async function getCheckIns(
       {
         sessionIds: p.sessionIds,
         groupId: p.groupId,
+        together: p.groupId !== null && p.groupId !== soloId,
         tmdb_id: p.tmdb_id,
         media_type: p.media_type,
         title: row.title,

@@ -176,7 +176,7 @@ export async function listCandidates(
       .eq("user_id", ctx.userId)
       .eq("group_id", ctx.groupId),
     comfort
-      ? getRestedSeen(ctx.userId).then((rested) => ({
+      ? getRestedSeen(ctx.userId, ctx.groupId).then((rested) => ({
           data: [...rested]
             .filter(([, rating]) => rating === 3)
             .map(([k]) => {

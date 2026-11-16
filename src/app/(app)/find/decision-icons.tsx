@@ -2,18 +2,19 @@ import type { Dir } from "./swipe-card";
 
 /**
  * One icon per decision, the same in the deck (icon only) and the detail
- * view (icon and word): ✕ Inte nu, a clock for Kanske (another evening), an
- * eye for Sett and a heart for Vill se.
+ * view (icon and word): ✕ Hoppa över, an eye for Sett, a clock for Senare
+ * (another evening) and a heart for Se ikväll. Only the two that save say
+ * when; ✕ says the title is let go.
  */
 export const DECISION_WORD: Record<Dir, string> = {
-  left: "Inte nu",
-  down: "Kanske",
+  left: "Hoppa över",
   up: "Sett",
-  right: "Vill se",
+  down: "Senare",
+  right: "Se ikväll",
 };
 
-/** Left to right in the deck and the detail view alike. */
-export const DECISION_ORDER: Dir[] = ["left", "down", "up", "right"];
+/** Left to right, from no to yes, the two that save side by side. */
+export const DECISION_ORDER: Dir[] = ["left", "up", "down", "right"];
 
 export function DecisionIcon({ dir }: { dir: Dir }) {
   const common = {

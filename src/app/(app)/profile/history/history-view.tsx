@@ -484,6 +484,7 @@ export function HistoryView({
           groups={groups}
           only={sheet.only}
           rating={sheet.item.rating}
+          together={ratedWith(sheet.item) !== null}
           onDone={finishSheet}
         />
       )}
