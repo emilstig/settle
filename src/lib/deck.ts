@@ -51,6 +51,19 @@ export const deckFiltersSchema = z.object({
       unfit: z.boolean().optional(),
     })
     .optional(),
+  /**
+   * The taste lane's searches for the session, as discover filters (see
+   * suggest/taste.ts). Kept so later pages do not ask Claude again.
+   */
+  lane: z
+    .array(
+      z.object({
+        type: z.enum(["movie", "tv"]),
+        label: z.string(),
+        filters: z.record(z.string(), z.union([z.string(), z.number()])),
+      }),
+    )
+    .optional(),
   /** How far prompt 1's filters were loosened to fill the deck (see relax). */
   relaxed: z.number().int().min(1).max(3).optional(),
   /** The session runs without Claude, for comparison (see no-ai.ts). */
@@ -110,7 +123,14 @@ export type Card = {
  * "rated": the well-rated lane (see RATED_FLOOR), fetched by rating instead
  * of by popularity.
  */
-export type CardSource = "popular" | "similar" | "pick" | "mood" | "rated";
+export type CardSource =
+  | "popular"
+  | "similar"
+  | "pick"
+  | "mood"
+  | "rated"
+  /** The taste lane: searches written from the profile (suggest/taste.ts). */
+  | "taste";
 
 const G = {
   comedy: 35,

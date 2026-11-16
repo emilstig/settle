@@ -21,6 +21,7 @@ const SOURCE_LABEL: Record<NonNullable<Card["source"]>, string> = {
   popular: "Populär",
   similar: "Liknar",
   rated: "Betyg",
+  taste: "Smak",
   pick: "Toppval",
   mood: "I stilen",
 };

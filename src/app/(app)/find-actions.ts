@@ -22,6 +22,14 @@ import { canCompare, isNoAi } from "@/lib/no-ai";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import {
+  askTasteSearches,
+  tasteCards,
+  tasteLane,
+  TASTE_MIN_RATINGS,
+  withTasteLane,
+  type TasteLane,
+} from "@/lib/suggest/taste";
+import {
   applyParsed,
   canWiden,
   parseMood,
@@ -44,7 +52,9 @@ const ref = z.object({
 type Ref = z.infer<typeof ref>;
 const uuid = z.uuid();
 /** Where the swiped card came from in the deck (see Card.source). */
-const source = z.enum(["popular", "similar", "pick", "mood", "rated"]).nullish();
+const source = z
+  .enum(["popular", "similar", "pick", "mood", "rated", "taste"])
+  .nullish();
 
 const interest = z.enum(["maybe", "want", "rewatch"]);
 const ratingRow = z.object({
@@ -167,6 +177,26 @@ export async function startSession(
   // Without a mood the popular list is fetched within the taste, so it is
   // not the same list for everyone (see withTaste).
   const noMood = moodText.trim() === "" && quickPicks.length === 0;
+  // The taste lane: searches written from the profile. Asked for while the
+  // rest of the deck loads, so the start button does not wait for it.
+  const laneBase = filters;
+  const askingLane: Promise<TasteLane> =
+    noMood &&
+    !noAi &&
+    group.kind !== "family" &&
+    profile.ratingCount >= TASTE_MIN_RATINGS
+      ? askTasteSearches({
+          sessionId: data.id,
+          userId: user.id,
+          group,
+          profileText: profile.text,
+        })
+          .then((searches) => tasteLane(searches, laneBase, affinity))
+          .catch((e) => {
+            console.error("taste lane failed", e);
+            return [];
+          })
+      : Promise.resolve([]);
   if (noMood && group.kind !== "family") {
     // The group's own genres already need four titles (buildGroupTaste).
     const established = new Set([
@@ -264,6 +294,27 @@ export async function startSession(
     ? await styleCards({ titles: styleTitles, filters, providerIds, excluded })
     : [];
   cards = withStyle(style, cards);
+
+  const lane = await askingLane;
+  if (lane.length) {
+    filters = { ...filters, lane };
+    const { error: laneError } = await supabase
+      .from("sessions")
+      .update({ filters })
+      .eq("id", data.id);
+    if (laneError) throw laneError;
+    cards = withTasteLane(
+      await tasteCards({
+        lane,
+        providerIds,
+        maxCert: filters.maxCert,
+        excluded,
+        shown: new Set(cards.map(key)),
+        affinity,
+      }),
+      cards,
+    );
+  }
 
   // Claude's three picks first, with a reason each.
   const deck = noAi
@@ -487,7 +538,21 @@ export async function loadMore(
   } else {
     loaded = await load(filters);
   }
-  const { cards, hasMore } = loaded;
+  const { hasMore } = loaded;
+  // The taste lane goes on with what it has not shown yet.
+  const cards = filters.lane?.length
+    ? withTasteLane(
+        await tasteCards({
+          lane: filters.lane,
+          providerIds,
+          maxCert: filters.maxCert,
+          excluded: await getExcluded(user.id, session.group_id),
+          shown: new Set([...skip, ...loaded.cards.map(key)]),
+          affinity,
+        }),
+        loaded.cards,
+      )
+    : loaded.cards;
   // Prompt 2 runs again on a new page only once the user has swiped through
   // enough of the last picks. A page fetched ahead of time right after the
   // start would otherwise run Claude for cards nobody reaches.

@@ -332,7 +332,11 @@ export async function getTitles(
   const old = refs
     .filter((r) => rows.has(key(r)) && isStale(rows.get(key(r)), now))
     .slice(0, maxRefresh);
-  const stale = [...missing, ...old];
+  // The same title twice in `refs` (two lists naming it) must be written
+  // once: Postgres refuses an upsert that touches a row twice.
+  const stale = [
+    ...new Map([...missing, ...old].map((r) => [key(r), r])).values(),
+  ];
   if (stale.length > 0) {
     const fetched = await mapLimit(stale, DETAIL_CONCURRENCY, (r) => fetchDetails(r.media_type, r.tmdb_id));
     const stamp = new Date(now).toISOString();

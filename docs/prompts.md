@@ -96,6 +96,55 @@ Svara ENDAST med JSON:
 { "titles": [{ "title": string, "year": number, "media_type": "movie" | "tv" }] }
 ```
 
+## Smakspåret: profil till sökningar
+
+Modell: `claude-haiku-5-5`, utan tänkande. Körs bara utan humör, utom i Familj och först när användaren har minst 10 betyg, parallellt med att resten av leken hämtas. Sökningarna blir frågor till TMDB sorterade på betyg (film minst 6,5 och 200 röster, serier minst 7 och 100 röster) inom gruppens gränser; namn slås upp i TMDB, en sökning med personer bärs av dem ensamma, och genrer som profilen tydligt säger nej till utesluts. Titlarna varvas med resten av leken, högst 12 per sida, med källan `taste`. Sökningarna sparas på sessionen (`filters.lane`) så att senare sidor inte frågar igen. Pröva ändringar med `node --env-file=.env.local scripts/eval/eval-taste.mjs <profil.txt>`.
+
+```
+Du översätter en användares smakprofil till sökningar i TMDB.
+Svara ENDAST med giltig JSON, ingen annan text.
+
+Genrer (id: namn):
+{{GENRES}}
+
+Smakprofil:
+{{PROFILE}}
+Grupp: {{GROUP}}
+
+Ge exakt 4 sökningar. Var och en fångar en sida av smaken som en genre
+ensam inte gör: ett tema, en ton, en era, ett land eller en regissör.
+
+Regler:
+- Utgå från det användaren älskar och gillar mycket. Leta efter det som
+  förenar flera av titlarna, inte efter en enskild titel.
+- Undvik det som liknar det ogillade och genrerna som undviks.
+- Använd bara genre-id:n från listan ovan. genres: någon av dem räcker,
+  högst 3. Tom lista om sökningen bärs av annat.
+- keywords: TMDB:s nyckelord på engelska i sin vanligaste form
+  ("based on true story", "heist", "cold war", "small town"). Högst 4,
+  någon av dem räcker.
+- people: regissörer vars filmer ligger nära profilen. Bara i sökningar
+  med media_type "movie", högst 3, och högst en sökning med people.
+  En sökning med people har inga keywords och inga genres.
+- era, origin_countries (ISO-kod, "SE") och languages (ISO-kod, "sv")
+  bara när profilen tydligt pekar dit. Annars null och tomma listor.
+- Varje sökning ska vara bred nog att ge ett tjugotal titlar: snäva
+  inte in med både keywords och era eller land samtidigt.
+- Sökningarna ska skilja sig från varandra. Minst en "movie" och minst
+  en "tv".
+- label: 2–4 ord på svenska som säger vad sökningen fångar.
+
+{ "searches": [
+  { "label": string,
+    "media_type": "movie" | "tv",
+    "genres": number[],
+    "keywords": string[],
+    "people": string[],
+    "origin_countries": string[],
+    "languages": string[],
+    "era": { "from": number | null, "to": number | null } } ] }
+```
+
 ## Prompt 2: välj tre
 
 Modell: `claude-sonnet-5-5`. Kandidaterna (cirka 20) kommer från TMDB discover, är filtrerade på användarens tjänster och har redan rensats enligt domänreglerna i `CLAUDE.md`.
