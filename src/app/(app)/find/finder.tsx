@@ -59,6 +59,21 @@ import type { GroupOption, ToastButton, ToastState } from "./types";
 import styles from "./find.module.css";
 
 const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
+
+/**
+ * What the end of the deck says. A mood in words is quoted back, so it is
+ * clear that the search ran out rather than the app.
+ */
+function endOfDeck(session: Session, groupName?: string): string {
+  const text = session.moodText;
+  if (!session.widen || !text) return "Slut på förslag för det här.";
+  const quoted = `”${text.length > 40 ? `${text.slice(0, 39).trimEnd()}…` : text}”`;
+  if (session.widen === "unfit")
+    return `${quoted} passar inte ${groupName ?? "gruppen"}.`;
+  return session.cards.length === 0
+    ? `Hittade inget för ${quoted} på dina tjänster.`
+    : `Inga fler förslag för ${quoted} på dina tjänster.`;
+}
 const refOf = (c: Card) => ({ tmdb_id: c.tmdb_id, media_type: c.media_type });
 
 /** The gesture hint under the deck shows until this many swipes in Hitta. */
@@ -346,7 +361,8 @@ export function Finder({
         hasMore: res.hasMore,
         loadFailedAt: null,
         label: res.label || moodLabel(picks, text),
-        note: res.note ?? null,
+        moodText: text.trim(),
+        widen: res.widen ?? null,
       });
       setIndex(0);
       setHistory([]);
@@ -428,6 +444,7 @@ export function Finder({
                 cards: [...s.cards, ...res.cards],
                 page: res.page,
                 hasMore: res.hasMore,
+                widen: res.widen ?? null,
                 loadFailedAt: null,
               }
             : s,
@@ -443,6 +460,38 @@ export function Finder({
         loadingMore.current = false;
       });
   }, [session, index, starting]);
+
+  // "Visa bredare förslag" at the end of a deck for a mood in words.
+  const [widening, setWidening] = useState(false);
+  async function widenDeck() {
+    if (!session || widening) return;
+    setWidening(true);
+    try {
+      const res = await loadMore({
+        sessionId: session.id,
+        page: 1,
+        skip: session.cards.map(keyOf),
+        widen: true,
+      });
+      setSession((s) =>
+        s && s.id === res.sessionId
+          ? {
+              ...s,
+              cards: [...s.cards, ...res.cards],
+              page: res.page,
+              hasMore: res.hasMore,
+              widen: res.widen ?? null,
+              loadFailedAt: null,
+            }
+          : s,
+      );
+    } catch (e) {
+      console.error(e);
+      showToast("Det gick inte att hämta fler förslag", [], 2500);
+    } finally {
+      setWidening(false);
+    }
+  }
 
   const retryLoad = () =>
     setSession((s) => (s ? { ...s, loadFailedAt: null } : s));
@@ -908,12 +957,7 @@ export function Finder({
         right={tonightButton}
         under={
           session.label && (
-            <>
-              <p className={styles.moodLine}>{session.label}</p>
-              {session.note && (
-                <p className={styles.moodNote}>{session.note}</p>
-              )}
-            </>
+            <p className={styles.moodLine}>{session.label}</p>
           )
         }
       >
@@ -956,7 +1000,7 @@ export function Finder({
           </>
         ) : (
           <div className={styles.empty}>
-            {starting ? (
+            {starting || widening ? (
               <p>
                 <LoadingLabel together={together} />
               </p>
@@ -973,8 +1017,26 @@ export function Finder({
               </p>
             ) : (
               <>
-                <p>Slut på förslag för det här.</p>
-                <button type="button" className="primary" onClick={backToStart}>
+                <p>
+                  {endOfDeck(
+                    session,
+                    groups.find((g) => g.id === session.groupId)?.name,
+                  )}
+                </p>
+                {session.widen && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => void widenDeck()}
+                  >
+                    Visa bredare förslag
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={session.widen ? "secondary" : "primary"}
+                  onClick={backToStart}
+                >
                   Ändra och börja om
                 </button>
               </>

@@ -13,8 +13,10 @@ export type DeckSession = {
   hasMore: boolean;
   /** The line under the header: prompt 1's heading, or the mood as given. */
   label: string | null;
-  /** A smaller line under it when the deck is wider than the mood asked. */
-  note: string | null;
+  /** The mood in the user's words, for the end of the deck. */
+  moodText: string;
+  /** Whether the deck can be widened once it runs out (see DeckResult). */
+  widen: "few" | "unfit" | null;
   /** Set when loading more failed: the index it failed at. */
   loadFailedAt: number | null;
 };

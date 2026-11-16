@@ -374,5 +374,20 @@ export function relax(filters: DeckFilters, level: 1 | 2 | 3): DeckFilters {
   return out;
 }
 
+/**
+ * Whether "Visa bredare förslag" would change anything: a mood that did not
+ * fit the group, or filters with more to let go.
+ */
+export function canWiden(filters: DeckFilters): boolean {
+  if (filters.parsed?.unfit) return true;
+  if ((filters.relaxed ?? 0) >= 3) return false;
+  const wider = relax(filters, 3);
+  return (["movie", "tv"] as const).some(
+    (t) =>
+      filters.mediaTypes.includes(t) &&
+      JSON.stringify(wider[t]) !== JSON.stringify(filters[t]),
+  );
+}
+
 /** The floor of votes for rating sort once the filters are loosened. */
 const RELAXED_RATING_SORT_VOTES = { movie: 300, tv: 100 };
