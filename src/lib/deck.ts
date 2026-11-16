@@ -99,9 +99,18 @@ export type Card = {
   source: CardSource | null;
   /** Seen before and rested (see getRestedSeen): the card says "Se igen". */
   seen?: boolean;
+  /**
+   * Show the source on the card. Temporary, while the lanes are compared:
+   * only for the accounts that may compare (see no-ai.ts).
+   */
+  showSource?: boolean;
 };
 /** "mood": named by Claude for the free text (see suggest/style.ts). */
-export type CardSource = "popular" | "similar" | "pick" | "mood";
+/**
+ * "rated": the well-rated lane (see RATED_FLOOR), fetched by rating instead
+ * of by popularity.
+ */
+export type CardSource = "popular" | "similar" | "pick" | "mood" | "rated";
 
 const G = {
   comedy: 35,
@@ -615,13 +624,27 @@ export function toCard(
 const LANE_PER_PAGE = 15;
 const LANE_LOOKUP = 60;
 
-/** Alternates two lists, starting with the first: a, b, a, b … */
-function interleave<T>(a: T[], b: T[]): T[] {
+/**
+ * The well-rated lane. The popular list is what is popular this week, mostly
+ * recent titles, and the taste profile can only reorder it; a favourite
+ * from 2005 never reaches the sorting. In the test week what the user loved
+ * had the median year 2008, the deck's cards 2018. This lane asks discover
+ * for the same genres sorted by rating instead, with a floor of votes so a
+ * handful of 9s does not lead. Only without a mood, whose filters already
+ * say what to fetch and how to sort, and not for Familj.
+ */
+const RATED_PER_PAGE = 15;
+const RATED_FLOOR = {
+  movie: { "vote_count.gte": 1000, "vote_average.gte": 7 },
+  tv: { "vote_count.gte": 300, "vote_average.gte": 7.5 },
+} as const;
+
+/** Takes turns between the lists, starting with the first: a, b, c, a, b, c … */
+function interleave<T>(...lists: T[][]): T[] {
   const out: T[] = [];
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if (i < a.length) out.push(a[i]);
-    if (i < b.length) out.push(b[i]);
-  }
+  const longest = Math.max(0, ...lists.map((l) => l.length));
+  for (let i = 0; i < longest; i++)
+    for (const l of lists) if (i < l.length) out.push(l[i]);
   return out;
 }
 
@@ -798,18 +821,42 @@ export async function loadDeckPage({
   addRested?: boolean;
 }): Promise<{ cards: Card[]; hasMore: boolean }> {
   const tmdbPage = filters.firstPage + page - 1;
-  const results = await Promise.all(
-    filters.mediaTypes.flatMap((t) =>
-      discoverQueries(filters, t).map((q) =>
-        discover(t, {
-          providerIds,
-          page: tmdbPage,
-          sortBy: filters.sortBy,
-          filters: q,
-        }),
+  // The well-rated lane asks the same queries sorted by rating. A failure
+  // there only costs the lane, not the page.
+  // Not for Familj: series have no age filter in discover, and sorted by
+  // rating its genres lead with animation for adults (Arcane, Evangelion).
+  const withRated = !filters.parsed && filters.maxCert === null;
+  const [results, ratedResults] = await Promise.all([
+    Promise.all(
+      filters.mediaTypes.flatMap((t) =>
+        discoverQueries(filters, t).map((q) =>
+          discover(t, {
+            providerIds,
+            page: tmdbPage,
+            sortBy: filters.sortBy,
+            filters: q,
+          }),
+        ),
       ),
     ),
-  );
+    withRated
+      ? Promise.all(
+          filters.mediaTypes.flatMap((t) =>
+            discoverQueries(filters, t).map((q) =>
+              discover(t, {
+                providerIds,
+                page: tmdbPage,
+                sortBy: "vote_average.desc",
+                filters: { ...q, ...RATED_FLOOR[t] },
+              }).catch((e) => {
+                console.warn("Rated lane failed", e);
+                return { hits: [] as DiscoverHit[], totalPages: 0 };
+              }),
+            ),
+          ),
+        )
+      : [],
+  ]);
   const longest = Math.max(0, ...results.map((r) => r.hits.length));
   // A title can come from more than one taste genre: it is kept once.
   const hits: DiscoverHit[] = [
@@ -821,17 +868,47 @@ export async function loadDeckPage({
     ).values(),
   ];
 
-  const [{ excluded, rested, restedRatings, other }, rows, genres] =
+  const hitKeys = new Set(hits.map(key));
+  // The lane's own titles: the ones the popular list did not bring anyway,
+  // the queries taking turns like above.
+  const ratedLongest = Math.max(0, ...ratedResults.map((r) => r.hits.length));
+  const ratedHits: DiscoverHit[] = [
+    ...new Map(
+      Array.from({ length: ratedLongest }, (_, i) =>
+        ratedResults.map((r) => r.hits[i]),
+      )
+        .flat()
+        .filter((h) => h !== undefined && !hitKeys.has(key(h)))
+        .map((h) => [key(h), h] as const),
+    ).values(),
+  ];
+
+  const [{ excluded, rested, restedRatings, other }, rows, ratedRowsByKey, genres] =
     await Promise.all([
       context ?? getDeckContext(userId, groupId),
       getTitles(hits),
+      ratedHits.length ? getTitles(ratedHits) : new Map<string, Title>(),
       getGenreNames(),
     ]);
   const skipSet = new Set(skip);
   const mine = new Set(providerIds);
+  const ratedRows = ratedHits
+    .flatMap((h) => {
+      const k = key(h);
+      const row = ratedRowsByKey.get(k);
+      if (!row || excluded.has(k) || rested.has(k) || skipSet.has(k)) return [];
+      if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
+        return [];
+      if (filters.maxCert !== null) {
+        const cert = certNumber(row.certification_se);
+        if (cert !== null && cert > filters.maxCert) return [];
+      }
+      return [row];
+    })
+    .slice(0, RATED_PER_PAGE);
+  const ratedKeys = new Set(ratedRows.map(key));
 
   // The lane: the best recommendations not yet shown, checked like discover.
-  const hitKeys = new Set(hits.map(key));
   const laneTypes = new Set(
     filters.mediaTypes.filter((t) => laneFits(filters[t])),
   );
@@ -840,6 +917,7 @@ export async function loadDeckPage({
       (h) =>
         laneTypes.has(h.media_type) &&
         !hitKeys.has(key(h)) &&
+        !ratedKeys.has(key(h)) &&
         !excluded.has(key(h)) &&
         !rested.has(key(h)) &&
         !skipSet.has(key(h)),
@@ -890,6 +968,7 @@ export async function loadDeckPage({
           .filter(
             (k) =>
               !hitKeys.has(k) &&
+              !ratedKeys.has(k) &&
               !excluded.has(k) &&
               !skipSet.has(k) &&
               laneTypes.has(k.split(":")[0] as MediaType),
@@ -932,9 +1011,10 @@ export async function loadDeckPage({
     .map((row, i) => ({ row, i, s: score(row) }))
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .map((x) => x.row);
-  // The lane keeps its own order (most seeds first) and takes turns with
-  // the popular titles, so the page is not only what is popular right now.
-  const mixed = interleave(laneRows, sorted);
+  // The lanes keep their own order (most seeds first, highest rated first)
+  // and take turns with the popular titles, so the page is not only what
+  // is popular right now.
+  const mixed = interleave(laneRows, ratedRows, sorted);
   const spreadRows = spread(mixed, await collectionsOf(skip));
   const fresh = spreadRows.filter((r) => !other.reacted.has(key(r)));
   const known = spreadRows.filter((r) => other.reacted.has(key(r)));
@@ -942,10 +1022,17 @@ export async function loadDeckPage({
   const cards = [...jitter(fresh, `${seed}:${page}`), ...known].map(
     (row): Card => ({
       ...toCard(row, mine, genres, other.savedFor.get(key(row)) ?? []),
-      source: fromLane.has(key(row)) ? "similar" : "popular",
+      source: fromLane.has(key(row))
+        ? "similar"
+        : ratedKeys.has(key(row))
+          ? "rated"
+          : "popular",
       ...(rested.has(key(row)) ? { seen: true } : {}),
     }),
   );
 
-  return { cards, hasMore: results.some((r) => tmdbPage < r.totalPages) };
+  return {
+    cards,
+    hasMore: [...results, ...ratedResults].some((r) => tmdbPage < r.totalPages),
+  };
 }
