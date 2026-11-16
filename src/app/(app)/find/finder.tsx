@@ -808,9 +808,13 @@ export function Finder({
 
   // ---- render ---------------------------------------------------------------
 
-  // Själv says "du"; any other group watches together and says "ni".
+  // Själv says "du"; any other group watches together and says "ni". The
+  // deck speaks for its own group; the start view for the one picked now,
+  // since the last deck stays in memory after going back.
+  const shownGroupId =
+    phase === "deck" && session ? session.groupId : groupId;
   const together =
-    groups.find((g) => g.id === (session?.groupId ?? groupId))?.kind !== "solo";
+    groups.find((g) => g.id === shownGroupId)?.kind !== "solo";
   // The phone's back gesture closes the top layer, not the page.
   useBackClose(tonightOpen, () => setTonightOpen(false));
   useBackClose(detail !== null, () => setDetail(null));
