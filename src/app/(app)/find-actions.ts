@@ -21,7 +21,12 @@ import { getSimilar } from "@/lib/similar";
 import { isNoAi } from "@/lib/no-ai";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
-import { applyParsed, parseMood, relax } from "@/lib/suggest/parse";
+import {
+  applyParsed,
+  canWiden,
+  parseMood,
+  relax,
+} from "@/lib/suggest/parse";
 import { askStyleTitles, styleCards, withStyle } from "@/lib/suggest/style";
 import { getUserProviderIds } from "@/lib/providers";
 import { createClient } from "@/lib/supabase/server";
@@ -71,6 +76,12 @@ export type DeckResult = {
   hasMore: boolean;
   /** Prompt 1's heading for the deck, when there was a mood to read. */
   label?: string | null;
+  /**
+   * Whether the deck can be widened by the user once it runs out: the mood
+   * named something ("few"), or asked for what the group rules out
+   * ("unfit", with no cards). Null when there is nothing to widen.
+   */
+  widen?: "few" | "unfit" | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -171,6 +182,22 @@ export async function startSession(
       if (tasteError) throw tasteError;
     }
   }
+  // A mood in the user's own words names what they want: the deck keeps to
+  // it and ends when it runs out, and widening is the user's choice. Quick
+  // picks alone are loose enough to widen without asking.
+  const specific = !!parsed && moodText.trim() !== "";
+  if (specific && filters.parsed?.unfit) {
+    return {
+      sessionId: data.id,
+      cards: [],
+      page: 0,
+      hasMore: false,
+      // Prompt 1's heading would promise what the group rules out ("Mord
+      // för hela familjen"); the mood as given is shown instead.
+      label: null,
+      widen: "unfit",
+    };
+  }
   // "Liknar det ni gillat": recommendations for what the group already liked.
   const similar = await getSimilar({
     userId: user.id,
@@ -195,11 +222,16 @@ export async function startSession(
     MIN_START_CARDS,
   );
   // Prompt 1's filters can be too narrow. Loosen them step by step until
-  // there is enough to show, and keep what was used on the session.
-  for (const level of [1, 2] as const) {
+  // there is enough to show, and keep what was used on the session. A mood
+  // in words is only loosened in what it did not ask for (the rating bar,
+  // keywords); the rest is widened when the user asks (see loadMore).
+  // What the stricter filters found stays first, so a search for westerns
+  // shows the westerns there are before anything wider.
+  for (const level of specific ? ([1] as const) : ([1, 2, 3] as const)) {
     if (!parsed || cards.length >= MIN_START_CARDS) break;
     filters = relax(filters, level);
-    ({ cards, page, hasMore } = await loadEnough(
+    const found = cards;
+    const more = await loadEnough(
       {
         userId: user.id,
         groupId,
@@ -210,9 +242,11 @@ export async function startSession(
         similar,
       },
       1,
-      [],
-      MIN_START_CARDS,
-    ));
+      found.map(key),
+      MIN_START_CARDS - found.length,
+    );
+    cards = [...found, ...more.cards];
+    ({ page, hasMore } = more);
     const { error: relaxError } = await supabase
       .from("sessions")
       .update({ filters })
@@ -253,14 +287,20 @@ export async function startSession(
     page,
     hasMore,
     label: filters.parsed?.label || null,
+    widen: specific && canWiden(filters) ? "few" : null,
   };
 }
 
 const moreSchema = z.object({
   sessionId: uuid,
   // TMDB's discover stops at page 500.
-  page: z.number().int().min(2).max(500),
+  page: z.number().int().min(1).max(500),
   skip: z.array(z.string().max(20)).max(2000),
+  /**
+   * "Visa bredare förslag": loosen the session's filters a step at a time
+   * from where they are, and start over on page 1 of the wider ones.
+   */
+  widen: z.boolean().optional(),
 });
 
 /** Cards to have before showing the deck, and before a refill counts. */
@@ -367,7 +407,7 @@ export async function loadMore(
   input: z.infer<typeof moreSchema>,
 ): Promise<DeckResult> {
   const user = await getCurrentUser();
-  const { sessionId, page, skip } = moreSchema.parse(input);
+  const { sessionId, page: askedPage, skip, widen } = moreSchema.parse(input);
   const supabase = await createClient();
   const { data: session, error } = await supabase
     .from("sessions")
@@ -376,7 +416,8 @@ export async function loadMore(
     .single();
   if (error) throw error;
 
-  const filters = deckFiltersSchema.parse(session.filters);
+  let filters = deckFiltersSchema.parse(session.filters);
+  let page = askedPage;
   const [providerIds, profile, groups] = await Promise.all([
     getUserProviderIds(),
     buildProfile(user.id),
@@ -392,20 +433,58 @@ export async function loadMore(
     seed: sessionId,
     avoid: groupTaste.avoid,
   });
-  const loaded = await loadEnough(
-    {
-      userId: user.id,
-      groupId: session.group_id,
-      providerIds,
-      filters,
-      seed: sessionId,
-      affinity,
-      similar,
-    },
-    page,
-    skip,
-    MIN_MORE_CARDS,
-  );
+  const load = (f: DeckFilters) =>
+    loadEnough(
+      {
+        userId: user.id,
+        groupId: session.group_id,
+        providerIds,
+        filters: f,
+        seed: sessionId,
+        affinity,
+        similar,
+      },
+      page,
+      skip,
+      MIN_MORE_CARDS,
+    );
+  let loaded: Awaited<ReturnType<typeof loadEnough>>;
+  if (widen) {
+    // A mood that did not fit the group: the group's own limits, which the
+    // filters already hold. Otherwise a step wider each time, until there
+    // is enough or nothing more to let go.
+    page = 1;
+    if (filters.parsed?.unfit) {
+      filters = { ...filters, parsed: { ...filters.parsed, unfit: false } };
+      loaded = await load(filters);
+    } else {
+      loaded = { cards: [], page: 0, hasMore: false };
+    }
+    for (
+      let level = (filters.relaxed ?? 0) + 1;
+      level <= 3 && loaded.cards.length < MIN_MORE_CARDS;
+      level++
+    ) {
+      filters = relax(filters, level as 1 | 2 | 3);
+      const more = await load(filters);
+      loaded = {
+        ...more,
+        cards: [
+          ...loaded.cards,
+          ...more.cards.filter(
+            (c) => !loaded.cards.some((x) => key(x) === key(c)),
+          ),
+        ],
+      };
+    }
+    const { error: widenError } = await supabase
+      .from("sessions")
+      .update({ filters })
+      .eq("id", sessionId);
+    if (widenError) throw widenError;
+  } else {
+    loaded = await load(filters);
+  }
   const { cards, hasMore } = loaded;
   // Prompt 2 runs again on a new page only once the user has swiped through
   // enough of the last picks. A page fetched ahead of time right after the
@@ -428,7 +507,14 @@ export async function loadMore(
           shown: skip,
         })
       : cards;
-  return { sessionId, cards: deck, page: loaded.page, hasMore };
+  return {
+    sessionId,
+    cards: deck,
+    page: loaded.page,
+    hasMore,
+    widen:
+      filters.parsed && session.mood_text && canWiden(filters) ? "few" : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
