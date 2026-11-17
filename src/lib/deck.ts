@@ -17,6 +17,7 @@ import { seededRandom, shuffle, spread } from "@/lib/spread";
 import { genresOf } from "@/lib/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAll } from "@/lib/supabase/all";
+import { getSkips, hiddenBySkips } from "@/lib/skips";
 import { laneFits, matchesFilters, type SimilarHit } from "@/lib/similar";
 
 export const QUICK_PICKS = [
@@ -112,6 +113,13 @@ export type Card = {
   source: CardSource | null;
   /** Seen before and rested (see getRestedSeen): the card says "Se igen". */
   seen?: boolean;
+  /** TMDB's genre ids, for rules that weigh a card against the taste. */
+  genre_ids?: number[];
+  /**
+   * Times the title was skipped in the last year, when any: the next skip
+   * hides it longer, and the toast says for how long (see skips.ts).
+   */
+  skipped?: number;
   /**
    * Show the source on the card. Temporary, while the lanes are compared:
    * only for the accounts that may compare (see no-ai.ts).
@@ -390,7 +398,7 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  */
 /**
  * Titles the user turned down for now: "inte nu" and "kanske" anywhere in
- * the last 7 days, "inte vår grej" in this group and "inte min grej" in
+ * the last 7 days, a title skipped more than once for longer (see skips.ts), "inte vår grej" in this group and "inte min grej" in
  * Själv (which holds in every group), and what was swiped right
  * with this group tonight. Applies to every candidate, se igen titles included.
  */
@@ -401,7 +409,8 @@ export async function getDeclined(
   const supabase = await createClient();
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const speaking = await groupsSpeakingFor(groupId);
-  const [notNow, notForUs, savedTonight, otherGroup] = await Promise.all([
+  const [skips, notNow, notForUs, savedTonight, otherGroup] = await Promise.all([
+    getSkips(userId),
     // A week of swipes can pass 1000 rows, so every page is read.
     fetchAll((from, to) =>
       supabase
@@ -450,14 +459,15 @@ export async function getDeclined(
   ]);
   if (savedTonight.error) throw savedTonight.error;
   if (otherGroup.error) throw otherGroup.error;
-  return new Set(
-    [
+  return new Set([
+    ...[
       ...notNow,
       ...notForUs,
       ...savedTonight.data,
       ...otherGroup.data,
     ].map(key),
-  );
+    ...hiddenBySkips(skips),
+  ]);
 }
 
 /**
@@ -666,6 +676,7 @@ export function toCard(
       .flatMap((p) => (p.logo_path ? [p.logo_path] : [])),
     providers_link: t.providers_se?.link ?? null,
     savedFor,
+    genre_ids: t.genre_ids,
     runtime: t.runtime && t.runtime >= 5 ? t.runtime : null,
     reason: null,
     slot: null,

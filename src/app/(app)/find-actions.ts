@@ -19,6 +19,7 @@ import { getGroups } from "@/lib/groups";
 import { blendAffinity, buildGroupTaste, buildProfile } from "@/lib/profile";
 import { getSimilar } from "@/lib/similar";
 import { canCompare, isNoAi } from "@/lib/no-ai";
+import { genresNotCarrying, getSkips } from "@/lib/skips";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import {
@@ -207,10 +208,15 @@ export async function startSession(
       : Promise.resolve([]);
   if (noMood && group.kind !== "family") {
     // The group's own genres already need four titles (buildGroupTaste).
-    const established = new Set([
-      ...profile.established,
-      ...Object.keys(groupTaste.affinity).map(Number),
-    ]);
+    // A genre the deck has tried and the user keeps skipping no longer
+    // chooses what is fetched, whatever the ratings say.
+    const notCarrying = await genresNotCarrying(user.id);
+    const established = new Set(
+      [
+        ...profile.established,
+        ...Object.keys(groupTaste.affinity).map(Number),
+      ].filter((g) => !notCarrying.has(g)),
+    );
     filters = await withTaste(filters, affinity, data.id, established);
     if (filters.taste) {
       const { error: tasteError } = await supabase
@@ -343,14 +349,33 @@ export async function startSession(
     });
   return {
     sessionId: data.id,
-    cards: canCompare(user.email)
-      ? deck.map((c) => ({ ...c, showSource: true }))
-      : deck,
+    cards: await forClient(deck, user),
     page,
     hasMore,
     label: filters.parsed?.label || null,
     widen: specific && canWiden(filters) ? "few" : null,
   };
+}
+
+/**
+ * The cards as the client gets them: how often each was skipped before, so
+ * the toast can say how long the next skip hides it, and the source label
+ * for the accounts comparing the lanes.
+ */
+async function forClient(
+  deck: Card[],
+  user: { id: string; email?: string | null },
+): Promise<Card[]> {
+  const skips = await getSkips(user.id);
+  const showSource = canCompare(user.email ?? null);
+  return deck.map((c) => {
+    const skipped = skips.get(key(c))?.times;
+    return {
+      ...c,
+      ...(skipped ? { skipped } : {}),
+      ...(showSource ? { showSource: true } : {}),
+    };
+  });
 }
 
 const moreSchema = z.object({
@@ -586,9 +611,7 @@ export async function loadMore(
       : cards;
   return {
     sessionId,
-    cards: canCompare(user.email)
-      ? deck.map((c) => ({ ...c, showSource: true }))
-      : deck,
+    cards: await forClient(deck, user),
     page: loaded.page,
     hasMore,
     widen:
