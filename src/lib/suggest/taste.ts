@@ -5,6 +5,7 @@ import { z } from "zod";
 import { fitsAge, key, toCard, type Card, type DeckFilters } from "@/lib/deck";
 import type { Group } from "@/lib/groups";
 import { genresOf } from "@/lib/profile";
+import { matchesFilters } from "@/lib/similar";
 import { createClient } from "@/lib/supabase/server";
 import { getGenreIds, getGenreNames } from "@/lib/tmdb/genres";
 import { findAll, findKeyword, findPerson } from "@/lib/tmdb/search";
@@ -22,12 +23,26 @@ import { TASTE_PROMPT } from "./prompts";
  * itself starts from the profile: Haiku turns it into a few discover
  * searches for what genres alone do not say (a theme, a tone, a director, a
  * country), and their titles take turns with the rest of the deck under
- * the source "taste". Only without a mood, outside Familj, and once there
- * are ratings enough to read a taste from.
+ * the source "taste". With a mood the searches are written for the mood and
+ * the taste together, and every title must pass the mood's filters. Outside
+ * Familj, and once there are ratings enough to read a taste from.
  */
 export const TASTE_MODEL = "claude-haiku-5-5";
 /** Ratings needed before the profile says enough to search from. */
 export const TASTE_MIN_RATINGS = 10;
+
+/**
+ * A mood that names its own keyword, person or company ("Disneyklassiker",
+ * "filmer av Nolan") says exactly what to fetch, and discover cannot add the
+ * lane's own keywords or people to them: the lane stays out.
+ */
+export function moodNamesItsOwn(filters: DeckFilters): boolean {
+  return (["movie", "tv"] as const).some((t) =>
+    ["with_keywords", "with_people", "with_companies"].some(
+      (k) => filters[t][k] !== undefined,
+    ),
+  );
+}
 /** Cards from the lane per page of the deck, and discover pages read per search. */
 const TASTE_PER_PAGE = 12;
 const TASTE_PAGES = [1, 2];
@@ -62,6 +77,40 @@ const MAX_SEARCHES = 6;
 export type TasteSearch = z.infer<typeof tasteSchema>["searches"][number];
 export type TasteLane = NonNullable<DeckFilters["lane"]>;
 
+/**
+ * Tonight's mood for the prompt: the user's words, and how prompt 1 read
+ * them (film or series, genres, length), so the searches are written
+ * inside the filters their titles are checked against anyway.
+ */
+export async function moodLine(
+  quickPicks: string[],
+  moodText: string,
+  filters: DeckFilters,
+): Promise<string> {
+  const said = [...quickPicks, moodText.trim()].filter(Boolean).join(", ");
+  if (!said) return "";
+  const names = await getGenreNames();
+  const read: string[] = [];
+  if (filters.mediaTypes.length === 1)
+    read.push(filters.mediaTypes[0] === "movie" ? "film" : "serie");
+  const genres = [
+    ...new Set(
+      filters.mediaTypes.flatMap((t) =>
+        String(filters[t].with_genres ?? "")
+          .split(/[|,]/)
+          .filter(Boolean)
+          .map((g) => names[Number(g)])
+          .filter(Boolean),
+      ),
+    ),
+  ];
+  if (genres.length) read.push(`genrer ${genres.join(", ")}`);
+  const runtime = filters.movie["with_runtime.lte"];
+  if (runtime !== undefined && filters.mediaTypes.includes("movie"))
+    read.push(`högst ${runtime} min`);
+  return read.length ? `${said} (tolkning: ${read.join("; ")})` : said;
+}
+
 let client: Anthropic | null = null;
 const anthropic = () => (client ??= new Anthropic());
 
@@ -74,6 +123,8 @@ export async function askTasteSearches(input: {
   userId: string;
   group: Group;
   profileText: string;
+  /** Tonight's mood as given (quick picks and free text), or empty. */
+  mood?: string;
 }): Promise<TasteSearch[]> {
   const names = await getGenreNames();
   const vars: Record<string, string> = {
@@ -82,6 +133,7 @@ export async function askTasteSearches(input: {
       .join("\n"),
     PROFILE: input.profileText,
     GROUP: JSON.stringify({ kind: input.group.kind }),
+    MOOD: input.mood?.trim() || "Inget",
   };
   const prompt = TASTE_PROMPT.replace(
     /\{\{(\w+)\}\}/g,
@@ -204,6 +256,12 @@ export async function tasteLane(
         if (people.length) f.with_people = people.join("|");
         if (countries.length) f.with_origin_country = countries.join("|");
         if (languages.length) f.with_original_language = languages.join("|");
+        // What the mood said about country and language is not the
+        // search's to change, and cannot be checked on a title afterwards.
+        for (const k of ["with_origin_country", "with_original_language"]) {
+          const mood = base[type][k];
+          if (mood !== undefined) f[k] = mood;
+        }
         const date = type === "movie" ? "primary_release_date" : "first_air_date";
         if (s.era.from) f[`${date}.gte`] = `${s.era.from}-01-01`;
         if (s.era.to) f[`${date}.lte`] = `${s.era.to}-12-31`;
@@ -226,7 +284,13 @@ export async function tasteCards({
   excluded,
   shown,
   affinity = {},
+  filters,
 }: {
+  /**
+   * The deck's filters: a lane title must pass them like any other, so
+   * with a mood the lane stays inside what was asked for.
+   */
+  filters?: DeckFilters;
   /** Genre weights: a title whose genres weigh below zero is left out. */
   affinity?: Record<number, number>;
   lane: TasteLane;
@@ -278,6 +342,7 @@ export async function tasteCards({
     if (!streamingProviders(row.providers_se).some((p) => mine.has(p.id)))
       continue;
     if (!fitsAge(row, maxCert)) continue;
+    if (filters && !matchesFilters(row, filters[row.media_type])) continue;
     // Keywords are loose ("small town" also finds a romance): what the
     // profile on the whole says no to is not the lane's to bring.
     const gs = genresOf(row.genre_ids, row.media_type);

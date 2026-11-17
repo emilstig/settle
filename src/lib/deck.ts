@@ -686,14 +686,26 @@ const LANE_LOOKUP = 60;
  * from 2005 never reaches the sorting. In the test week what the user loved
  * had the median year 2008, the deck's cards 2018. This lane asks discover
  * for the same genres sorted by rating instead, with a floor of votes so a
- * handful of 9s does not lead. Only without a mood, whose filters already
- * say what to fetch and how to sort, and not for Familj.
+ * handful of 9s does not lead. With a mood it asks within the mood's
+ * filters, so "spännande" brings the best rated thrillers next to this
+ * year's. Not for Familj.
  */
 const RATED_PER_PAGE = 15;
 const RATED_FLOOR = {
   movie: { "vote_count.gte": 1000, "vote_average.gte": 7 },
   tv: { "vote_count.gte": 300, "vote_average.gte": 7.5 },
 } as const;
+
+/** A query with the lane's floor laid over it; a stricter floor of its own stays. */
+function ratedQuery(
+  q: Record<string, string | number>,
+  type: MediaType,
+): Record<string, string | number> {
+  const out = { ...q };
+  for (const [k, v] of Object.entries(RATED_FLOOR[type]))
+    out[k] = Math.max(Number(q[k] ?? 0), v);
+  return out;
+}
 
 /** Takes turns between the lists, starting with the first: a, b, c, a, b, c … */
 function interleave<T>(...lists: T[][]): T[] {
@@ -881,7 +893,11 @@ export async function loadDeckPage({
   // there only costs the lane, not the page.
   // Not for Familj: series have no age filter in discover, and sorted by
   // rating its genres lead with animation for adults (Arcane, Evangelion).
-  const withRated = !filters.parsed && filters.maxCert === null;
+  // With a mood the lane keeps to the mood's filters, and stays out when
+  // the mood already chose another order than popularity.
+  const withRated =
+    filters.maxCert === null &&
+    (!filters.parsed || filters.sortBy === "popularity.desc");
   const [results, ratedResults] = await Promise.all([
     Promise.all(
       filters.mediaTypes.flatMap((t) =>
@@ -903,7 +919,7 @@ export async function loadDeckPage({
                 providerIds,
                 page: tmdbPage,
                 sortBy: "vote_average.desc",
-                filters: { ...q, ...RATED_FLOOR[t] },
+                filters: ratedQuery(q, t),
               }).catch((e) => {
                 console.warn("Rated lane failed", e);
                 return { hits: [] as DiscoverHit[], totalPages: 0 };
