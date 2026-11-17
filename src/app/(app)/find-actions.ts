@@ -23,6 +23,8 @@ import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
 import {
   askTasteSearches,
+  moodLine,
+  moodNamesItsOwn,
   tasteCards,
   tasteLane,
   TASTE_MIN_RATINGS,
@@ -180,17 +182,23 @@ export async function startSession(
   // The taste lane: searches written from the profile. Asked for while the
   // rest of the deck loads, so the start button does not wait for it.
   const laneBase = filters;
+  // With a mood they are written for the mood and the taste together.
   const askingLane: Promise<TasteLane> =
-    noMood &&
     !noAi &&
     group.kind !== "family" &&
-    profile.ratingCount >= TASTE_MIN_RATINGS
-      ? askTasteSearches({
-          sessionId: data.id,
-          userId: user.id,
-          group,
-          profileText: profile.text,
-        })
+    profile.ratingCount >= TASTE_MIN_RATINGS &&
+    (noMood ||
+      (!!parsed && !filters.parsed?.unfit && !moodNamesItsOwn(filters)))
+      ? moodLine(quickPicks, moodText, laneBase)
+          .then((mood) =>
+            askTasteSearches({
+              sessionId: data.id,
+              userId: user.id,
+              group,
+              profileText: profile.text,
+              mood,
+            }),
+          )
           .then((searches) => tasteLane(searches, laneBase, affinity))
           .catch((e) => {
             console.error("taste lane failed", e);
@@ -311,6 +319,7 @@ export async function startSession(
         excluded,
         shown: new Set(cards.map(key)),
         affinity,
+        filters,
       }),
       cards,
     );
@@ -549,6 +558,7 @@ export async function loadMore(
           excluded: await getExcluded(user.id, session.group_id),
           shown: new Set([...skip, ...loaded.cards.map(key)]),
           affinity,
+          filters,
         }),
         loaded.cards,
       )

@@ -98,7 +98,7 @@ Svara ENDAST med JSON:
 
 ## Smakspåret: profil till sökningar
 
-Modell: `claude-haiku-5-5`, utan tänkande. Körs bara utan humör, utom i Familj och först när användaren har minst 10 betyg, parallellt med att resten av leken hämtas. Sökningarna blir frågor till TMDB sorterade på betyg (film minst 6,5 och 200 röster, serier minst 7 och 100 röster) inom gruppens gränser; namn slås upp i TMDB, en sökning med personer bärs av dem ensamma, och genrer som profilen tydligt säger nej till utesluts. Titlarna varvas med resten av leken, högst 12 per sida, med källan `taste`. Sökningarna sparas på sessionen (`filters.lane`) så att senare sidor inte frågar igen. Pröva ändringar med `node --env-file=.env.local scripts/eval/eval-taste.mjs <profil.txt>`.
+Modell: `claude-haiku-5-5`, utan tänkande. Körs utom i Familj och först när användaren har minst 10 betyg, parallellt med att resten av leken hämtas. Med humör skrivs sökningarna för kvällen och smaken tillsammans: `{{MOOD}}` är användarens ord och prompt 1:s tolkning (film eller serie, genrer, längd), och varje titel måste klara humörets filter; ett humör som själv nämner nyckelord, person eller bolag hoppar över spåret. Sökningarna blir frågor till TMDB sorterade på betyg (film minst 6,5 och 200 röster, serier minst 7 och 100 röster) inom gruppens gränser; namn slås upp i TMDB, en sökning med personer bärs av dem ensamma, och genrer som profilen tydligt säger nej till utesluts. Titlarna varvas med resten av leken, högst 12 per sida, med källan `taste`. Sökningarna sparas på sessionen (`filters.lane`) så att senare sidor inte frågar igen. Pröva ändringar med `node --env-file=.env.local scripts/eval/eval-taste.mjs <profil.txt> --mood="…"`.
 
 ```
 Du översätter en användares smakprofil till sökningar i TMDB.
@@ -131,8 +131,21 @@ Regler:
 - Varje sökning ska vara bred nog att ge ett tjugotal titlar: snäva
   inte in med både keywords och era eller land samtidigt.
 - Sökningarna ska skilja sig från varandra. Minst en "movie" och minst
-  en "tv".
+  en "tv", om inte humöret säger film eller serie.
 - label: 2–4 ord på svenska som säger vad sökningen fångar.
+
+Ikväll: {{MOOD}}
+- Står det "Inget" ovan: utgå bara från smaken.
+- Annars bestämmer kvällen vad som söks, och smaken bara vilken sorts
+  titlar inom det. Varje sökning ska vara något användaren skulle säga ja
+  till just ikväll. En sökning som passar smaken men inte kvällen är fel:
+  den som vill ha något lätt ska inte få verkliga brott, hur mycket hen
+  än älskar dem.
+- Står det en tolkning med genrer: välj genres i varje sökning bland dem.
+  Står det film eller serie: alla sökningar har den media_type.
+- Leta efter det i smaken som möter kvällen. Lätt för den som älskar
+  Parks and Recreation är torr arbetsplatskomedi; spännande för den som
+  älskar verklighetsbaserat är verkliga brott.
 
 { "searches": [
   { "label": string,
