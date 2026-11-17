@@ -635,7 +635,11 @@ export function Finder({
       // "Sett" is the up swipe, so it has no chip.
       const onList =
         c.slot === "watchlist" || c.slot === "rewatch" || c.savedFor.length > 0;
-      showToast(onList ? "Döljs en vecka, ligger kvar i Att se" : "Döljs en vecka", [
+      // Skipped before, it stays away longer (see skips.ts).
+      const hides = ["Döljs en vecka", "Döljs en månad", "Döljs ett halvår"][
+        Math.min(c.skipped ?? 0, 2)
+      ];
+      showToast(onList ? `${hides}, ligger kvar i Att se` : hides, [
         {
           label: group?.kind === "solo" ? "Inte min grej" : "Inte vår grej",
           onClick: () => void notForMe(at, undo, group),

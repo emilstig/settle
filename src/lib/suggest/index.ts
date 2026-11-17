@@ -1,6 +1,7 @@
 import "server-only";
 import { key, type Card, type DeckFilters } from "@/lib/deck";
 import type { Group } from "@/lib/groups";
+import { genresOf } from "@/lib/profile";
 import {
   buildGroupHistory,
   type GroupTaste,
@@ -90,8 +91,24 @@ export async function withPicks({
       ...deck.slice(0, FROM_DECK + rested.size),
       ...extras,
     ];
+    // What the taste on the whole says no to is not a top pick, however
+    // "unexpected": Claude chose horror as the wildcard for a profile that
+    // avoids it. The user's own lists and a mood that asks are exceptions.
+    const listed = new Set(freshFromLists.map(key));
+    const against = (c: Card) => {
+      if (listed.has(key(c)) || !c.genre_ids?.length) return false;
+      const asked = String(filters[c.media_type].with_genres ?? "")
+        .split(/[|,]/)
+        .map(Number);
+      if (c.genre_ids.some((g) => asked.includes(g))) return false;
+      const gs = genresOf(c.genre_ids, c.media_type);
+      return (
+        gs.length > 0 &&
+        gs.reduce((sum, g) => sum + (profile.affinity[g] ?? 0), 0) < 0
+      );
+    };
     for (const c of pool) {
-      if (rested.has(key(c))) continue;
+      if (rested.has(key(c)) || against(c)) continue;
       if (!byKey.has(key(c)) && byKey.size < MAX_CANDIDATES)
         byKey.set(key(c), c);
     }
