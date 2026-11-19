@@ -343,8 +343,9 @@ const KIDS_FILM_FITS = new Set([10751, 16, 35, 12, 14]);
 /**
  * Loosens prompt 1's filters when they leave too few titles, in the order the
  * user is least likely to miss: first a lower rating bar, fewer votes and no
- * keywords; then no genres; last no people or companies, since a named studio
- * or actor ("Disneyklassiker") is the clearest thing asked for after the
+ * keywords (unless the keywords are all that was asked for); then no
+ * genres; last no people or companies, since a named studio or actor
+ * ("Disneyklassiker") is the clearest thing asked for after the
  * language and country, which always stay. Familj keeps its age limit and
  * its genres for series, which stand in for an age limit there.
  */
@@ -372,7 +373,11 @@ export function relax(filters: DeckFilters, level: 1 | 2 | 3): DeckFilters {
             ? 50
             : 20;
     }
-    delete f.with_keywords;
+    // Keywords are the loosest part of a reading, so they go first. But
+    // when they are all the mood asked for ("Frost"), letting them go
+    // leaves the plain popular list under the mood's name: they stay, and
+    // the deck says it found little.
+    if (!keywordsAreAll(filters, type)) delete f.with_keywords;
     if (level >= 2) {
       if (family && type === "tv")
         f.with_genres = forKids(filters.maxCert)
@@ -388,6 +393,29 @@ export function relax(filters: DeckFilters, level: 1 | 2 | 3): DeckFilters {
     }
   }
   return out;
+}
+
+/** What a mood can set besides keywords, the rating bar and the length. */
+const MOOD_ASKS = [
+  "with_people",
+  "with_companies",
+  "with_original_language",
+  "with_origin_country",
+  "primary_release_date.gte",
+  "primary_release_date.lte",
+  "first_air_date.gte",
+  "first_air_date.lte",
+  "with_status",
+  "with_type",
+];
+
+/** Whether the keywords are the only thing the mood named for this type. */
+function keywordsAreAll(filters: DeckFilters, type: "movie" | "tv"): boolean {
+  const f = filters[type];
+  if (f.with_keywords === undefined) return false;
+  // Familj's genres are the group's own, not the mood's.
+  if (f.with_genres !== undefined && filters.maxCert === null) return false;
+  return !MOOD_ASKS.some((k) => f[k] !== undefined);
 }
 
 /**

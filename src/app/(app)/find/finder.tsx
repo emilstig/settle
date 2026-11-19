@@ -66,7 +66,7 @@ const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
  */
 function endOfDeck(session: Session, groupName?: string): string {
   const text = session.moodText;
-  if (!session.widen || !text) return "Slut på förslag för det här.";
+  if (!text) return "Slut på förslag för det här.";
   const quoted = `”${text.length > 40 ? `${text.slice(0, 39).trimEnd()}…` : text}”`;
   if (session.widen === "unfit")
     return `${quoted} passar inte ${groupName ?? "gruppen"}.`;
