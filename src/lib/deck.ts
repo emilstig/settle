@@ -65,6 +65,8 @@ export const deckFiltersSchema = z.object({
       }),
     )
     .optional(),
+  /** Rounds of searches the taste lane has asked for this session. */
+  laneRounds: z.number().int().optional(),
   /**
    * The deck is from the taste alone (see no-ai.ts): the popular and rated
    * lists stay out until the user asks for them at the end.

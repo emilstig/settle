@@ -446,6 +446,13 @@ const moreSchema = z.object({
   widen: z.boolean().optional(),
 });
 
+/**
+ * The taste lane asks for new searches when a page gets fewer cards than
+ * this from the ones it has, at most this many rounds of searches a deck
+ * (the first included): further out the searches get far-fetched.
+ */
+const LANE_REFILL_BELOW = 4;
+const LANE_MAX_ROUNDS = 4;
 /** Cards from the taste needed for a deck from the taste alone. */
 const TASTE_ONLY_MIN = 5;
 /** Cards to have before showing the deck, and before a refill counts. */
@@ -655,21 +662,67 @@ export async function loadMore(
   } else {
     loaded = await load(filters);
   }
-  // The taste lane goes on with what it has not shown yet.
-  const cards = filters.lane?.length
-    ? withTasteLane(
-        await tasteCards({
-          lane: filters.lane,
-          providerIds,
-          maxCert: filters.maxCert,
-          excluded: await getExcluded(user.id, session.group_id),
-          shown: new Set([...skip, ...loaded.cards.map(key)]),
-          affinity,
-          filters,
-        }),
-        loaded.cards,
+  // The taste lane goes on with what it has not shown yet. Four searches
+  // carry some thirty cards; when they run dry the lane asks for new ones
+  // (the used ones are named as used up) instead of ending while a new
+  // deck would have found more.
+  let taste: Card[] = [];
+  if (filters.lane?.length) {
+    const excluded = await getExcluded(user.id, session.group_id);
+    const shown = new Set([...skip, ...loaded.cards.map(key)]);
+    const from = (lane: TasteLane) =>
+      tasteCards({
+        lane,
+        providerIds,
+        maxCert: filters.maxCert,
+        excluded,
+        shown,
+        affinity,
+        filters,
+      });
+    taste = await from(filters.lane);
+    const rounds = filters.laneRounds ?? 1;
+    if (
+      taste.length < LANE_REFILL_BELOW &&
+      rounds < LANE_MAX_ROUNDS &&
+      !filters.noAi
+    ) {
+      const next = await moodLine(
+        session.quick_picks ?? [],
+        session.mood_text ?? "",
+        filters,
       )
-    : loaded.cards;
+        .then((mood) =>
+          askTasteSearches({
+            sessionId,
+            userId: user.id,
+            group,
+            profileText: profile.text,
+            mood,
+          }),
+        )
+        .then((searches) => tasteLane(searches, filters, affinity))
+        .catch((e) => {
+          console.error("taste lane refill failed", e);
+          return [] as TasteLane;
+        });
+      filters = {
+        ...filters,
+        lane: next.length ? next : filters.lane,
+        laneRounds: rounds + 1,
+      };
+      const { error: roundError } = await supabase
+        .from("sessions")
+        .update({ filters })
+        .eq("id", sessionId);
+      if (roundError) throw roundError;
+      if (next.length) {
+        for (const c of taste) shown.add(key(c));
+        taste = [...taste, ...(await from(next))];
+      }
+    }
+  }
+  const cards = withTasteLane(taste, loaded.cards);
   // Prompt 2 runs again on a new page only once the user has swiped through
   // enough of the last picks. A page fetched ahead of time right after the
   // start would otherwise run Claude for cards nobody reaches.
