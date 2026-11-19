@@ -707,6 +707,18 @@ const RATED_FLOOR = {
   tv: { "vote_count.gte": 300, "vote_average.gte": 7.5 },
 } as const;
 
+/**
+ * The popular list's share of a page while the lanes have cards of their
+ * own: its 20 best by the taste, when the two lanes together bring at least
+ * 10. In the first measurement the popular list was 54 % of the cards
+ * without a mood and got a yes on 10 %, against 25 % for the taste lane and
+ * 17 % for "Liknar det ni gillat". A shorter page also means the next one
+ * comes sooner, with the lanes' next cards. Not with a mood, where the
+ * list is what was asked for, and not when the lanes have run dry.
+ */
+const POPULAR_PER_PAGE = 20;
+const LANES_CARRY = 10;
+
 /** A query with the lane's floor laid over it; a stricter floor of its own stays. */
 function ratedQuery(
   q: Record<string, string | number>,
@@ -1084,8 +1096,13 @@ export async function loadDeckPage({
     .map((x) => x.row);
   // The lanes keep their own order (most seeds first, highest rated first)
   // and take turns with the popular titles, so the page is not only what
-  // is popular right now.
-  const mixed = interleave(laneRows, ratedRows, sorted);
+  // is popular right now. While the lanes carry, the popular list gives
+  // only its best by the taste: it was half the deck and its weakest part.
+  const popular =
+    !filters.parsed && laneRows.length + ratedRows.length >= LANES_CARRY
+      ? sorted.slice(0, POPULAR_PER_PAGE)
+      : sorted;
+  const mixed = interleave(laneRows, ratedRows, popular);
   const spreadRows = spread(mixed, await collectionsOf(skip));
   const fresh = spreadRows.filter((r) => !other.reacted.has(key(r)));
   const known = spreadRows.filter((r) => other.reacted.has(key(r)));

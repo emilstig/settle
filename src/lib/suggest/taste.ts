@@ -111,6 +111,39 @@ export async function moodLine(
   return read.length ? `${said} (tolkning: ${read.join("; ")})` : said;
 }
 
+/** Earlier runs whose searches the next one should move on from. */
+const RECENT_RUNS = 3;
+
+/**
+ * The keywords and people of the user's last few decks, for the prompt to
+ * stay away from. The profile is the same from one evening to the next, so
+ * without them Haiku writes the same four searches every time ("true
+ * crime" in ten runs out of ten), the lane fetches from the same small
+ * pool and runs dry. Asking it to "vary" was ignored; naming what is used
+ * up is followed.
+ */
+async function recentSearches(userId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("suggest_runs")
+    .select("output")
+    .eq("user_id", userId)
+    .eq("prompt", "taste")
+    .order("created_at", { ascending: false })
+    .limit(RECENT_RUNS);
+  if (error) {
+    console.error("recent taste searches failed", error);
+    return "";
+  }
+  const used = data.flatMap((run) => {
+    const parsed = tasteSchema.safeParse(run.output);
+    return parsed.success
+      ? parsed.data.searches.flatMap((s) => [...s.keywords, ...s.people])
+      : [];
+  });
+  return [...new Set(used.map((u) => u.trim().toLowerCase()))].join(", ");
+}
+
 let client: Anthropic | null = null;
 const anthropic = () => (client ??= new Anthropic());
 
@@ -134,6 +167,7 @@ export async function askTasteSearches(input: {
     PROFILE: input.profileText,
     GROUP: JSON.stringify({ kind: input.group.kind }),
     MOOD: input.mood?.trim() || "Inget",
+    USED: (await recentSearches(input.userId)) || "Inga",
   };
   const prompt = TASTE_PROMPT.replace(
     /\{\{(\w+)\}\}/g,

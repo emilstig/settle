@@ -98,7 +98,7 @@ Svara ENDAST med JSON:
 
 ## Smakspåret: profil till sökningar
 
-Modell: `claude-haiku-5-5`, utan tänkande. Körs utom i Familj och först när användaren har minst 10 betyg, parallellt med att resten av leken hämtas. Med humör skrivs sökningarna för kvällen och smaken tillsammans: `{{MOOD}}` är användarens ord och prompt 1:s tolkning (film eller serie, genrer, längd), och varje titel måste klara humörets filter; ett humör som själv nämner nyckelord, person eller bolag hoppar över spåret. Sökningarna blir frågor till TMDB sorterade på betyg (film minst 6,5 och 200 röster, serier minst 7 och 100 röster) inom gruppens gränser; namn slås upp i TMDB, en sökning med personer bärs av dem ensamma, och genrer som profilen tydligt säger nej till utesluts. Titlarna varvas med resten av leken, högst 12 per sida, med källan `taste`. Sökningarna sparas på sessionen (`filters.lane`) så att senare sidor inte frågar igen. Pröva ändringar med `node --env-file=.env.local scripts/eval/eval-taste.mjs <profil.txt> --mood="…"`.
+Modell: `claude-haiku-5-5`, utan tänkande. Körs utom i Familj och först när användaren har minst 10 betyg, parallellt med att resten av leken hämtas. Med humör skrivs sökningarna för kvällen och smaken tillsammans: `{{MOOD}}` är användarens ord och prompt 1:s tolkning (film eller serie, genrer, längd), och varje titel måste klara humörets filter; ett humör som själv nämner nyckelord, person eller bolag hoppar över spåret. Sökningarna blir frågor till TMDB sorterade på betyg (film minst 6,5 och 200 röster, serier minst 7 och 100 röster) inom gruppens gränser; namn slås upp i TMDB, en sökning med personer bärs av dem ensamma, och genrer som profilen tydligt säger nej till utesluts. Titlarna varvas med resten av leken, högst 12 per sida, med källan `taste`. `{{USED}}` är nyckelorden och personerna från användarens tre senaste körningar, som prompten inte får använda igen, så att sökningarna byts mellan lekarna. Sökningarna sparas på sessionen (`filters.lane`) så att senare sidor inte frågar igen. Pröva ändringar med `node --env-file=.env.local scripts/eval/eval-taste.mjs <profil.txt> --mood="…"`.
 
 ```
 Du översätter en användares smakprofil till sökningar i TMDB.
@@ -146,6 +146,15 @@ Ikväll: {{MOOD}}
 - Leta efter det i smaken som möter kvällen. Lätt för den som älskar
   Parks and Recreation är torr arbetsplatskomedi; spännande för den som
   älskar verklighetsbaserat är verkliga brott.
+
+Förbrukade nyckelord och personer: {{USED}}
+- De har redan burit användarens senaste lekar och har inget nytt kvar
+  att ge. Använd inget av dem i keywords eller people, och skriv inte
+  samma sökning med ett annat ord för samma sak.
+- Gå till andra sidor av smaken: andra titlar i profilen än de mest
+  uppenbara, en genre som väger tungt men inte har prövats, en regissör,
+  en era eller ett land.
+- Står det "Inga": välj fritt.
 
 { "searches": [
   { "label": string,
