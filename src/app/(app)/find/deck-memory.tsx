@@ -16,7 +16,7 @@ export type DeckSession = {
   /** The mood in the user's words, for the end of the deck. */
   moodText: string;
   /** Whether the deck can be widened once it runs out (see DeckResult). */
-  widen: "few" | "unfit" | null;
+  widen: "few" | "unfit" | "popular" | null;
   /** Set when loading more failed: the index it failed at. */
   loadFailedAt: number | null;
 };

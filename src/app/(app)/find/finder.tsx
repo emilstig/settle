@@ -65,6 +65,8 @@ const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
  * clear that the search ran out rather than the app.
  */
 function endOfDeck(session: Session, groupName?: string): string {
+  // A deck from the taste alone (a temporary switch): the lists can follow.
+  if (session.widen === "popular") return "Det var allt efter din smak för nu.";
   const text = session.moodText;
   if (!text) return "Slut på förslag för det här.";
   const quoted = `”${text.length > 40 ? `${text.slice(0, 39).trimEnd()}…` : text}”`;
@@ -1080,7 +1082,9 @@ export function Finder({
                     className="primary"
                     onClick={() => void widenDeck()}
                   >
-                    Visa bredare förslag
+                    {session.widen === "popular"
+                      ? "Visa populärt"
+                      : "Visa bredare förslag"}
                   </button>
                 )}
                 <button

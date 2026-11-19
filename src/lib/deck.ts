@@ -65,6 +65,11 @@ export const deckFiltersSchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * The deck is from the taste alone (see no-ai.ts): the popular and rated
+   * lists stay out until the user asks for them at the end.
+   */
+  tasteOnly: z.boolean().optional(),
   /** How far prompt 1's filters were loosened to fill the deck (see relax). */
   relaxed: z.number().int().min(1).max(3).optional(),
   /** The session runs without Claude, for comparison (see no-ai.ts). */
@@ -918,12 +923,15 @@ export async function loadDeckPage({
   // rating its genres lead with animation for adults (Arcane, Evangelion).
   // With a mood the lane keeps to the mood's filters, and stays out when
   // the mood already chose another order than popularity.
+  // From the taste alone: neither list is asked for at all.
+  const tasteOnly = filters.tasteOnly === true;
   const withRated =
+    !tasteOnly &&
     filters.maxCert === null &&
     (!filters.parsed || filters.sortBy === "popularity.desc");
   const [results, ratedResults] = await Promise.all([
     Promise.all(
-      filters.mediaTypes.flatMap((t) =>
+      (tasteOnly ? [] : filters.mediaTypes).flatMap((t) =>
         discoverQueries(filters, t).map((q) =>
           discover(t, {
             providerIds,
@@ -1121,6 +1129,10 @@ export async function loadDeckPage({
 
   return {
     cards,
-    hasMore: [...results, ...ratedResults].some((r) => tmdbPage < r.totalPages),
+    // From the taste alone there are no pages to count: the caller goes on
+    // for as long as cards come.
+    hasMore: tasteOnly
+      ? cards.length > 0
+      : [...results, ...ratedResults].some((r) => tmdbPage < r.totalPages),
   };
 }

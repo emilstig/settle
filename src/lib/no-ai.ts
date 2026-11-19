@@ -18,6 +18,19 @@ export function canCompare(email: string | null): boolean {
   return allowed.includes(email.toLowerCase());
 }
 
+/**
+ * A second temporary switch, to try where the engine is heading: without a
+ * mood the deck is only what starts from the taste (Toppval, the taste lane
+ * and "Liknar det ni gillat"), and the popular and rated lists come only
+ * when that runs out. Same accounts as above.
+ */
+export const TASTE_ONLY_COOKIE = "settle_taste_only";
+
+export async function isTasteOnly(email: string | null): Promise<boolean> {
+  if (!canCompare(email)) return false;
+  return (await cookies()).get(TASTE_ONLY_COOKIE)?.value === "1";
+}
+
 /** Whether this user has switched Claude off for new sessions. */
 export async function isNoAi(email: string | null): Promise<boolean> {
   if (!canCompare(email)) return false;
