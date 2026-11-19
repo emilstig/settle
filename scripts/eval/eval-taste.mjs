@@ -1,6 +1,6 @@
 // Shows what the taste lane's prompt makes of a taste profile: the searches
 // Haiku writes, and what each brings from TMDB.
-// Run: node --env-file=.env.local scripts/eval/eval-taste.mjs <profile.txt> [--mood="spännande"] [--used="true crime, world war ii"] [--answered=keys.json] [--providers=8,337]
+// Run: node --env-file=.env.local scripts/eval/eval-taste.mjs <profile.txt> [--mood="spännande"] [--used="true crime, world war ii"] [--tonight="Ja: Sideways (film, 2004) | Hoppat över: Squid Game (serie, 2021)"] [--answered=keys.json] [--providers=8,337]
 // The profile is the text of {{PROFILE}} (Profil → Din smak → Visa som text).
 // --answered is a JSON list of "movie:123" keys to count as already answered.
 // Reads nothing from the database and writes nothing to it.
@@ -51,6 +51,7 @@ const prompt = TASTE_PROMPT.replace(/\{\{(\w+)\}\}/g, (x, k) => ({
   GENRES: Object.entries(names).map(([id, n]) => `${id}: ${n}`).join("\n"), PROFILE: profile, GROUP: '{"kind":"solo"}',
   MOOD: arg("mood") ?? "Inget",
   USED: arg("used") ?? "Inga",
+  TONIGHT: arg("tonight")?.replaceAll(" | ", "\n") ?? "Inga",
 })[k] ?? x);
 const started = Date.now();
 const res = await new Anthropic().messages.create({
