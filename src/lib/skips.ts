@@ -14,10 +14,12 @@ const DAY_MS = 24 * 3600 * 1000;
 const YEAR_MS = 365 * DAY_MS;
 /**
  * How long "Hoppa över" hides a title, by how many times it has been skipped
- * in the last year: a week, then a month, then half a year. A card that came
- * back and was skipped again is not one to show every week.
+ * in the last year: three days, then a week, a month and half a year. The
+ * first skip mostly says "not tonight", and another evening is another
+ * mood; a card that came back and was skipped again is not one to keep
+ * showing.
  */
-export const SKIP_HIDE_DAYS = [7, 30, 180] as const;
+export const SKIP_HIDE_DAYS = [3, 7, 30, 180] as const;
 
 export const skipHideDays = (times: number) =>
   SKIP_HIDE_DAYS[Math.min(Math.max(times, 1), SKIP_HIDE_DAYS.length) - 1];

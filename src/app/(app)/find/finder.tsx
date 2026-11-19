@@ -638,9 +638,12 @@ export function Finder({
       const onList =
         c.slot === "watchlist" || c.slot === "rewatch" || c.savedFor.length > 0;
       // Skipped before, it stays away longer (see skips.ts).
-      const hides = ["Döljs en vecka", "Döljs en månad", "Döljs ett halvår"][
-        Math.min(c.skipped ?? 0, 2)
-      ];
+      const hides = [
+        "Döljs i tre dagar",
+        "Döljs en vecka",
+        "Döljs en månad",
+        "Döljs ett halvår",
+      ][Math.min(c.skipped ?? 0, 3)];
       showToast(onList ? `${hides}, ligger kvar i Att se` : hides, [
         {
           label: group?.kind === "solo" ? "Inte min grej" : "Inte vår grej",

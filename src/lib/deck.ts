@@ -404,8 +404,8 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  * moment and hide a title everywhere for 7 days.
  */
 /**
- * Titles the user turned down for now: "inte nu" and "kanske" anywhere in
- * the last 7 days, a title skipped more than once for longer (see skips.ts), "inte vår grej" in this group and "inte min grej" in
+ * Titles the user turned down for now: "Senare" anywhere in the last 7
+ * days, "Hoppa över" for three days and longer each time (see skips.ts), "inte vår grej" in this group and "inte min grej" in
  * Själv (which holds in every group), and what was swiped right
  * with this group tonight. Applies to every candidate, se igen titles included.
  */
@@ -418,14 +418,16 @@ export async function getDeclined(
   const speaking = await groupsSpeakingFor(groupId);
   const [skips, notNow, notForUs, savedTonight, otherGroup] = await Promise.all([
     getSkips(userId),
-    // A week of swipes can pass 1000 rows, so every page is read.
+    // "Senare" (and the earlier "Vet inte") for a week. "Hoppa över" has
+    // its own, growing times (see skips.ts). Paged, since a week of swipes
+    // can pass 1000 rows.
     fetchAll((from, to) =>
       supabase
         .from("interactions")
         .select("tmdb_id, media_type")
         .eq("user_id", userId)
         .in("action", ["left", "unsure", "maybe"])
-        .or("reason.is.null,reason.not.in.(not_for_me,other_group)")
+        .or("reason.is.null,reason.not.in.(not_now,not_for_me,other_group)")
         .gte("created_at", weekAgo)
         .order("id")
         .range(from, to),
