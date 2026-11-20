@@ -65,6 +65,13 @@ export const deckFiltersSchema = z.object({
       }),
     )
     .optional(),
+  /** Rounds of searches the taste lane has asked for this session. */
+  laneRounds: z.number().int().optional(),
+  /**
+   * The deck is from the taste alone (see no-ai.ts): the popular and rated
+   * lists stay out until the user asks for them at the end.
+   */
+  tasteOnly: z.boolean().optional(),
   /** How far prompt 1's filters were loosened to fill the deck (see relax). */
   relaxed: z.number().int().min(1).max(3).optional(),
   /** The session runs without Claude, for comparison (see no-ai.ts). */
@@ -397,8 +404,8 @@ export const key = (t: { tmdb_id: number; media_type: string }) =>
  * moment and hide a title everywhere for 7 days.
  */
 /**
- * Titles the user turned down for now: "inte nu" and "kanske" anywhere in
- * the last 7 days, a title skipped more than once for longer (see skips.ts), "inte vår grej" in this group and "inte min grej" in
+ * Titles the user turned down for now: "Senare" anywhere in the last 7
+ * days, "Hoppa över" for three days and longer each time (see skips.ts), "inte vår grej" in this group and "inte min grej" in
  * Själv (which holds in every group), and what was swiped right
  * with this group tonight. Applies to every candidate, se igen titles included.
  */
@@ -411,14 +418,16 @@ export async function getDeclined(
   const speaking = await groupsSpeakingFor(groupId);
   const [skips, notNow, notForUs, savedTonight, otherGroup] = await Promise.all([
     getSkips(userId),
-    // A week of swipes can pass 1000 rows, so every page is read.
+    // "Senare" (and the earlier "Vet inte") for a week. "Hoppa över" has
+    // its own, growing times (see skips.ts). Paged, since a week of swipes
+    // can pass 1000 rows.
     fetchAll((from, to) =>
       supabase
         .from("interactions")
         .select("tmdb_id, media_type")
         .eq("user_id", userId)
         .in("action", ["left", "unsure", "maybe"])
-        .or("reason.is.null,reason.not.in.(not_for_me,other_group)")
+        .or("reason.is.null,reason.not.in.(not_now,not_for_me,other_group)")
         .gte("created_at", weekAgo)
         .order("id")
         .range(from, to),
@@ -707,6 +716,18 @@ const RATED_FLOOR = {
   tv: { "vote_count.gte": 300, "vote_average.gte": 7.5 },
 } as const;
 
+/**
+ * The popular list's share of a page while the lanes have cards of their
+ * own: its 20 best by the taste, when the two lanes together bring at least
+ * 10. In the first measurement the popular list was 54 % of the cards
+ * without a mood and got a yes on 10 %, against 25 % for the taste lane and
+ * 17 % for "Liknar det ni gillat". A shorter page also means the next one
+ * comes sooner, with the lanes' next cards. Not with a mood, where the
+ * list is what was asked for, and not when the lanes have run dry.
+ */
+const POPULAR_PER_PAGE = 20;
+const LANES_CARRY = 10;
+
 /** A query with the lane's floor laid over it; a stricter floor of its own stays. */
 function ratedQuery(
   q: Record<string, string | number>,
@@ -906,12 +927,15 @@ export async function loadDeckPage({
   // rating its genres lead with animation for adults (Arcane, Evangelion).
   // With a mood the lane keeps to the mood's filters, and stays out when
   // the mood already chose another order than popularity.
+  // From the taste alone: neither list is asked for at all.
+  const tasteOnly = filters.tasteOnly === true;
   const withRated =
+    !tasteOnly &&
     filters.maxCert === null &&
     (!filters.parsed || filters.sortBy === "popularity.desc");
   const [results, ratedResults] = await Promise.all([
     Promise.all(
-      filters.mediaTypes.flatMap((t) =>
+      (tasteOnly ? [] : filters.mediaTypes).flatMap((t) =>
         discoverQueries(filters, t).map((q) =>
           discover(t, {
             providerIds,
@@ -1084,8 +1108,13 @@ export async function loadDeckPage({
     .map((x) => x.row);
   // The lanes keep their own order (most seeds first, highest rated first)
   // and take turns with the popular titles, so the page is not only what
-  // is popular right now.
-  const mixed = interleave(laneRows, ratedRows, sorted);
+  // is popular right now. While the lanes carry, the popular list gives
+  // only its best by the taste: it was half the deck and its weakest part.
+  const popular =
+    !filters.parsed && laneRows.length + ratedRows.length >= LANES_CARRY
+      ? sorted.slice(0, POPULAR_PER_PAGE)
+      : sorted;
+  const mixed = interleave(laneRows, ratedRows, popular);
   const spreadRows = spread(mixed, await collectionsOf(skip));
   const fresh = spreadRows.filter((r) => !other.reacted.has(key(r)));
   const known = spreadRows.filter((r) => other.reacted.has(key(r)));
@@ -1104,6 +1133,10 @@ export async function loadDeckPage({
 
   return {
     cards,
-    hasMore: [...results, ...ratedResults].some((r) => tmdbPage < r.totalPages),
+    // From the taste alone there are no pages to count: the caller goes on
+    // for as long as cards come.
+    hasMore: tasteOnly
+      ? cards.length > 0
+      : [...results, ...ratedResults].some((r) => tmdbPage < r.totalPages),
   };
 }

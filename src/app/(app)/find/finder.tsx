@@ -65,8 +65,10 @@ const keyOf = (c: Card) => `${c.media_type}:${c.tmdb_id}`;
  * clear that the search ran out rather than the app.
  */
 function endOfDeck(session: Session, groupName?: string): string {
+  // A deck from the taste alone (a temporary switch): the lists can follow.
+  if (session.widen === "popular") return "Det var allt efter din smak för nu.";
   const text = session.moodText;
-  if (!session.widen || !text) return "Slut på förslag för det här.";
+  if (!text) return "Slut på förslag för det här.";
   const quoted = `”${text.length > 40 ? `${text.slice(0, 39).trimEnd()}…` : text}”`;
   if (session.widen === "unfit")
     return `${quoted} passar inte ${groupName ?? "gruppen"}.`;
@@ -636,9 +638,12 @@ export function Finder({
       const onList =
         c.slot === "watchlist" || c.slot === "rewatch" || c.savedFor.length > 0;
       // Skipped before, it stays away longer (see skips.ts).
-      const hides = ["Döljs en vecka", "Döljs en månad", "Döljs ett halvår"][
-        Math.min(c.skipped ?? 0, 2)
-      ];
+      const hides = [
+        "Döljs i tre dagar",
+        "Döljs en vecka",
+        "Döljs en månad",
+        "Döljs ett halvår",
+      ][Math.min(c.skipped ?? 0, 3)];
       showToast(onList ? `${hides}, ligger kvar i Att se` : hides, [
         {
           label: group?.kind === "solo" ? "Inte min grej" : "Inte vår grej",
@@ -1080,7 +1085,9 @@ export function Finder({
                     className="primary"
                     onClick={() => void widenDeck()}
                   >
-                    Visa bredare förslag
+                    {session.widen === "popular"
+                      ? "Visa populärt"
+                      : "Visa bredare förslag"}
                   </button>
                 )}
                 <button

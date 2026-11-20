@@ -3,6 +3,7 @@ import { runCost, type RunCost } from "./cost";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { fitsAge, key, toCard, type Card, type DeckFilters } from "@/lib/deck";
+import { eveningStart } from "@/lib/evening";
 import type { Group } from "@/lib/groups";
 import { genresOf } from "@/lib/profile";
 import { matchesFilters } from "@/lib/similar";
@@ -111,6 +112,109 @@ export async function moodLine(
   return read.length ? `${said} (tolkning: ${read.join("; ")})` : said;
 }
 
+/** Tonight's swipes named in the prompt, the latest first. */
+const TONIGHT_YES = 12;
+const TONIGHT_SKIPPED = 20;
+
+/**
+ * What the user has said yes to and skipped this evening, as two lines for
+ * the prompt. The profile is built from ratings, so a right swipe or a skip
+ * in the deck never reached the searches: after three yeses to true-story
+ * dramas the next round knew nothing of them. Per evening rather than per
+ * session, so starting over keeps what the evening has shown.
+ */
+async function tonightSwipes(
+  userId: string,
+  genreNames: Record<number, string>,
+): Promise<string> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("interactions")
+    .select("tmdb_id, media_type, action, reason")
+    .eq("user_id", userId)
+    .in("action", ["right", "maybe", "left"])
+    .gte("created_at", eveningStart())
+    .order("id", { ascending: false })
+    .limit(300);
+  if (error) {
+    console.error("tonight's swipes failed", error);
+    return "";
+  }
+  type Row = { tmdb_id: number; media_type: "movie" | "tv"; action: string; reason: string | null };
+  const rows = (data as Row[]).filter((r) => r.reason !== "other_group");
+  const yes = rows.filter((r) => r.action !== "left").slice(0, TONIGHT_YES);
+  const yesKeys = new Set(yes.map(key));
+  const skipped = rows
+    .filter((r) => r.action === "left" && !yesKeys.has(key(r)))
+    .slice(0, TONIGHT_SKIPPED);
+  if (yes.length + skipped.length === 0) return "";
+  const { data: titles, error: titlesError } = await supabase
+    .from("titles")
+    .select("tmdb_id, media_type, title, year, genre_ids")
+    .in("tmdb_id", [...new Set([...yes, ...skipped].map((r) => r.tmdb_id))]);
+  if (titlesError) {
+    console.error("tonight's titles failed", titlesError);
+    return "";
+  }
+  const byKey = new Map(titles.map((t) => [key(t), t]));
+  const line = (list: Row[]) =>
+    [
+      ...new Set(
+        list.flatMap((r) => {
+          const t = byKey.get(key(r));
+          if (!t) return [];
+          const genres = (t.genre_ids as number[])
+            .slice(0, 2)
+            .map((g) => genreNames[g])
+            .filter(Boolean)
+            .join("/");
+          return [
+            `${t.title} (${r.media_type === "movie" ? "film" : "serie"}, ${t.year}${genres ? `, ${genres}` : ""})`,
+          ];
+        }),
+      ),
+    ].join("; ");
+  return [
+    yes.length ? `Ja: ${line(yes)}` : "",
+    skipped.length ? `Hoppat över: ${line(skipped)}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Earlier runs whose searches the next one should move on from. */
+const RECENT_RUNS = 3;
+
+/**
+ * The keywords and people of the user's last few decks, for the prompt to
+ * stay away from. The profile is the same from one evening to the next, so
+ * without them Haiku writes the same four searches every time ("true
+ * crime" in ten runs out of ten), the lane fetches from the same small
+ * pool and runs dry. Asking it to "vary" was ignored; naming what is used
+ * up is followed.
+ */
+async function recentSearches(userId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("suggest_runs")
+    .select("output")
+    .eq("user_id", userId)
+    .eq("prompt", "taste")
+    .order("created_at", { ascending: false })
+    .limit(RECENT_RUNS);
+  if (error) {
+    console.error("recent taste searches failed", error);
+    return "";
+  }
+  const used = data.flatMap((run) => {
+    const parsed = tasteSchema.safeParse(run.output);
+    return parsed.success
+      ? parsed.data.searches.flatMap((s) => [...s.keywords, ...s.people])
+      : [];
+  });
+  return [...new Set(used.map((u) => u.trim().toLowerCase()))].join(", ");
+}
+
 let client: Anthropic | null = null;
 const anthropic = () => (client ??= new Anthropic());
 
@@ -134,6 +238,8 @@ export async function askTasteSearches(input: {
     PROFILE: input.profileText,
     GROUP: JSON.stringify({ kind: input.group.kind }),
     MOOD: input.mood?.trim() || "Inget",
+    USED: (await recentSearches(input.userId)) || "Inga",
+    TONIGHT: (await tonightSwipes(input.userId, names)) || "Inga",
   };
   const prompt = TASTE_PROMPT.replace(
     /\{\{(\w+)\}\}/g,

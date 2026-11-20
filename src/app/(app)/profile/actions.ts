@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import { canCompare, NO_AI_COOKIE } from "@/lib/no-ai";
+import { canCompare, NO_AI_COOKIE, TASTE_ONLY_COOKIE } from "@/lib/no-ai";
 import { getGroups } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 
@@ -240,5 +240,20 @@ export async function setNoAi(off: boolean) {
       sameSite: "lax",
     });
   else jar.delete(NO_AI_COOKIE);
+  revalidatePath("/profile");
+}
+
+/** The temporary switch for decks from the taste alone (see no-ai.ts). */
+export async function setTasteOnly(on: boolean) {
+  const user = await getCurrentUser();
+  if (!canCompare(user.email)) throw new Error("Not allowed");
+  const jar = await cookies();
+  if (on)
+    jar.set(TASTE_ONLY_COOKIE, "1", {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  else jar.delete(TASTE_ONLY_COOKIE);
   revalidatePath("/profile");
 }

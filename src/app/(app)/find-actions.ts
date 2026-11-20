@@ -18,7 +18,7 @@ import {
 import { getGroups } from "@/lib/groups";
 import { blendAffinity, buildGroupTaste, buildProfile } from "@/lib/profile";
 import { getSimilar } from "@/lib/similar";
-import { canCompare, isNoAi } from "@/lib/no-ai";
+import { canCompare, isNoAi, isTasteOnly } from "@/lib/no-ai";
 import { genresNotCarrying, getSkips } from "@/lib/skips";
 import { withPicks } from "@/lib/suggest";
 import { eveningStart, getTonight, type Tonight } from "@/lib/tonight";
@@ -92,9 +92,10 @@ export type DeckResult = {
   /**
    * Whether the deck can be widened by the user once it runs out: the mood
    * named something ("few"), or asked for what the group rules out
-   * ("unfit", with no cards). Null when there is nothing to widen.
+   * ("unfit", with no cards), or the deck is from the taste alone and the
+   * lists can follow ("popular"). Null when there is nothing to widen.
    */
-  widen?: "few" | "unfit" | null;
+  widen?: "few" | "unfit" | "popular" | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -249,22 +250,72 @@ export async function startSession(
     seed: data.id,
     avoid: groupTaste.avoid,
   });
+  // From the taste alone (a temporary switch, see no-ai.ts): what starts
+  // from the taste carries the deck when there is enough of it, and the
+  // lists come only when the user asks at the end. With too little, the
+  // usual deck.
+  let tasteDeck: Awaited<ReturnType<typeof loadEnough>> | null = null;
+  if (
+    noMood &&
+    !noAi &&
+    group.kind !== "family" &&
+    (await isTasteOnly(user.email))
+  ) {
+    const lane = await askingLane;
+    const only: DeckFilters = { ...filters, tasteOnly: true, lane };
+    const [first, excludedNow] = await Promise.all([
+      loadDeckPage({
+        userId: user.id,
+        groupId,
+        providerIds,
+        filters: only,
+        page: 1,
+        seed: data.id,
+        affinity,
+        similar,
+      }),
+      getExcluded(user.id, groupId),
+    ]);
+    const fromTaste = withTasteLane(
+      await tasteCards({
+        lane,
+        providerIds,
+        maxCert: only.maxCert,
+        excluded: excludedNow,
+        shown: new Set(first.cards.map(key)),
+        affinity,
+        filters: only,
+      }),
+      first.cards,
+    );
+    if (fromTaste.length >= TASTE_ONLY_MIN) {
+      filters = only;
+      const { error: onlyError } = await supabase
+        .from("sessions")
+        .update({ filters })
+        .eq("id", data.id);
+      if (onlyError) throw onlyError;
+      tasteDeck = { cards: fromTaste, page: 1, hasMore: true };
+    }
+  }
   // Keep loading until there is something to show, so the start button
   // waits instead of opening an empty deck.
-  let { cards, page, hasMore } = await loadEnough(
-    {
-      userId: user.id,
-      groupId,
-      providerIds,
-      filters,
-      seed: data.id,
-      affinity,
-      similar,
-    },
-    1,
-    [],
-    MIN_START_CARDS,
-  );
+  let { cards, page, hasMore } =
+    tasteDeck ??
+    (await loadEnough(
+      {
+        userId: user.id,
+        groupId,
+        providerIds,
+        filters,
+        seed: data.id,
+        affinity,
+        similar,
+      },
+      1,
+      [],
+      MIN_START_CARDS,
+    ));
   // Prompt 1's filters can be too narrow. Loosen them step by step until
   // there is enough to show, and keep what was used on the session. A mood
   // in words is only loosened in what it did not ask for (the rating bar,
@@ -310,7 +361,8 @@ export async function startSession(
   cards = withStyle(style, cards);
 
   const lane = await askingLane;
-  if (lane.length) {
+  // From the taste alone the lane's cards are in the deck already.
+  if (lane.length && !filters.tasteOnly) {
     filters = { ...filters, lane };
     const { error: laneError } = await supabase
       .from("sessions")
@@ -353,7 +405,11 @@ export async function startSession(
     page,
     hasMore,
     label: filters.parsed?.label || null,
-    widen: specific && canWiden(filters) ? "few" : null,
+    widen: filters.tasteOnly
+      ? "popular"
+      : specific && canWiden(filters)
+        ? "few"
+        : null,
   };
 }
 
@@ -390,6 +446,15 @@ const moreSchema = z.object({
   widen: z.boolean().optional(),
 });
 
+/**
+ * The taste lane asks for new searches when a page gets fewer cards than
+ * this from the ones it has, at most this many rounds of searches a deck
+ * (the first included): further out the searches get far-fetched.
+ */
+const LANE_REFILL_BELOW = 4;
+const LANE_MAX_ROUNDS = 4;
+/** Cards from the taste needed for a deck from the taste alone. */
+const TASTE_ONLY_MIN = 5;
 /** Cards to have before showing the deck, and before a refill counts. */
 const MIN_START_CARDS = 10;
 const MIN_MORE_CARDS = 6;
@@ -536,7 +601,32 @@ export async function loadMore(
       MIN_MORE_CARDS,
     );
   let loaded: Awaited<ReturnType<typeof loadEnough>>;
-  if (widen) {
+  if (filters.tasteOnly && widen) {
+    // "Visa populärt" at the end of a deck from the taste alone: the usual
+    // deck from its first page, without what was shown.
+    filters = { ...filters, tasteOnly: false };
+    page = 1;
+    loaded = await load(filters);
+    const { error: listsError } = await supabase
+      .from("sessions")
+      .update({ filters })
+      .eq("id", sessionId);
+    if (listsError) throw listsError;
+  } else if (filters.tasteOnly) {
+    // One page of "Liknar det ni gillat"; the taste lane is added below.
+    const next = await loadDeckPage({
+      userId: user.id,
+      groupId: session.group_id,
+      providerIds,
+      filters,
+      page,
+      skip,
+      seed: sessionId,
+      affinity,
+      similar,
+    });
+    loaded = { cards: next.cards, page, hasMore: true };
+  } else if (widen) {
     // A mood that did not fit the group: the group's own limits, which the
     // filters already hold. Otherwise a step wider each time, until there
     // is enough or nothing more to let go.
@@ -572,27 +662,76 @@ export async function loadMore(
   } else {
     loaded = await load(filters);
   }
-  const { hasMore } = loaded;
-  // The taste lane goes on with what it has not shown yet.
-  const cards = filters.lane?.length
-    ? withTasteLane(
-        await tasteCards({
-          lane: filters.lane,
-          providerIds,
-          maxCert: filters.maxCert,
-          excluded: await getExcluded(user.id, session.group_id),
-          shown: new Set([...skip, ...loaded.cards.map(key)]),
-          affinity,
-          filters,
-        }),
-        loaded.cards,
+  // The taste lane goes on with what it has not shown yet. Four searches
+  // carry some thirty cards; when they run dry the lane asks for new ones
+  // (the used ones are named as used up) instead of ending while a new
+  // deck would have found more.
+  let taste: Card[] = [];
+  if (filters.lane?.length) {
+    const excluded = await getExcluded(user.id, session.group_id);
+    const shown = new Set([...skip, ...loaded.cards.map(key)]);
+    const from = (lane: TasteLane) =>
+      tasteCards({
+        lane,
+        providerIds,
+        maxCert: filters.maxCert,
+        excluded,
+        shown,
+        affinity,
+        filters,
+      });
+    taste = await from(filters.lane);
+    const rounds = filters.laneRounds ?? 1;
+    if (
+      taste.length < LANE_REFILL_BELOW &&
+      rounds < LANE_MAX_ROUNDS &&
+      !filters.noAi
+    ) {
+      const next = await moodLine(
+        session.quick_picks ?? [],
+        session.mood_text ?? "",
+        filters,
       )
-    : loaded.cards;
+        .then((mood) =>
+          askTasteSearches({
+            sessionId,
+            userId: user.id,
+            group,
+            profileText: profile.text,
+            mood,
+          }),
+        )
+        .then((searches) => tasteLane(searches, filters, affinity))
+        .catch((e) => {
+          console.error("taste lane refill failed", e);
+          return [] as TasteLane;
+        });
+      filters = {
+        ...filters,
+        lane: next.length ? next : filters.lane,
+        laneRounds: rounds + 1,
+      };
+      const { error: roundError } = await supabase
+        .from("sessions")
+        .update({ filters })
+        .eq("id", sessionId);
+      if (roundError) throw roundError;
+      if (next.length) {
+        for (const c of taste) shown.add(key(c));
+        taste = [...taste, ...(await from(next))];
+      }
+    }
+  }
+  const cards = withTasteLane(taste, loaded.cards);
   // Prompt 2 runs again on a new page only once the user has swiped through
   // enough of the last picks. A page fetched ahead of time right after the
   // start would otherwise run Claude for cards nobody reaches.
+  // From the taste alone the deck goes on for as long as cards come, and
+  // ends (with the lists on offer) when a page brings none.
+  const hasMore = filters.tasteOnly ? cards.length > 0 : loaded.hasMore;
   const deck =
     !filters.noAi &&
+    cards.length > 0 &&
     (await swipedSinceLastPicks(sessionId)) >= SWIPES_BETWEEN_PICKS
       ? await withPicks({
           sessionId,
@@ -614,8 +753,11 @@ export async function loadMore(
     cards: await forClient(deck, user),
     page: loaded.page,
     hasMore,
-    widen:
-      filters.parsed && session.mood_text && canWiden(filters) ? "few" : null,
+    widen: filters.tasteOnly
+      ? "popular"
+      : filters.parsed && session.mood_text && canWiden(filters)
+        ? "few"
+        : null,
   };
 }
 

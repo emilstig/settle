@@ -6,7 +6,8 @@ import { Attribution } from "@/components/attribution";
 import { getCurrentUser } from "@/lib/auth";
 import { getVisibleGroups } from "@/lib/groups";
 import { countHistory, getHistoryRefs } from "@/lib/history";
-import { canCompare, isNoAi } from "@/lib/no-ai";
+import { canCompare, isNoAi, isTasteOnly } from "@/lib/no-ai";
+import { TasteOnlySwitch } from "./taste-only-switch";
 import { buildProfile } from "@/lib/profile";
 import { getUserProviderIds } from "@/lib/providers";
 import { getGenreNames } from "@/lib/tmdb/genres";
@@ -129,7 +130,16 @@ async function MenuWithData() {
 async function Compare() {
   const user = await getCurrentUser();
   if (!canCompare(user.email)) return null;
-  return <NoAiSwitch off={await isNoAi(user.email)} />;
+  const [noAi, tasteOnly] = await Promise.all([
+    isNoAi(user.email),
+    isTasteOnly(user.email),
+  ]);
+  return (
+    <>
+      <NoAiSwitch off={noAi} />
+      <TasteOnlySwitch on={tasteOnly} />
+    </>
+  );
 }
 
 /** The rows; without data while it loads, so the page does not jump. */
